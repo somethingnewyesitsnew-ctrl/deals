@@ -1,0 +1,153 @@
+/* table.css — the shared table look (Deals/Referrals/Contacts/Entities), badges & chips, empty states. */
+
+/* ===== 6. Table (shared) ===== */
+.ledger-table-wrap{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-md); }
+.ledger-table{ margin-bottom: 0; color: var(--text); table-layout: fixed; width: 100%; }
+.ledger-table thead th{ font-family: var(--font-body); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); border-bottom: 1px solid var(--line); font-weight: 600; padding: 0.6rem 0.8rem; white-space: nowrap; background: var(--surface); position: sticky; top: 0; z-index: 3; }
+.ledger-table thead th.sortable{ cursor: pointer; user-select: none; }
+.ledger-table thead th.sortable:hover{ color: var(--text); }
+.ledger-table thead th.is-sorted{ color: var(--accent); }
+.sort-icon{ font-size: 0.62rem; margin-left: 0.2rem; opacity: 0.5; vertical-align: 1px; }
+.ledger-table thead th.is-sorted .sort-icon{ opacity: 1; }
+
+.ledger-table tbody td{ padding: 0.55rem 0.8rem; vertical-align: top; border-bottom: 1px solid var(--line); font-size: 0.82rem; background: transparent; }
+.ledger-table tbody tr:last-child td{ border-bottom: none; }
+.ledger-table tbody tr{ transition: background 0.12s ease; border-left: 3px solid transparent; }
+.ledger-table tbody tr:hover{ background: var(--surface); border-left-color: var(--accent); }
+.row-clickable{ cursor: pointer; }
+
+/* "Roomy" rows: content wraps and grows the row instead of truncating —
+   used once a row carries enough info (payment, dev status, recent
+   update) that single-line ellipsis would hide more than it shows. */
+.ledger-table--roomy tbody td{ vertical-align: middle; padding-top: 0.55rem; padding-bottom: 0.55rem; }
+
+.col-index{ width: 60px; }
+.col-entity{ width: 30%; }
+.col-value{ width: 16%; }
+.col-status{ width: 13%; }
+.col-referral{ width: 13%; }
+.col-timeline{ width: 16%; }
+.col-actions{ width: 52px; }
+.row-index{ font-family: var(--font-body); font-size: 0.78rem; color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Entity cell: name + relationship dot + notification bell on the first
+   line, a meta subtitle, and (if there is one) the most recent update —
+   all allowed to wrap onto their own line rather than being clipped. */
+.deal-cell{ max-width: 0; }
+.deal-cell__name-row{ display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.relationship-dot{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.relationship-dot--excellent{ background: var(--green); }
+.relationship-dot--good{ background: var(--cyan); }
+.relationship-dot--neutral{ background: var(--text-faint); }
+.relationship-dot--issues{ background: var(--amber); }
+.relationship-dot--bad{ background: var(--red); }
+.deal-name{ font-weight: 650; color: var(--text); font-size: 0.86rem; word-break: break-word; }
+.deal-notify{ display: inline-flex; align-items: center; color: var(--red); font-size: 0.85rem; flex-shrink: 0; }
+.deal-meta{ font-size: 0.72rem; color: var(--text-faint); margin-top: 0.2rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.type-word{ font-weight: 700; }
+.type-word--government{ color: var(--cyan); }
+.type-word--private{ color: var(--amber); }
+.type-word--international{ color: var(--violet); }
+.meta-dot{ color: var(--line-strong); }
+.deal-recent-update{ font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.deal-recent-update i{ color: var(--text-faint); }
+
+.value-payment-cell{ display: flex; flex-direction: column; gap: 0.3rem; }
+.deal-value{ font-family: var(--font-body); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.35; }
+
+.status-cell{ display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+.deal-health{ width: 100%; max-width: 90px; height: 4px; border-radius: 4px; background: var(--slate-soft); overflow: hidden; }
+.deal-health__fill{ height: 100%; border-radius: 4px; }
+.deal-health__fill--green{ background: var(--green); }
+.deal-health__fill--amber{ background: var(--amber); }
+.deal-health__fill--danger{ background: var(--red); }
+
+.timeline-cell{ display: flex; flex-direction: column; gap: 0.35rem; }
+.close-date{ font-size: 0.84rem; color: var(--text-dim); }
+.close-date--overdue{ font-size: 0.84rem; color: var(--red); font-weight: 600; }
+.last-activity{ font-size: 0.78rem; color: var(--text-faint); }
+
+.row-actions-menu{ display: flex; justify-content: flex-end; }
+.actions-btn{ border: none; background: transparent; color: var(--text-faint); padding: 0.4rem 0.55rem; border-radius: 4px; font-size: 1.05rem; line-height: 1; opacity: 0; transition: opacity 0.12s ease; }
+.ledger-table tbody tr:hover .actions-btn,
+.ledger-table tbody tr:focus-within .actions-btn,
+.actions-btn[aria-expanded="true"]{ opacity: 1; }
+.actions-btn:hover{ background: var(--surface-hi); color: var(--text); }
+
+.row-actions-menu .dropdown-menu{
+  background: var(--bg-raise); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow-lg); padding: 0.35rem; min-width: 200px; z-index: 1060;
+}
+.row-actions-menu .dropdown-item{
+  display: flex; align-items: center; gap: 0.65rem; font-size: 0.85rem; color: var(--text);
+  padding: 0.5rem 0.6rem; border-radius: 4px;
+}
+.row-actions-menu .dropdown-item i{ width: 1rem; text-align: center; color: var(--text-faint); font-size: 0.9rem; }
+.row-actions-menu .dropdown-item:hover, .row-actions-menu .dropdown-item:focus{ background: var(--surface-hi); color: var(--text); }
+.row-actions-menu .dropdown-item.text-danger i{ color: var(--red); }
+.row-actions-menu .dropdown-item.text-danger:hover{ background: var(--red-soft); color: var(--red); }
+.row-actions-menu .dropdown-divider{ border-color: var(--line); margin: 0.3rem 0.2rem; }
+
+/* ===== 7. Badges & chips ===== */
+.stage-badge{ display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.26rem 0.65rem; border-radius: 4px; text-transform: capitalize; letter-spacing: 0.01em; white-space: nowrap; }
+.stage-badge--new{ background: var(--slate-soft); color: var(--text-dim); }
+.stage-badge--contacted{ background: var(--cyan-soft); color: var(--cyan); }
+.stage-badge--proposal{ background: var(--amber-soft); color: var(--amber); }
+.stage-badge--negotiation{ background: var(--violet-soft); color: var(--violet); }
+.stage-badge--won{ background: var(--green-soft); color: var(--green); }
+.stage-badge--lost{ background: var(--red-soft); color: var(--red); }
+
+.payment-status-badge{ display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 4px; white-space: nowrap; }
+.payment-status-badge--green{ background: var(--green-soft); color: var(--green); }
+.payment-status-badge--amber{ background: var(--amber-soft); color: var(--amber); }
+.payment-status-badge--danger{ background: var(--red-soft); color: var(--red); }
+.payment-status-badge--slate{ background: var(--slate-soft); color: var(--text-dim); }
+.payment-cell__remaining{ font-size: 0.72rem; color: var(--text-faint); margin-top: 0.2rem; white-space: nowrap; }
+
+.dev-status-badge{ display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 4px; white-space: nowrap; }
+.dev-status-badge--slate{ background: var(--slate-soft); color: var(--text-dim); }
+.dev-status-badge--cyan{ background: var(--cyan-soft); color: var(--cyan); }
+.dev-status-badge--amber{ background: var(--amber-soft); color: var(--amber); }
+.dev-status-badge--green{ background: var(--green-soft); color: var(--green); }
+.dev-status-badge--accent{ background: var(--accent-soft); color: var(--accent); }
+
+.status-badge{ display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 4px; white-space: nowrap; }
+.status-badge--scheduled{ background: var(--cyan-soft); color: var(--cyan); }
+.status-badge--done{ background: var(--green-soft); color: var(--green); }
+.status-badge--canceled{ background: var(--red-soft); color: var(--red); }
+.status-badge--rescheduled{ background: var(--amber-soft); color: var(--amber); }
+.status-badge--note{ background: var(--slate-soft); color: var(--text-dim); }
+
+.entity-type{ display: inline-flex; align-items: center; font-size: 0.68rem; font-weight: 700; padding: 0.16rem 0.55rem; border-radius: 4px; text-transform: capitalize; margin-left: 0.4rem; vertical-align: middle; white-space: nowrap; }
+.entity-type--government{ background: var(--cyan-soft); color: var(--cyan); }
+.entity-type--private{ background: var(--amber-soft); color: var(--amber); }
+.entity-type--international{ background: var(--violet-soft); color: var(--violet); }
+
+.requirement-chip{ display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; font-weight: 700; padding: 0.16rem 0.55rem; border-radius: 4px; margin-left: 0.4rem; vertical-align: middle; background: var(--slate-soft); color: var(--text-dim); white-space: nowrap; }
+.requirement-chip i{ font-size: 0.72rem; }
+
+/* Reusable flex-wrap row for stacking multiple small badges (used by the
+   Contacts table's "role(s)" column) — keeps badges from overlapping or
+   crowding into each other regardless of how many a row has. */
+.deal-badges{ display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.deal-badges .entity-type,
+.deal-badges .requirement-chip,
+.deal-badges .relationship-badge{ margin-left: 0; }
+
+.relationship-badge{ display: inline-flex; align-items: center; font-size: 0.68rem; font-weight: 700; padding: 0.16rem 0.55rem; border-radius: 4px; margin-left: 0.4rem; vertical-align: middle; white-space: nowrap; }
+.relationship-badge--excellent{ background: var(--green-soft); color: var(--green); }
+.relationship-badge--good{ background: var(--cyan-soft); color: var(--cyan); }
+.relationship-badge--neutral{ background: var(--slate-soft); color: var(--text-dim); }
+.relationship-badge--issues{ background: var(--amber-soft); color: var(--amber); }
+.relationship-badge--bad{ background: var(--red-soft); color: var(--red); }
+
+.referral-chip{ display: inline-flex; align-items: center; gap: 0.4rem; max-width: 170px; border: 1px solid var(--line); background: var(--bg-raise); color: var(--accent); font-size: 0.8rem; font-weight: 600; padding: 0.32rem 0.7rem; border-radius: 4px; transition: all 0.15s ease; }
+.referral-chip__label{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.referral-chip:hover{ background: var(--accent-soft); border-color: var(--accent); }
+.no-referral{ color: var(--text-faint); font-size: 0.84rem; }
+
+/* ===== 8. Empty states ===== */
+.ledger-empty{ text-align: center; padding: 2.25rem 1rem; color: var(--text-faint); }
+.ledger-empty i{ font-size: 1.9rem; display: block; margin-bottom: 0.85rem; color: var(--text-dim); }
+.ledger-empty p{ font-size: 0.92rem; }
+

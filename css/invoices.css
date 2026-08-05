@@ -1,0 +1,88 @@
+/* invoices.css — invoice editor, the Invoices list in the detail view, and the printable client-facing document. */
+
+/* ===== Print modal footer layout ===== */
+.invoice-print-footer{ display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+
+/* ===== Invoice template modal: logo upload ===== */
+.template-logo-row{ display: flex; align-items: center; gap: 1rem; }
+.template-logo-preview{ width: 72px; height: 72px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 0.4rem; }
+.template-logo-empty{ width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--text-faint); font-size: 1.4rem; }
+.template-logo-empty.d-none{ display: none; }
+
+/* ===== Editor: line items grid ===== */
+.invoice-items-table{ border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.invoice-items-head{ display: grid; grid-template-columns: 1fr 90px 130px 32px; gap: 0.5rem; padding: 0.5rem 0.7rem; background: var(--surface); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
+.invoice-items-row{ display: grid; grid-template-columns: 1fr 90px 130px 32px; gap: 0.5rem; align-items: center; padding: 0.4rem 0.7rem; border-top: 1px solid var(--line); }
+.invoice-items-row input{ font-size: 0.85rem; }
+.invoice-items-row--extra{ background: var(--accent-soft); }
+.invoice-item-extra-tag{ display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.68rem; font-weight: 700; color: var(--accent); background: var(--bg-raise); border: 1px dashed var(--accent); border-radius: 4px; padding: 0.3rem 0.4rem; text-align: center; white-space: nowrap; }
+.invoice-item-amount{ font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.invoice-item-remove{ border: none; background: none; color: var(--text-faint); font-size: 0.85rem; justify-self: center; }
+.invoice-item-remove:hover{ color: var(--red); }
+.invoice-editor-total{ text-align: right; font-size: 1.1rem; font-weight: 700; margin-top: 0.75rem; }
+
+/* ===== Detail view: invoice list ===== */
+.invoice-list{ display: flex; flex-direction: column; gap: 0.4rem; }
+.invoice-row{ display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.15rem; }
+.invoice-row__main{ flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; padding: 0.5rem 0.6rem; text-align: left; border-radius: 4px; }
+.invoice-row__main:hover{ background: var(--surface); }
+.invoice-row__number{ font-weight: 600; font-size: 0.86rem; color: var(--text); }
+.invoice-row__amount{ font-variant-numeric: tabular-nums; font-size: 0.86rem; color: var(--text-dim); margin-left: auto; }
+.invoice-row__actions{ display: flex; gap: 0.15rem; padding-right: 0.3rem; flex-shrink: 0; }
+.invoice-status-btn, .edit-invoice-btn, .delete-invoice-btn{ border: none; background: transparent; color: var(--text-faint); padding: 0.35rem 0.5rem; border-radius: 4px; font-size: 0.9rem; }
+.invoice-status-btn:hover, .edit-invoice-btn:hover{ background: var(--surface-hi); color: var(--text); }
+.delete-invoice-btn:hover{ background: var(--red-soft); color: var(--red); }
+
+/* ===== Printable invoice document =====
+   Pixel-faithful recreation of a specific reference design — colors,
+   sizes, and spacing below are exact values from that spec, not
+   approximations. All colors are hardcoded hex, not CSS variables, and
+   the width is fixed rather than fluid: both are deliberate, since this
+   element gets snapshotted by html2canvas for the PDF download (see the
+   PDF button's handler in invoices.js for the matching fixed-size fix on
+   the JS side). Do not "improve" these values without checking the spec —
+   this file is intentionally plain (no shadows, no rounded cards, no
+   gradients) because the reference is. */
+.invoice-printable{
+  background: #fff; color: #2E2E2E; width: 100%; max-width: 800px; margin: 0 auto;
+  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  border: 1.5px solid #3F567B; box-sizing: border-box;
+}
+.invoice-doc-header{ display: flex; justify-content: space-between; align-items: flex-start; padding: 48px 48px 32px; border-bottom: 1.5px solid #3F567B; }
+.invoice-doc-brand-block{ display: flex; flex-direction: column; gap: 10px; }
+.invoice-doc-logo{ max-width: 150px; max-height: 56px; object-fit: contain; margin-bottom: 6px; }
+.invoice-doc-logo--placeholder{ width: 44px; height: 44px; background: #495F87; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 6px; }
+.invoice-doc-brand{ font-size: 30px; font-weight: 700; color: #2E2E2E; line-height: 1.2; }
+.invoice-doc-brand-details{ font-size: 14px; font-weight: 400; color: #777777; margin: 0; line-height: 1.6; }
+.invoice-doc-meta{ text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.invoice-doc-meta h2{ font-size: 34px; font-weight: 700; margin: 0; color: #495F87; line-height: 1.1; }
+.invoice-doc-number{ margin: 0; color: #777777; font-size: 15px; font-weight: 400; }
+.invoice-doc-status{ display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 10px; }
+.invoice-doc-status--draft{ background: #EDEDED; color: #555555; }
+.invoice-doc-status--sent{ background: #E4E8F0; color: #495F87; }
+.invoice-doc-status--paid{ background: #495F87; color: #fff; }
+.invoice-doc-parties{ display: flex; justify-content: space-between; gap: 24px; padding: 40px 48px 44px; font-size: 15px; line-height: 1.7; }
+.invoice-doc-dates{ text-align: right; }
+.invoice-doc-label{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #8E99AA; font-weight: 700; }
+.invoice-doc-table{ width: calc(100% - 96px); margin: 0 48px 0; border-collapse: collapse; }
+.invoice-doc-table th{ text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #fff; background: #495F87; padding: 14px 16px; font-weight: 700; height: 44px; box-sizing: border-box; }
+.invoice-doc-table th.text-end{ text-align: right; }
+.invoice-doc-table td{ padding: 16px; border-bottom: 1px solid #E4E7ED; font-size: 15px; color: #2E2E2E; height: 50px; box-sizing: border-box; }
+.invoice-doc-percent{ color: #777777; font-size: 0.85em; }
+.invoice-doc-total{ display: flex; justify-content: space-between; align-items: center; background: #495F87; color: #fff; margin: 40px 48px 48px; padding: 20px; }
+.invoice-doc-total span{ font-size: 20px; font-weight: 700; }
+.invoice-doc-total strong{ font-size: 44px; font-weight: 700; }
+.invoice-doc-notes{ margin: 0 48px 32px; padding-top: 20px; border-top: 1px solid #E4E7ED; }
+.invoice-doc-notes p{ font-size: 14px; color: #777777; white-space: pre-wrap; margin: 6px 0 0; }
+.invoice-doc-footer{ margin: 0 48px; padding: 0 0 40px; font-size: 13px; color: #8E99AA; white-space: pre-wrap; text-align: center; }
+
+/* ===== Print isolation: only the invoice document prints ===== */
+@media print{
+  body *{ visibility: hidden; }
+  .invoice-printable, .invoice-printable *{ visibility: visible; }
+  .invoice-printable{ position: absolute; top: 0; left: 0; width: 100%; max-width: 100%; }
+  .modal{ position: absolute !important; overflow: visible !important; }
+  .modal-dialog{ max-width: 100% !important; margin: 0 !important; }
+  .modal-content{ border: none !important; box-shadow: none !important; }
+  #invoicePrintModal .modal-header, #invoicePrintModal .modal-footer{ display: none !important; }
+}

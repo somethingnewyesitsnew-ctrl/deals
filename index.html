@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Ledger</title>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/table.css">
+<link rel="stylesheet" href="css/dashboards.css">
+<link rel="stylesheet" href="css/modals.css">
+<link rel="stylesheet" href="css/invoices.css">
+<link rel="stylesheet" href="css/charts-motion.css">
+<script>
+  // Set the theme before first paint so there's no flash of the wrong mode.
+  (function () {
+    try {
+      var t = localStorage.getItem('deal-ledger:theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      document.documentElement.setAttribute('data-bs-theme', t);
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<div class="win-shell">
+
+  <!-- ============ TITLE BAR ============ -->
+  <header class="win-titlebar">
+    <div class="win-titlebar__brand">
+      <span class="win-titlebar__icon"><i class="bi bi-journal-text"></i></span>
+      <span class="win-titlebar__title">Deal Ledger</span>
+    </div>
+    <div class="win-titlebar__actions">
+      <button type="button" class="win-icon-btn" id="themeToggleBtn" title="Switch light / dark mode">
+        <i class="bi bi-moon-stars" id="themeToggleIcon"></i>
+      </button>
+      <button type="button" class="fx-pill" id="exchangeRateBtn" title="Set USD → SDG exchange rate">
+        <i class="bi bi-currency-exchange"></i><span id="exchangeRateLabel">1 USD = 3,200 SDG</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="win-body">
+
+    <!-- ============ NAVIGATION ============ -->
+    <nav class="win-nav" id="viewTabs">
+      <button class="view-tab is-active" data-view="today"><i class="bi bi-grid-1x2"></i><span>Dashboard</span><span class="chip-count chip-count--alert" id="tabCountToday">0</span></button>
+      <button class="view-tab" data-view="deals"><i class="bi bi-journal-text"></i><span>Deals</span><span class="chip-count" id="tabCountDeals">0</span></button>
+      <button class="view-tab" data-view="attention"><i class="bi bi-bell"></i><span>Attention</span><span class="chip-count chip-count--alert" id="tabCountAttention">0</span></button>
+      <button class="view-tab" data-view="calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></button>
+      <button class="view-tab" data-view="referrals"><i class="bi bi-people"></i><span>Referrals</span><span class="chip-count" id="tabCountReferrals">0</span></button>
+      <button class="view-tab" data-view="contacts"><i class="bi bi-person-lines-fill"></i><span>Contacts</span><span class="chip-count" id="tabCountContacts">0</span></button>
+      <button class="view-tab" data-view="entities"><i class="bi bi-building"></i><span>Entities</span><span class="chip-count" id="tabCountEntities">0</span></button>
+      <button class="view-tab" data-view="financial"><i class="bi bi-wallet2"></i><span>Financial</span><span class="chip-count" id="tabCountFinancial">0</span></button>
+      <button class="view-tab" data-view="overview"><i class="bi bi-bar-chart-line"></i><span>Overview</span></button>
+    </nav>
+
+    <!-- ============ CONTENT ============ -->
+    <main class="win-content">
+
+    <div class="global-search" id="globalSearchWrap">
+      <i class="bi bi-search"></i>
+      <input type="text" id="globalSearchInput" placeholder="Search everything — deals, referrals, contacts, entities…" autocomplete="off">
+      <div class="global-search__results d-none" id="globalSearchResults"></div>
+    </div>
+
+  <!-- ============ DASHBOARD ============
+       (kept id="todayView" / "today*" internally — this section replaced the
+       old daily-briefing view and is now the single-screen dashboard: a KPI
+       strip, three compact panels, and a condensed recent-deals table, all
+       capped in height with their own scroll so the page itself barely
+       scrolls. Click anything to jump to the full tab/detail.) -->
+  <section class="ledger-view" id="todayView">
+    <div class="page-header">
+      <h1 class="page-title">Dashboard</h1>
+      <span class="today-greeting" id="todayGreeting"></span>
+    </div>
+
+    <div class="attention-summary" id="todayStats"></div>
+
+    <div class="dash-grid">
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <h3><i class="bi bi-bell"></i> Needs attention</h3>
+          <button type="button" class="dash-card__more" data-jump-view="attention">View all</button>
+        </div>
+        <div id="dashAttentionList" class="attention-list dash-card__body"></div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <h3><i class="bi bi-calendar-week"></i> Today &amp; upcoming</h3>
+          <button type="button" class="dash-card__more" data-jump-view="calendar">Calendar</button>
+        </div>
+        <div id="dashTodayList" class="attention-list dash-card__body"></div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <h3><i class="bi bi-pie-chart"></i> Pipeline by stage</h3>
+        </div>
+        <div id="dashStageBar" class="dash-card__body"></div>
+      </div>
+    </div>
+
+    <div class="dash-card dash-card--wide">
+      <div class="dash-card__head">
+        <h3><i class="bi bi-journal-text"></i> Recent deals</h3>
+        <button type="button" class="dash-card__more" data-jump-view="deals">View all deals</button>
+      </div>
+      <div id="dashDealsTable" class="dash-card__table-body"></div>
+    </div>
+  </section>
+
+  <!-- ============ DEALS ============ -->
+  <section class="ledger-view d-none" id="dealsView">
+    <div class="page-header">
+      <h1 class="page-title">Deals</h1>
+      <div class="page-header__actions">
+        <span class="entries-badge"><i class="bi bi-collection"></i><span id="totalCount">0</span> deals</span>
+        <button type="button" class="btn btn-ink" id="newDealBtn">
+          <i class="bi bi-plus-lg me-1"></i>New deal
+        </button>
+      </div>
+    </div>
+
+    <div class="money-stats-grid" id="moneyStatsGrid">
+      <button type="button" class="money-stat-card money-stat-card--accent" data-money-filter="potential">
+        <i class="bi bi-graph-up-arrow money-stat-card__icon"></i>
+        <span class="money-stat-card__label">Potential</span>
+        <span class="money-stat-card__figure" id="totalOpenValue">$0</span>
+        <span class="money-stat-card__hint">Still in play, not won yet</span>
+      </button>
+      <button type="button" class="money-stat-card money-stat-card--green" data-money-filter="won">
+        <i class="bi bi-trophy money-stat-card__icon"></i>
+        <span class="money-stat-card__label">Won</span>
+        <span class="money-stat-card__figure" id="totalWonValue">$0</span>
+        <span class="money-stat-card__hint">Contract signed</span>
+      </button>
+      <button type="button" class="money-stat-card money-stat-card--cyan" data-money-filter="delivered">
+        <i class="bi bi-cash-stack money-stat-card__icon"></i>
+        <span class="money-stat-card__label">Delivered</span>
+        <span class="money-stat-card__figure" id="totalDeliveredValue">$0</span>
+        <span class="money-stat-card__hint">Paid invoices</span>
+      </button>
+      <button type="button" class="money-stat-card money-stat-card--red" data-money-filter="notpaid">
+        <i class="bi bi-exclamation-diamond money-stat-card__icon"></i>
+        <span class="money-stat-card__label">Not paid</span>
+        <span class="money-stat-card__figure" id="totalNotPaidValue">$0</span>
+        <span class="money-stat-card__hint">Won minus delivered</span>
+      </button>
+    </div>
+
+    <div class="pipeline-funnel" id="pipelineFunnel"></div>
+
+    <div class="dashboard-section">
+      <h2 class="dashboard-section__title"><i class="bi bi-graph-up"></i> Live analytics</h2>
+      <div class="deals-analytics-row">
+        <div class="chart-card">
+          <h3>Pipeline vs won (6mo)</h3>
+          <p class="chart-sub">New deal value vs won value, approximate by last update</p>
+          <div id="dealsTrendChart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Stage mix</h3>
+          <div id="dealsMixChart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Collection efficiency</h3>
+          <p class="chart-sub">Collected vs won value</p>
+          <div id="collectionEfficiencyChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ledger-toolbar">
+      <div class="ledger-search">
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" placeholder="Search entity, field, referral, contact…">
+      </div>
+    </div>
+
+    <div class="table-responsive ledger-table-wrap">
+      <table class="table ledger-table ledger-table--roomy">
+        <thead>
+          <tr>
+            <th class="col-index sortable" data-sort="index">No. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+            <th class="col-entity sortable" data-sort="name">Entity <i class="bi bi-arrow-down-up sort-icon"></i></th>
+            <th class="col-value text-end sortable" data-sort="value">Value &amp; payment <i class="bi bi-arrow-down-up sort-icon"></i></th>
+            <th class="col-status">Status</th>
+            <th class="col-referral">Referral</th>
+            <th class="col-timeline sortable" data-sort="close">Timeline <i class="bi bi-arrow-down-up sort-icon"></i></th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="dealsTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="ledger-empty d-none" id="emptyState"><i class="bi bi-journal-text"></i><p>No entries yet. Click "New deal" to record your first one.</p></div>
+    <div class="ledger-empty d-none" id="noResultsState"><i class="bi bi-search"></i><p>Nothing matches that search or filter.</p></div>
+  </section>
+
+  <!-- ============ ATTENTION ============ -->
+  <section class="ledger-view d-none" id="attentionView">
+    <div class="page-header"><h1 class="page-title">Attention</h1></div>
+    <div class="attention-summary" id="attentionSummary"></div>
+    <div class="attention-groups" id="attentionGroups"></div>
+    <div class="ledger-empty d-none" id="attentionAllClear">
+      <i class="bi bi-check-circle"></i>
+      <p>Nothing needs attention right now — every open deal is on track.</p>
+    </div>
+  </section>
+
+  <!-- ============ CALENDAR ============ -->
+  <section class="ledger-view d-none" id="calendarView">
+    <div class="page-header"><h1 class="page-title">Calendar</h1></div>
+    <div class="calendar-toolbar">
+      <div class="calendar-nav">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="calPrevBtn" title="Previous month" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+        <h2 class="calendar-title" id="calTitle">Month Year</h2>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="calNextBtn" title="Next month" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="calTodayBtn">Today</button>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+  </section>
+
+  <!-- ============ REFERRALS ============ -->
+  <section class="ledger-view d-none" id="referralsView">
+    <div class="page-header"><h1 class="page-title">Referrals</h1></div>
+    <div class="ledger-toolbar">
+      <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="referralSearchInput" placeholder="Search referrals…"></div>
+    </div>
+    <div class="table-responsive ledger-table-wrap">
+      <table class="table ledger-table">
+        <thead>
+          <tr>
+            <th>Referral</th><th>Contact</th><th>Relation with us</th><th>First time</th><th>Paid by us before</th>
+            <th class="text-end">Total value</th><th>Linked deals</th>
+          </tr>
+        </thead>
+        <tbody id="referralsTableBody"></tbody>
+      </table>
+    </div>
+    <div class="ledger-empty d-none" id="referralsEmptyState"><i class="bi bi-people"></i><p>No referrals recorded yet. Add one from a deal's "Referral" step.</p></div>
+    <div class="ledger-empty d-none" id="referralsNoResultsState"><i class="bi bi-search"></i><p>No referrals match that search.</p></div>
+  </section>
+
+  <!-- ============ CONTACTS ============ -->
+  <section class="ledger-view d-none" id="contactsView">
+    <div class="page-header"><h1 class="page-title">Contacts</h1></div>
+    <div class="ledger-toolbar">
+      <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="contactSearchInput" placeholder="Search contacts…"></div>
+    </div>
+    <div class="table-responsive ledger-table-wrap">
+      <table class="table ledger-table">
+        <thead>
+          <tr><th>Name</th><th>Role(s)</th><th>Contact</th><th>Relation with us</th><th>Updates</th><th>Linked deals</th></tr>
+        </thead>
+        <tbody id="contactsTableBody"></tbody>
+      </table>
+    </div>
+    <div class="ledger-empty d-none" id="contactsEmptyState"><i class="bi bi-person-lines-fill"></i><p>No contacts recorded yet. Add a first contact or project manager from a deal.</p></div>
+    <div class="ledger-empty d-none" id="contactsNoResultsState"><i class="bi bi-search"></i><p>No contacts match that search.</p></div>
+  </section>
+
+  <!-- ============ ENTITIES ============ -->
+  <section class="ledger-view d-none" id="entitiesView">
+    <div class="page-header"><h1 class="page-title">Entities</h1></div>
+    <div class="ledger-toolbar">
+      <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="entitySearchInput" placeholder="Search entities…"></div>
+    </div>
+    <div class="table-responsive ledger-table-wrap">
+      <table class="table ledger-table">
+        <thead>
+          <tr><th>Entity</th><th>Type</th><th>Field of work</th><th>Location</th><th class="text-end">Total value</th><th>Linked deals</th></tr>
+        </thead>
+        <tbody id="entitiesTableBody"></tbody>
+      </table>
+    </div>
+    <div class="ledger-empty d-none" id="entitiesEmptyState"><i class="bi bi-building"></i><p>No entities recorded yet.</p></div>
+    <div class="ledger-empty d-none" id="entitiesNoResultsState"><i class="bi bi-search"></i><p>No entities match that search.</p></div>
+  </section>
+
+  <!-- ============ FINANCIAL ============ -->
+  <section class="ledger-view d-none" id="financialView">
+    <div class="page-header">
+      <h1 class="page-title">Financial</h1>
+      <div class="page-header__actions">
+        <button type="button" class="btn btn-outline-secondary" id="newExpenseBtn"><i class="bi bi-plus-lg me-1"></i>Add expense</button>
+      </div>
+    </div>
+
+    <div class="attention-summary" id="financialStatsGrid"></div>
+
+    <div class="dashboard-section">
+      <h2 class="dashboard-section__title"><i class="bi bi-graph-up"></i> Income vs expenses</h2>
+      <div class="chart-card">
+        <p class="chart-sub">Paid invoices vs recorded expenses, per month, last 9 months</p>
+        <div id="incomeExpenseChart"></div>
+      </div>
+    </div>
+
+    <div class="dashboard-section">
+      <h2 class="dashboard-section__title"><i class="bi bi-receipt"></i> Invoices</h2>
+      <div class="ledger-toolbar">
+        <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="financialInvoiceSearchInput" placeholder="Search invoices by number or entity…"></div>
+      </div>
+      <div class="table-responsive ledger-table-wrap">
+        <table class="table ledger-table">
+          <thead>
+            <tr><th>Invoice</th><th>Deal</th><th class="text-end">Amount</th><th>Status</th><th>Date</th><th>Due</th><th></th></tr>
+          </thead>
+          <tbody id="financialInvoicesTableBody"></tbody>
+        </table>
+      </div>
+      <div class="ledger-empty d-none" id="financialInvoicesEmptyState"><i class="bi bi-receipt"></i><p>No invoices yet — create one from a deal's detail view.</p></div>
+    </div>
+
+    <div class="dashboard-section">
+      <h2 class="dashboard-section__title"><i class="bi bi-wallet2"></i> Expenses</h2>
+      <div class="table-responsive ledger-table-wrap">
+        <table class="table ledger-table">
+          <thead>
+            <tr><th>Description</th><th>Category</th><th>Linked deal</th><th class="text-end">Amount</th><th>Date</th><th></th></tr>
+          </thead>
+          <tbody id="expensesTableBody"></tbody>
+        </table>
+      </div>
+      <div class="ledger-empty d-none" id="expensesEmptyState"><i class="bi bi-wallet2"></i><p>No expenses recorded yet.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ OVERVIEW (dashboard) ============ -->
+  <section class="ledger-view d-none" id="overviewView">
+    <div class="page-header"><h1 class="page-title">Overview</h1></div>
+    <div class="ledger-empty d-none" id="overviewEmptyState"><i class="bi bi-bar-chart-line"></i><p>Record a deal to see charts here.</p></div>
+
+    <div id="overviewContent">
+      <div class="goal-tracker" id="goalTracker"></div>
+
+      <div class="attention-summary" id="overviewStatsGrid"></div>
+
+      <div class="dashboard-section">
+        <h2 class="dashboard-section__title"><i class="bi bi-lightbulb"></i> Suggestions</h2>
+        <div class="suggestions-grid" id="overviewSuggestions"></div>
+      </div>
+
+      <div class="dashboard-section">
+        <h2 class="dashboard-section__title"><i class="bi bi-star-fill"></i> Spotlight</h2>
+        <div class="spotlight-row">
+          <div class="spotlight-card" id="dealSpotlight"></div>
+          <div class="leaderboard-card">
+            <h3><i class="bi bi-trophy"></i> Top clients</h3>
+            <div id="clientLeaderboard"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h2 class="dashboard-section__title"><i class="bi bi-graph-up-arrow"></i> Sales</h2>
+        <div class="charts-grid">
+          <div class="chart-card chart-card--wide">
+            <h3>New deals over time</h3>
+            <p class="chart-sub">Deals created per month, last 9 months</p>
+            <div id="lineChart"></div>
+          </div>
+          <div class="chart-card">
+            <h3>Pipeline value by stage</h3>
+            <div id="columnChart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h2 class="dashboard-section__title"><i class="bi bi-megaphone"></i> Marketing</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Entity type mix</h3>
+            <div id="pieChart"></div>
+          </div>
+          <div class="chart-card">
+            <h3>Value by referral source</h3>
+            <p class="chart-sub">Top referrals, by total USD value brought in</p>
+            <div id="referralChart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h2 class="dashboard-section__title"><i class="bi bi-gear"></i> Operations</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Relationship health</h3>
+            <div id="relationshipChart"></div>
+          </div>
+          <div class="chart-card">
+            <h3>Follow-ups status</h3>
+            <p class="chart-sub">Every logged next-step date, deals + contacts</p>
+            <div id="followupChart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h2 class="dashboard-section__title"><i class="bi bi-cash-coin"></i> Financial</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Collected vs outstanding</h3>
+            <div id="collectedChart"></div>
+          </div>
+          <div class="chart-card chart-card--wide">
+            <h3>Revenue collected over time</h3>
+            <p class="chart-sub">Paid invoices per month, last 9 months</p>
+            <div id="revenueChart"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ============ DEAL WIZARD MODAL ============ -->
+<div class="modal fade" id="dealModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <span class="entry-slip__index" id="modalIndexLabel">No. 001</span>
+          <h2 class="modal-title" id="modalTitleLabel">New deal</h2>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="wizard-shell">
+        <div class="wizard-rail" id="wizardSteps">
+          <button type="button" class="wizard-step is-active" data-step="1"><span class="wizard-step__num">1</span> Entity</button>
+          <button type="button" class="wizard-step" data-step="2"><span class="wizard-step__num">2</span> Their people</button>
+          <button type="button" class="wizard-step" data-step="3"><span class="wizard-step__num">3</span> Referral</button>
+          <button type="button" class="wizard-step" data-step="4"><span class="wizard-step__num">4</span> Deal &amp; log</button>
+        </div>
+
+        <div class="wizard-main">
+          <form id="dealForm" novalidate>
+            <input type="hidden" id="dealId">
+
+            <div class="modal-body">
+
+              <!-- STEP 1 — Entity -->
+              <div class="wizard-pane" data-pane="1">
+                <div class="mb-3">
+                  <label for="entityName" class="form-label">Entity name</label>
+                  <input type="text" class="form-control" id="entityName" list="entityNamesList" placeholder="e.g. Al-Fanar Trading Co.">
+                  <p class="dropdown-hint">Start typing — if we've dealt with them before, their details fill in automatically.</p>
+                </div>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label for="entityType" class="form-label">Entity type</label>
+                    <select class="form-select" id="entityType">
+                      <option value="">Not set</option>
+                      <option value="government">Government</option>
+                      <option value="private">Private</option>
+                      <option value="international">International</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="fieldOfWork" class="form-label">Field of work</label>
+                    <input type="text" class="form-control" id="fieldOfWork" list="fieldOfWorkOptionsList" placeholder="e.g. Construction">
+                  </div>
+                </div>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label for="requirement" class="form-label">Requirement</label>
+                    <div class="dropdown-field">
+                      <input type="text" class="form-control" id="requirement" list="requirementOptionsList" placeholder="Website, system, mobile…">
+                      <i class="bi bi-chevron-down"></i>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="scale" class="form-label">Scale</label>
+                    <select class="form-select" id="scale">
+                      <option value="">Not set</option>
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label d-block">First time working with us</label>
+                    <div class="btn-group w-100" role="group" aria-label="First time">
+                      <input type="radio" class="btn-check" name="firstTime" id="firstTimeYes" value="yes">
+                      <label class="btn btn-outline-secondary" for="firstTimeYes">Yes</label>
+                      <input type="radio" class="btn-check" name="firstTime" id="firstTimeNo" value="no">
+                      <label class="btn btn-outline-secondary" for="firstTimeNo">No</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="nationality" class="form-label">Nationality</label>
+                    <input type="text" class="form-control" id="nationality" list="nationalityOptionsList" placeholder="Optional">
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="currentLocation" class="form-label">Current location</label>
+                    <input type="text" class="form-control" id="currentLocation" list="currentLocationOptionsList" placeholder="Optional">
+                  </div>
+                </div>
+
+                <fieldset class="person-fieldset mt-3">
+                  <legend>Relationship with us</legend>
+                  <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                      <label for="relationshipStatus" class="form-label">How is it going</label>
+                      <select class="form-select" id="relationshipStatus">
+                        <option value="">Not set</option>
+                        <option value="excellent">Excellent</option>
+                        <option value="good">Good</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="issues">Had issues</option>
+                        <option value="bad">Bad</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label d-block">Would we work with them again</label>
+                      <div class="btn-group w-100" role="group" aria-label="Would work again">
+                        <input type="radio" class="btn-check" name="wouldWorkAgain" id="wouldWorkAgainYes" value="yes">
+                        <label class="btn btn-outline-secondary" for="wouldWorkAgainYes">Yes</label>
+                        <input type="radio" class="btn-check" name="wouldWorkAgain" id="wouldWorkAgainNo" value="no">
+                        <label class="btn btn-outline-secondary" for="wouldWorkAgainNo">No</label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                      <label for="reasonEnded" class="form-label">Reason relationship ended <span class="dropdown-hint d-inline">(if applicable)</span></label>
+                      <input type="text" class="form-control" id="reasonEnded" list="reasonEndedOptionsList" placeholder="Optional">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="specialInstructions" class="form-label">Special instructions</label>
+                      <input type="text" class="form-control" id="specialInstructions" list="specialInstructionsOptionsList" placeholder="Optional">
+                    </div>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label for="relationshipNotes" class="form-label">Notes — experience, feedback, important history</label>
+                      <textarea class="form-control" id="relationshipNotes" rows="2" placeholder="What happened, any issues, history worth remembering…"></textarea>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- STEP 2 — Their people -->
+              <div class="wizard-pane d-none" data-pane="2">
+                <fieldset class="person-fieldset">
+                  <legend>First contact person</legend>
+                  <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                      <label for="fcName" class="form-label">Name</label>
+                      <input type="text" class="form-control" id="fcName" list="personNameOptionsList" placeholder="Optional">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="fcRelation" class="form-label">Relation with us</label>
+                      <div class="dropdown-field">
+                        <input type="text" class="form-control" id="fcRelation" list="relationOptionsList" placeholder="Select or type new…">
+                        <i class="bi bi-chevron-down"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label for="fcNumber" class="form-label">Number</label>
+                      <input type="tel" class="form-control" id="fcNumber" placeholder="Optional">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="fcEmail" class="form-label">Email</label>
+                      <input type="email" class="form-control" id="fcEmail" placeholder="Optional">
+                    </div>
+                  </div>
+                </fieldset>
+
+                <fieldset class="person-fieldset">
+                  <legend>Project manager (from their side)</legend>
+                  <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                      <label for="pmName" class="form-label">Name</label>
+                      <input type="text" class="form-control" id="pmName" list="personNameOptionsList" placeholder="Optional">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="pmRelation" class="form-label">Relation with us</label>
+                      <div class="dropdown-field">
+                        <input type="text" class="form-control" id="pmRelation" list="relationOptionsList" placeholder="Select or type new…">
+                        <i class="bi bi-chevron-down"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label for="pmNumber" class="form-label">Number</label>
+                      <input type="tel" class="form-control" id="pmNumber" placeholder="Optional">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="pmEmail" class="form-label">Email</label>
+                      <input type="email" class="form-control" id="pmEmail" placeholder="Optional">
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- STEP 3 — Referral -->
+              <div class="wizard-pane d-none" data-pane="3">
+                <p class="pane-hint">
+                  Who referred this deal to us? Leave blank if there wasn't one. Referrals appear on the
+                  <button type="button" class="link-btn" id="jumpReferralsLink">Referrals page</button>, grouped across every deal they've brought in.
+                </p>
+                <div class="row g-3 mb-2">
+                  <div class="col-md-6">
+                    <label for="refName" class="form-label">Referral name</label>
+                    <input type="text" class="form-control" id="refName" list="personNameOptionsList" placeholder="Optional">
+                  </div>
+                  <div class="col-md-6">
+                    <label for="refRelation" class="form-label">Relation with us</label>
+                    <div class="dropdown-field">
+                      <input type="text" class="form-control" id="refRelation" list="relationOptionsList" placeholder="Select or type new…">
+                      <i class="bi bi-chevron-down"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label for="refNumber" class="form-label">Number</label>
+                    <input type="tel" class="form-control" id="refNumber" placeholder="Optional">
+                  </div>
+                  <div class="col-md-6">
+                    <label for="refEmail" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="refEmail" placeholder="Optional">
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label d-block">First time referring us</label>
+                    <div class="btn-group w-100" role="group" aria-label="Referral first time">
+                      <input type="radio" class="btn-check" name="refFirstTime" id="refFirstTimeYes" value="yes">
+                      <label class="btn btn-outline-secondary" for="refFirstTimeYes">Yes</label>
+                      <input type="radio" class="btn-check" name="refFirstTime" id="refFirstTimeNo" value="no">
+                      <label class="btn btn-outline-secondary" for="refFirstTimeNo">No</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label d-block">Paid by us before</label>
+                    <div class="btn-group w-100" role="group" aria-label="Paid before">
+                      <input type="radio" class="btn-check" name="refPaidBefore" id="refPaidYes" value="yes">
+                      <label class="btn btn-outline-secondary" for="refPaidYes">Yes</label>
+                      <input type="radio" class="btn-check" name="refPaidBefore" id="refPaidNo" value="no">
+                      <label class="btn btn-outline-secondary" for="refPaidNo">No</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- STEP 4 — Deal & log -->
+              <div class="wizard-pane d-none" data-pane="4">
+                <div class="row g-3 mb-3">
+                  <div class="col-md-3">
+                    <label for="dealValue" class="form-label">Value</label>
+                    <input type="number" class="form-control" id="dealValue" min="0" step="1" placeholder="0">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label d-block">Currency</label>
+                    <div class="btn-group w-100" role="group" aria-label="Currency">
+                      <input type="radio" class="btn-check" name="dealCurrency" id="dealCurrencyUSD" value="USD" checked>
+                      <label class="btn btn-outline-secondary" for="dealCurrencyUSD">USD</label>
+                      <input type="radio" class="btn-check" name="dealCurrency" id="dealCurrencySDG" value="SDG">
+                      <label class="btn btn-outline-secondary" for="dealCurrencySDG">SDG</label>
+                    </div>
+                  </div>
+                  <div class="col-md-2">
+                    <label for="dealStage" class="form-label">Stage</label>
+                    <select class="form-select" id="dealStage">
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="proposal">Proposal</option>
+                      <option value="negotiation">Negotiation</option>
+                      <option value="won">Won</option>
+                      <option value="lost">Lost</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label for="dealWorkStatus" class="form-label">Development status</label>
+                    <select class="form-select" id="dealWorkStatus">
+                      <option value="">Not set</option>
+                      <option value="not_started">Not started</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="on_hold">On hold</option>
+                      <option value="completed">Completed</option>
+                      <option value="delivered">Delivered</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label for="dealClose" class="form-label">Expected close</label>
+                    <input type="date" class="form-control" id="dealClose">
+                  </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                  <div class="col-12">
+                    <label for="dealServices" class="form-label">Products / Services</label>
+                    <div class="dropdown-field">
+                      <input type="text" class="form-control" id="dealServices" list="servicesOptionsList" placeholder="Type one, comma, type the next… e.g. Hosting, SEO">
+                      <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <p class="dropdown-hint">Comma-separated. New ones you type are remembered for next time.</p>
+                  </div>
+                </div>
+
+                <label class="form-label">Payment breakdown <span class="dropdown-hint d-inline">(optional — e.g. Downpayment 30%, Second Payment 40%, Final 30%)</span></label>
+                <div class="payment-breakdown-add">
+                  <div class="dropdown-field">
+                    <input type="text" class="form-control form-control-sm" id="pbLabel" list="invoiceDescOptionsList" placeholder="Downpayment, Second Payment…">
+                    <i class="bi bi-chevron-down"></i>
+                  </div>
+                  <input type="number" class="form-control form-control-sm" id="pbPercent" min="0" max="100" step="1" placeholder="%">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="addPaymentBreakdownBtn"><i class="bi bi-plus-lg"></i> Add</button>
+                </div>
+                <p class="pb-amount-preview" id="pbAmountPreview"></p>
+                <ul class="payment-breakdown-list mb-1" id="paymentBreakdownList"></ul>
+                <p class="dropdown-hint mb-3" id="paymentBreakdownTotalHint"></p>
+
+                <label class="form-label">Communications log</label>
+                <div class="comm-log-add">
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <label for="commDateTime" class="form-label">Date &amp; time</label>
+                      <input type="datetime-local" class="form-control form-control-sm" id="commDateTime">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="commChannel" class="form-label">Communication</label>
+                      <div class="dropdown-field">
+                        <input type="text" class="form-control form-control-sm" id="commChannel" list="channelOptionsList" placeholder="Call, email…">
+                        <i class="bi bi-chevron-down"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <label for="commAction" class="form-label">Action taken</label>
+                      <div class="dropdown-field">
+                        <input type="text" class="form-control form-control-sm" id="commAction" list="actionOptionsList" placeholder="Select or type new…">
+                        <i class="bi bi-chevron-down"></i>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="commNextStep" class="form-label">What happens next</label>
+                      <div class="dropdown-field">
+                        <input type="text" class="form-control form-control-sm" id="commNextStep" list="nextStepOptionsList" placeholder="Select or type new…">
+                        <i class="bi bi-chevron-down"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <label for="commStatus" class="form-label">Status <span class="dropdown-hint d-inline">(optional)</span></label>
+                      <select class="form-select form-select-sm" id="commStatus">
+                        <option value="">Not set</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="done">Done</option>
+                        <option value="canceled">Canceled</option>
+                        <option value="rescheduled">Rescheduled</option>
+                        <option value="note">Note</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="commNextStepDate" class="form-label">Next step date <span class="dropdown-hint d-inline">(optional)</span></label>
+                      <input type="date" class="form-control form-control-sm" id="commNextStepDate">
+                    </div>
+                  </div>
+                  <div class="row g-2">
+                    <div class="col-md-9">
+                      <label for="commNote" class="form-label">Note</label>
+                      <input type="text" class="form-control form-control-sm" id="commNote" placeholder="Optional detail…">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                      <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="addCommBtn"><i class="bi bi-plus-lg"></i> Add</button>
+                    </div>
+                  </div>
+                </div>
+                <ul class="comm-log-list mb-3" id="commLogList"></ul>
+
+                <div class="mb-1">
+                  <label for="dealNotes" class="form-label">Other notes</label>
+                  <textarea class="form-control" id="dealNotes" rows="2" placeholder="Anything else worth recording…"></textarea>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-danger me-auto d-none" id="modalDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+              <button type="button" class="btn btn-outline-secondary" id="wizardBackBtn">Back</button>
+              <button type="button" class="btn btn-ink" id="wizardNextBtn">Next</button>
+              <button type="submit" class="btn btn-ink d-none" id="wizardSaveBtn"><i class="bi bi-check-lg me-1"></i>Save deal</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared datalists for editable dropdowns — populated/refreshed by dropdowns.js -->
+<datalist id="relationOptionsList"></datalist>
+<datalist id="requirementOptionsList"></datalist>
+<datalist id="servicesOptionsList"></datalist>
+<datalist id="invoiceDescOptionsList"></datalist>
+<datalist id="entityNamesList"></datalist>
+<datalist id="channelOptionsList"></datalist>
+<datalist id="actionOptionsList"></datalist>
+<datalist id="nextStepOptionsList"></datalist>
+<datalist id="fieldOfWorkOptionsList"></datalist>
+<datalist id="nationalityOptionsList"></datalist>
+<datalist id="currentLocationOptionsList"></datalist>
+<datalist id="reasonEndedOptionsList"></datalist>
+<datalist id="specialInstructionsOptionsList"></datalist>
+<datalist id="personNameOptionsList"></datalist>
+
+<!-- ============ DEAL DETAIL MODAL (read-only) ============ -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <span class="entry-slip__index" id="detailIndexLabel">No. 001</span>
+          <h2 class="modal-title" id="detailTitle">Deal</h2>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="detailBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-danger me-auto" id="detailDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-ink" id="detailEditBtn"><i class="bi bi-pencil me-1"></i>Edit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body pt-4"><p class="mb-0">Delete <strong id="deleteDealName"></strong>? This can't be undone.</p></div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Currency settings modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Currency settings</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label for="exchangeRateInput" class="form-label">1 USD equals how many SDG?</label>
+        <input type="number" class="form-control" id="exchangeRateInput" min="1" step="1">
+        <p class="dropdown-hint mt-2">
+          This rate is used everywhere money is shown. Changing it updates every
+          converted figure instantly — the amount you originally entered on each
+          deal never changes, only the live conversion does.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-ink btn-sm" id="saveExchangeRateBtn">Save rate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Update modal — the fast path for logging an update, from a table
+     row or the detail view, without opening the full multi-step wizard. -->
+<div class="modal fade" id="quickUpdateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Add update — <span id="quickUpdateEntityName">deal</span></h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="quickUpdateForm">
+        <input type="hidden" id="quickUpdateDealId">
+        <div class="modal-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="quickUpdateDate" class="form-label">Date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control" id="quickUpdateDate">
+            </div>
+            <div class="col-md-6">
+              <label for="quickUpdateStatus" class="form-label">Status</label>
+              <select class="form-select" id="quickUpdateStatus">
+                <option value="">Not set</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="done">Done</option>
+                <option value="canceled">Canceled</option>
+                <option value="rescheduled">Rescheduled</option>
+                <option value="note">Note</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="quickUpdateType" class="form-label">Type <span class="dropdown-hint d-inline">(optional)</span></label>
+              <div class="dropdown-field">
+                <input type="text" class="form-control" id="quickUpdateType" list="channelOptionsList" placeholder="Call, email…">
+                <i class="bi bi-chevron-down"></i>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label for="quickUpdateNextStepDate" class="form-label">Next step date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control" id="quickUpdateNextStepDate">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="quickUpdateNextStep" class="form-label">What happens next <span class="dropdown-hint d-inline">(optional)</span></label>
+            <div class="dropdown-field">
+              <input type="text" class="form-control" id="quickUpdateNextStep" list="nextStepOptionsList" placeholder="Select or type new…">
+              <i class="bi bi-chevron-down"></i>
+            </div>
+          </div>
+          <div class="mb-1">
+            <label for="quickUpdateText" class="form-label">What's the update <span class="dropdown-hint d-inline">(optional)</span></label>
+            <textarea class="form-control" id="quickUpdateText" rows="2" placeholder="e.g. Meeting with Beko people at 10am"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-ink btn-sm"><i class="bi bi-plus-lg me-1"></i>Add update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Day Updates modal — clicking a calendar day lists everything logged for it -->
+<div class="modal fade" id="dayUpdatesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="dayUpdatesTitle">Updates</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="dayUpdatesBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Contact Update modal — a timestamped update log for a contact,
+     independent of any single deal (a contact can be on many deals). -->
+<div class="modal fade" id="contactUpdateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Updates — <span id="contactUpdateName">contact</span></h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="comm-log-add">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label for="cuDate" class="form-label">Date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control form-control-sm" id="cuDate">
+            </div>
+            <div class="col-md-6">
+              <label for="cuType" class="form-label">Type <span class="dropdown-hint d-inline">(optional)</span></label>
+              <div class="dropdown-field">
+                <input type="text" class="form-control form-control-sm" id="cuType" list="channelOptionsList" placeholder="Call, email…">
+                <i class="bi bi-chevron-down"></i>
+              </div>
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label for="cuStatus" class="form-label">Status <span class="dropdown-hint d-inline">(optional)</span></label>
+              <select class="form-select form-select-sm" id="cuStatus">
+                <option value="">Not set</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="done">Done</option>
+                <option value="canceled">Canceled</option>
+                <option value="rescheduled">Rescheduled</option>
+                <option value="note">Note</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="cuNextStepDate" class="form-label">Next step date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control form-control-sm" id="cuNextStepDate">
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label for="cuNextStep" class="form-label">What happens next <span class="dropdown-hint d-inline">(optional)</span></label>
+              <div class="dropdown-field">
+                <input type="text" class="form-control form-control-sm" id="cuNextStep" list="nextStepOptionsList" placeholder="Select or type new…">
+                <i class="bi bi-chevron-down"></i>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label for="cuNote" class="form-label">Note <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="text" class="form-control form-control-sm" id="cuNote" placeholder="Optional detail…">
+            </div>
+          </div>
+          <div class="d-flex justify-content-end mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="addContactUpdateBtn"><i class="bi bi-plus-lg"></i> Add update</button>
+          </div>
+        </div>
+        <ul class="comm-log-list mt-3" id="contactUpdateList"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice editor modal -->
+<div class="modal fade" id="invoiceEditorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="invoiceEditorTitle">New invoice</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="invoiceEditorForm">
+        <input type="hidden" id="invoiceEditDealId">
+        <input type="hidden" id="invoiceEditId">
+        <div class="modal-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label for="invoiceNumber" class="form-label">Invoice number</label>
+              <input type="text" class="form-control" id="invoiceNumber">
+            </div>
+            <div class="col-md-3">
+              <label for="invoiceDate" class="form-label">Date</label>
+              <input type="date" class="form-control" id="invoiceDate">
+            </div>
+            <div class="col-md-2">
+              <label for="invoiceDueDate" class="form-label">Due date</label>
+              <input type="date" class="form-control" id="invoiceDueDate">
+            </div>
+            <div class="col-md-2">
+              <label for="invoiceCurrency" class="form-label">Currency</label>
+              <select class="form-select" id="invoiceCurrency">
+                <option value="USD">USD</option>
+                <option value="SDG">SDG</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="invoiceStatus" class="form-label">Status</label>
+              <select class="form-select" id="invoiceStatus">
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+          </div>
+          <p class="dropdown-hint mb-3">Set a due date if this isn't paid yet — it'll show up as a reminder on the Attention page as it approaches or passes. Already collected the money? Set Status to Paid right here instead of a separate step.</p>
+
+          <label class="form-label">Line items</label>
+          <p class="dropdown-hint mb-2">Pick a service or a payment stage (Downpayment, Second Payment…) — type a new one and it's remembered for next time. Enter a % to auto-fill the amount from the deal value, or type the amount directly. Use "Add extra charge" for anything outside the original contract value (an add-on feature, extra service, etc.) — those don't factor into %.</p>
+          <div class="invoice-items-table">
+            <div class="invoice-items-head">
+              <span>Description</span><span>%</span><span>Amount</span><span></span>
+            </div>
+            <div id="invoiceItemsBody"></div>
+          </div>
+          <div class="d-flex gap-2 mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="addInvoiceItemBtn"><i class="bi bi-plus-lg"></i> Add item</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="addExtraChargeBtn"><i class="bi bi-stars"></i> Add extra charge</button>
+          </div>
+
+          <div class="invoice-editor-total">Total: <span id="invoiceEditorTotal">$0</span></div>
+
+          <div class="mt-3">
+            <label for="invoiceNotes" class="form-label">Notes (optional)</label>
+            <textarea class="form-control" id="invoiceNotes" rows="2" placeholder="Payment instructions, terms, thank-you note…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto d-none" id="invoiceEditorDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-ink btn-sm"><i class="bi bi-check-lg me-1"></i>Save invoice</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice print/view modal -->
+<div class="modal fade" id="invoicePrintModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="invoicePrintTitle">Invoice</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="invoicePrintBody"></div>
+      <div class="modal-footer invoice-print-footer">
+        <button type="button" class="link-btn" id="editInvoiceTemplateLink">Customize invoice template</button>
+        <div class="d-flex gap-2 ms-auto">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="printInvoiceBtn"><i class="bi bi-printer me-1"></i>Print</button>
+          <button type="button" class="btn btn-ink btn-sm" id="downloadInvoicePdfBtn"><i class="bi bi-file-earmark-arrow-down me-1"></i>Download PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice template modal — uploaded once, applied to every invoice -->
+<div class="modal fade" id="invoiceTemplateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Invoice template</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="dropdown-hint mb-3">Upload your logo and company details once — every invoice you create or print will use them automatically.</p>
+
+        <label class="form-label">Logo</label>
+        <div class="template-logo-row">
+          <img id="invoiceTemplateLogoPreview" class="template-logo-preview d-none" alt="Logo preview">
+          <div class="template-logo-empty" id="invoiceTemplateLogoEmpty"><i class="bi bi-image"></i></div>
+          <div>
+            <input type="file" accept="image/*" class="form-control form-control-sm" id="invoiceTemplateLogoInput">
+            <button type="button" class="link-btn mt-1 d-none" id="removeInvoiceTemplateLogoBtn">Remove logo</button>
+          </div>
+        </div>
+
+        <div class="mb-3 mt-3">
+          <label for="invoiceTemplateCompanyName" class="form-label">Company name</label>
+          <input type="text" class="form-control" id="invoiceTemplateCompanyName" placeholder="I&amp;S Group">
+        </div>
+        <div class="mb-3">
+          <label for="invoiceTemplateCompanyDetails" class="form-label">Company details</label>
+          <textarea class="form-control" id="invoiceTemplateCompanyDetails" rows="2" placeholder="Address, phone, email…"></textarea>
+        </div>
+        <div class="mb-1">
+          <label for="invoiceTemplateFooter" class="form-label">Footer note (appears on every invoice)</label>
+          <textarea class="form-control" id="invoiceTemplateFooter" rows="2" placeholder="Bank details, payment instructions, thank-you note…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-ink btn-sm" id="saveInvoiceTemplateBtn">Save template</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<!-- Add Document modal -->
+<div class="modal fade" id="documentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Add document</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="dropdown-hint mb-3">Upload a small file (under 350KB — contracts, briefs, scanned signatures) or paste a link to something stored elsewhere (Google Drive, Dropbox…) — better for anything bigger.</p>
+        <div class="mb-3">
+          <label for="docName" class="form-label">Name <span class="dropdown-hint d-inline">(optional — defaults to the filename or link)</span></label>
+          <input type="text" class="form-control" id="docName" list="documentNameOptionsList" placeholder="e.g. Signed contract">
+        </div>
+        <div class="mb-3">
+          <label for="docFile" class="form-label">Upload file <span class="dropdown-hint d-inline">(optional, under 350KB)</span></label>
+          <input type="file" class="form-control" id="docFile">
+        </div>
+        <div class="mb-1">
+          <label for="docUrl" class="form-label">Or paste a link <span class="dropdown-hint d-inline">(optional)</span></label>
+          <input type="url" class="form-control" id="docUrl" placeholder="https://drive.google.com/…">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-ink btn-sm" id="saveDocumentBtn"><i class="bi bi-plus-lg me-1"></i>Add document</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Document Preview modal -->
+<div class="modal fade" id="documentPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="documentPreviewTitle">Document</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" id="documentPreviewBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Expense modal -->
+<div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="expenseModalTitle">Add expense</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="expenseId">
+        <div class="mb-3">
+          <label for="expenseDescription" class="form-label">Description</label>
+          <input type="text" class="form-control" id="expenseDescription" list="expenseDescriptionOptionsList" placeholder="e.g. Freelance designer payment">
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label for="expenseCategory" class="form-label">Category</label>
+            <div class="dropdown-field">
+              <input type="text" class="form-control" id="expenseCategory" list="expenseCategoryOptionsList" placeholder="Select or type new…">
+              <i class="bi bi-chevron-down"></i>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label for="expenseDate" class="form-label">Date</label>
+            <input type="date" class="form-control" id="expenseDate">
+          </div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-8">
+            <label for="expenseAmount" class="form-label">Amount</label>
+            <input type="number" class="form-control" id="expenseAmount" min="0" step="1" placeholder="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label d-block">Currency</label>
+            <div class="btn-group w-100" role="group" aria-label="Expense currency">
+              <input type="radio" class="btn-check" name="expenseCurrency" id="expenseCurrencyUSD" value="USD" checked>
+              <label class="btn btn-outline-secondary" for="expenseCurrencyUSD">USD</label>
+              <input type="radio" class="btn-check" name="expenseCurrency" id="expenseCurrencySDG" value="SDG">
+              <label class="btn btn-outline-secondary" for="expenseCurrencySDG">SDG</label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-1">
+          <label for="expenseDeal" class="form-label">Linked deal <span class="dropdown-hint d-inline">(optional)</span></label>
+          <select class="form-select" id="expenseDeal">
+            <option value="">Not linked to a specific deal</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-danger me-auto d-none" id="expenseDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-ink btn-sm" id="saveExpenseBtn"><i class="bi bi-check-lg me-1"></i>Save expense</button>
+      </div>
+    </div>
+  </div>
+</div>
+<datalist id="expenseCategoryOptionsList"></datalist>
+<datalist id="expenseDescriptionOptionsList"></datalist>
+
+<!-- Invoice Status modal — opened by clicking Collected/Outstanding on the
+     Financial tab; lists the matching invoices with a suggested next step. -->
+<div class="modal fade" id="invoiceStatusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="invoiceStatusModalTitle">Invoices</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="invoiceStatusModalBody"></div>
+    </div>
+  </div>
+</div>
+<datalist id="documentNameOptionsList"></datalist>
+
+<!-- Floating quick-action — visible on every tab, not just Deals -->
+<button type="button" class="fab-new-deal" id="fabNewDealBtn" title="New deal" aria-label="New deal">
+  <i class="bi bi-plus-lg"></i>
+</button>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="appToast" class="toast align-items-center border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="appToastBody">Saved.</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap + ApexCharts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+<!-- App scripts — classic (non-module) scripts, loaded in dependency order.
+     See README.md for what lives where. -->
+<script src="js/storage.js"></script>
+<script src="js/dropdowns.js"></script>
+<script src="js/updates.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/deals-shared.js"></script>
+<script src="js/deals-table.js"></script>
+<script src="js/deals-wizard.js"></script>
+<script src="js/deals-detail.js"></script>
+<script src="js/invoices.js"></script>
+<script src="js/documents.js"></script>
+<script src="js/financial.js"></script>
+<script src="js/attention.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/today.js"></script>
+<script src="js/referrals.js"></script>
+<script src="js/contacts.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/globalsearch.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
