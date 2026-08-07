@@ -5,6 +5,11 @@
    toast, and calls each module's render function on startup.
    switchView() is the one thing every other module calls to
    jump tabs (optionally pre-filtered by a search term).
+
+   Startup now awaits initStorage() (see storage.js) once before
+   doing anything else, since deals/expenses/options/settings come
+   from Supabase instead of localStorage — everything after that
+   first await is unchanged from before.
    ============================================================ */
 
 const viewTabs = document.getElementById('viewTabs');
@@ -89,6 +94,9 @@ function renderEverything() {
 }
 
 // ---------- Theme (light / dark) ----------
+// Still a plain device-local preference — no reason to sync a screen color
+// choice across devices through the database, so this one thing keeps
+// using localStorage exactly as before.
 const THEME_KEY = 'deal-ledger:theme';
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const themeToggleIcon = document.getElementById('themeToggleIcon');
@@ -144,10 +152,52 @@ saveExchangeRateBtn.addEventListener('click', () => {
 });
 
 // ---------- Init ----------
-refreshAllDatalists();
-refreshExchangeRateLabel();
-recordTodaysSnapshotIfNeeded(getDeals());
-renderEverything();
+// initStorage() (storage.js) is the one async step in this whole app —
+// it loads deals/expenses/contact-updates/options/settings/snapshots from
+// Supabase into an in-memory cache. Everything below only runs after that
+// resolves, so every other file's getDeals()/getOptions()/etc. calls stay
+// perfectly synchronous.
+const dbLoadingOverlay = document.getElementById('dbLoadingOverlay');
+const dbLoadingMessage = document.getElementById('dbLoadingMessage');
+const dbLoadingRetryBtn = document.getElementById('dbLoadingRetryBtn');
 
-const fabNewDealBtn = document.getElementById('fabNewDealBtn');
-if (fabNewDealBtn) fabNewDealBtn.addEventListener('click', () => openWizard());
+function hideLoadingOverlay() {
+  if (dbLoadingOverlay) dbLoadingOverlay.classList.add('d-none');
+}
+
+function showLoadingError(message) {
+  if (!dbLoadingOverlay) { console.error(message); return; }
+  dbLoadingOverlay.classList.remove('d-none');
+  dbLoadingOverlay.classList.add('db-loading-overlay--error');
+  if (dbLoadingMessage) dbLoadingMessage.textContent = message;
+  if (dbLoadingRetryBtn) dbLoadingRetryBtn.classList.remove('d-none');
+}
+
+async function boot() {
+  await initStorage();
+
+  if (!dbReady) {
+    showLoadingError(dbInitError || 'Could not connect to the database.');
+    return;
+  }
+
+  hideLoadingOverlay();
+  refreshAllDatalists();
+  refreshExchangeRateLabel();
+  recordTodaysSnapshotIfNeeded(getDeals());
+  renderEverything();
+
+  const fabNewDealBtn = document.getElementById('fabNewDealBtn');
+  if (fabNewDealBtn) fabNewDealBtn.addEventListener('click', () => openWizard());
+}
+
+if (dbLoadingRetryBtn) {
+  dbLoadingRetryBtn.addEventListener('click', () => {
+    dbLoadingOverlay.classList.remove('db-loading-overlay--error');
+    dbLoadingRetryBtn.classList.add('d-none');
+    if (dbLoadingMessage) dbLoadingMessage.textContent = 'Connecting…';
+    boot();
+  });
+}
+
+boot();

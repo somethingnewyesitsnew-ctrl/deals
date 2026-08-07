@@ -24,8 +24,45 @@
     } catch (e) {}
   })();
 </script>
+<style>
+  /* Inline on purpose — this overlay only exists during the one async
+     step (initStorage() in storage.js) before the rest of the app's own
+     css/*.css files have anything to style, so it doesn't belong split
+     across those files the way everything else in this project is. */
+  .db-loading-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.9rem;
+    background: var(--bg, #F3F3F3); color: var(--text, #1B1B1B);
+    font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  }
+  .db-loading-overlay__spinner {
+    width: 2rem; height: 2rem; border-radius: 50%;
+    border: 3px solid rgba(0,120,212,0.2); border-top-color: #0078D4;
+    animation: db-loading-spin 0.8s linear infinite;
+  }
+  .db-loading-overlay--error .db-loading-overlay__spinner { display: none; }
+  .db-loading-overlay--error .db-loading-overlay__icon { display: block; }
+  .db-loading-overlay__icon { display: none; font-size: 2rem; color: #C42B1C; }
+  .db-loading-overlay__message { font-size: 0.9rem; color: var(--text-dim, #5C5C5C); max-width: 360px; text-align: center; line-height: 1.5; }
+  .db-loading-overlay__retry {
+    display: none; border: 1px solid rgba(0,0,0,0.14); background: #FFFFFF; color: #1B1B1B;
+    font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
+  }
+  @keyframes db-loading-spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
+
+<!-- Shown while initStorage() (storage.js) loads deals/options/settings
+     from Supabase; hidden by app.js once that resolves. If it fails
+     (bad keys, offline), it switches to an error state with a Retry
+     button instead of leaving the app stuck on a blank shell. -->
+<div class="db-loading-overlay" id="dbLoadingOverlay">
+  <div class="db-loading-overlay__spinner"></div>
+  <i class="bi bi-exclamation-triangle db-loading-overlay__icon"></i>
+  <p class="db-loading-overlay__message" id="dbLoadingMessage">Connecting…</p>
+  <button type="button" class="db-loading-overlay__retry" id="dbLoadingRetryBtn">Retry</button>
+</div>
 
 <div class="win-shell">
 
@@ -1307,9 +1344,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
 <!-- App scripts — classic (non-module) scripts, loaded in dependency order.
-     See README.md for what lives where. -->
+     See README.md for what lives where. storage.js now talks to Supabase
+     instead of localStorage — see the SETUP note at the top of that file. -->
 <script src="js/storage.js"></script>
 <script src="js/dropdowns.js"></script>
 <script src="js/updates.js"></script>

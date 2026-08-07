@@ -1,24 +1,250 @@
 /* ============================================================
    storage.js
    ------------------------------------------------------------
-   The ONLY file that touches localStorage. Everything else in
-   the app calls these functions. Swap the internals for real
-   backend (e.g. Supabase) calls later without touching any
-   other file.
+   The ONLY file that touches the database. Everything else in
+   the app still calls plain, SYNCHRONOUS functions like
+   getDeals() / saveDeal() / getOptions() exactly as before — this
+   file hides Supabase (Postgres) behind an in-memory cache so no
+   other file had to become async-aware.
 
-   Exposes (as plain globals, since these are classic scripts):
+   How it works:
+     1. On startup, app.js awaits initStorage() ONCE. That pulls
+        every deal/expense/contact-update/option/setting/snapshot
+        from Supabase into the caches below and subscribes to
+        Realtime changes on the shared tables.
+     2. After that, getDeals() etc. just read the cache — instant,
+        synchronous, same as localStorage.getItem() was.
+     3. saveDeal() / deleteDeal() / addOption() / setExchangeRate()
+        etc. update the cache immediately (so the UI feels instant)
+        AND fire a background write to Supabase. If that background
+        write fails (offline, bad keys), it's logged to the console
+        and surfaced via a toast if the app has finished loading —
+        the cache itself is NOT rolled back, so a flaky connection
+        doesn't yank data out from under the person mid-edit.
+
+   SETUP: fill in SUPABASE_URL and SUPABASE_ANON_KEY below with the
+   values from your Supabase project's Settings → API page, and run
+   supabase_schema.sql once in the SQL Editor. The anon/publishable
+   key is safe to ship in client-side code — see the schema file's
+   comment on Row Level Security for what that key can and can't do.
+   NEVER put the secret key or database password here — this file
+   ships to every browser that loads the page.
+
+   Exposes (same names/signatures as before, plus initStorage()):
+     - initStorage() -> Promise, call once before anything else
      - escapeHtml(str)
      - getDeals() / saveDeal(deal) / deleteDeal(id) / getNextEntryIndex()
+     - getExpenses() / saveExpense(expense) / deleteExpense(id)
+     - contactKeyOf(name, number) / getContactUpdates(key) /
+       addContactUpdate(key, entry) / deleteContactUpdate(key, id) /
+       getAllContactUpdatesFlat()
      - getOptions(key) / addOption(key, value)
+     - getExchangeRate() / setExchangeRate(rate)
+     - getRevenueGoal() / setRevenueGoal(amountUSD)
+     - getMetricSnapshots() / saveMetricSnapshot(dateKey, metrics) /
+       getSnapshotNDaysAgo(daysAgo)
+     - getInvoiceTemplate() / setInvoiceTemplate(template)
+     - getNextInvoiceNumber()
    ============================================================ */
 
-const DEALS_KEY = 'deal-ledger:deals';
+// ---------- Supabase config — fill these in ----------
+const SUPABASE_URL = 'https://tqjnahwfvhiictbmywog.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_bP8qpXFzl2oJDE_CiAJ6Xw_ibZahNZ8';
 
-function optionsStorageKey(key) {
-  return 'deal-ledger:opts:' + key;
+let supabaseClient = null;
+let dbReady = false;
+let dbInitError = null;
+
+// ---------- In-memory cache (what every other file actually reads) ----------
+let _dealsCache = [];               // array of deal objects, same shape as before
+let _expensesCache = [];            // array of expense objects, same shape as before
+let _contactUpdatesCache = {};      // { contactKey: [entry, entry, ...] }
+let _optionsCache = {};             // { relation: ['...','...'], channel: [...], ... }
+let _metricSnapshotsCache = [];     // [{ date, metrics }, ...]
+let _settingsCache = {              // mirrors the old localStorage-backed settings
+  usdToSdg: null,                   // null until loaded; getExchangeRate() falls back to default
+  revenueGoalUSD: 0,
+  invoiceCounter: 0,
+  invoiceTemplate: {},
+};
+
+const MAX_SNAPSHOTS = 120; // ~4 months of daily snapshots is plenty for week/month deltas
+
+// Fire-and-forget background persistence. Never throws into the caller —
+// storage functions already updated the cache and returned by the time
+// this runs, so a failure here just means "not saved to the cloud yet."
+function _bgPersist(promise, what) {
+  Promise.resolve(promise).then(({ error } = {}) => {
+    if (error) {
+      console.error('Supabase write failed (' + what + '):', error);
+      if (typeof showToast === 'function' && dbReady) {
+        showToast('Could not sync to the database — check your connection.');
+      }
+    }
+  }).catch(err => {
+    console.error('Supabase write threw (' + what + '):', err);
+  });
 }
 
-// ---------- Shared helpers ----------
+// ---------- Init — call once from app.js before rendering anything ----------
+async function initStorage() {
+  if (typeof window.supabase === 'undefined') {
+    dbInitError = 'The Supabase library did not load — check the <script> tag / your internet connection.';
+    console.error(dbInitError);
+    return;
+  }
+  if (SUPABASE_URL.includes('YOUR-PROJECT-REF') || SUPABASE_ANON_KEY.includes('YOUR-ANON-PUBLIC-KEY')) {
+    dbInitError = 'Supabase isn\'t configured yet — set SUPABASE_URL and SUPABASE_ANON_KEY at the top of storage.js.';
+    console.error(dbInitError);
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  try {
+    const [dealsRes, expensesRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
+      supabaseClient.from('deals').select('*'),
+      supabaseClient.from('expenses').select('*'),
+      supabaseClient.from('contact_updates').select('*'),
+      supabaseClient.from('options').select('*'),
+      supabaseClient.from('settings').select('*'),
+      supabaseClient.from('metric_snapshots').select('*'),
+    ]);
+
+    [dealsRes, expensesRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
+      if (res.error) throw res.error;
+    });
+
+    _dealsCache = (dealsRes.data || []).map(_rowToDeal);
+    _expensesCache = (expensesRes.data || []).map(_rowToExpense);
+
+    _contactUpdatesCache = {};
+    (contactUpdatesRes.data || []).forEach(row => {
+      const key = row.contact_key;
+      if (!_contactUpdatesCache[key]) _contactUpdatesCache[key] = [];
+      _contactUpdatesCache[key].push(Object.assign({ id: row.id }, row.data));
+    });
+
+    _optionsCache = {};
+    (optionsRes.data || []).forEach(row => {
+      if (!_optionsCache[row.key]) _optionsCache[row.key] = [];
+      _optionsCache[row.key].push(row.value);
+    });
+
+    (settingsRes.data || []).forEach(row => {
+      _settingsCache[row.key] = row.value;
+    });
+
+    _metricSnapshotsCache = (snapshotsRes.data || [])
+      .map(row => ({ date: row.date, metrics: row.metrics }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    _subscribeToRealtime();
+    dbReady = true;
+  } catch (err) {
+    dbInitError = (err && err.message) ? err.message : 'Could not reach the database.';
+    console.error('initStorage failed:', err);
+  }
+}
+
+// Live sync: if another tab/device changes deals/expenses/contact updates,
+// refresh that slice of the cache and re-render. Simple "refetch the whole
+// table" on any change — this app's own data is small enough that it's
+// cheap, and it avoids subtle merge bugs from patching individual rows.
+function _subscribeToRealtime() {
+  if (!supabaseClient) return;
+
+  supabaseClient
+    .channel('deals-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, () => {
+      supabaseClient.from('deals').select('*').then(({ data, error }) => {
+        if (error) { console.error('Realtime refresh failed (deals):', error); return; }
+        _dealsCache = (data || []).map(_rowToDeal);
+        if (typeof renderEverything === 'function') renderEverything();
+      });
+    })
+    .subscribe();
+
+  supabaseClient
+    .channel('expenses-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
+      supabaseClient.from('expenses').select('*').then(({ data, error }) => {
+        if (error) { console.error('Realtime refresh failed (expenses):', error); return; }
+        _expensesCache = (data || []).map(_rowToExpense);
+        if (typeof renderFinancial === 'function') renderFinancial();
+      });
+    })
+    .subscribe();
+
+  supabaseClient
+    .channel('contact-updates-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_updates' }, () => {
+      supabaseClient.from('contact_updates').select('*').then(({ data, error }) => {
+        if (error) { console.error('Realtime refresh failed (contact_updates):', error); return; }
+        _contactUpdatesCache = {};
+        (data || []).forEach(row => {
+          const key = row.contact_key;
+          if (!_contactUpdatesCache[key]) _contactUpdatesCache[key] = [];
+          _contactUpdatesCache[key].push(Object.assign({ id: row.id }, row.data));
+        });
+        if (typeof renderEverything === 'function') renderEverything();
+      });
+    })
+    .subscribe();
+}
+
+// ---------- Row <-> object shape converters ----------
+function _rowToDeal(row) {
+  return Object.assign({}, row.data, {
+    id: row.id,
+    entryIndex: row.entry_index,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+function _dealToRow(deal) {
+  const data = Object.assign({}, deal);
+  delete data.id;
+  delete data.entryIndex;
+  delete data.createdAt;
+  delete data.updatedAt;
+  return {
+    id: deal.id,
+    entry_index: deal.entryIndex,
+    created_at: deal.createdAt,
+    updated_at: deal.updatedAt,
+    data,
+  };
+}
+
+function _rowToExpense(row) {
+  return {
+    id: row.id,
+    description: row.description,
+    category: row.category,
+    amount: row.amount,
+    currency: row.currency,
+    date: row.date,
+    dealId: row.deal_id,
+    createdAt: row.created_at,
+  };
+}
+
+function _expenseToRow(expense) {
+  return {
+    id: expense.id,
+    description: expense.description || '',
+    category: expense.category || '',
+    amount: Number(expense.amount) || 0,
+    currency: expense.currency || 'USD',
+    date: expense.date || '',
+    deal_id: expense.dealId || null,
+    created_at: expense.createdAt,
+  };
+}
+
+// ---------- Shared helpers (unchanged — pure logic, no storage) ----------
 // Relative "time since" label, e.g. "3h ago", "5d ago". Used for the
 // deals table's "Last activity" column and the detail modal.
 function timeAgo(ts) {
@@ -56,53 +282,45 @@ function escapeHtml(str) {
 }
 
 // ---------- Deals ----------
-function readAllDeals() {
-  try {
-    const raw = localStorage.getItem(DEALS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (err) {
-    console.error('Failed to read deals from storage', err);
-    return [];
-  }
-}
-
-function writeAllDeals(deals) {
-  localStorage.setItem(DEALS_KEY, JSON.stringify(deals));
-}
-
 function getDeals() {
-  return readAllDeals().sort((a, b) => a.entryIndex - b.entryIndex);
+  return _dealsCache.slice().sort((a, b) => a.entryIndex - b.entryIndex);
 }
 
 function getNextEntryIndex() {
-  const deals = readAllDeals();
-  if (deals.length === 0) return 1;
-  return Math.max(...deals.map(d => d.entryIndex)) + 1;
+  if (_dealsCache.length === 0) return 1;
+  return Math.max(..._dealsCache.map(d => d.entryIndex)) + 1;
 }
 
 function saveDeal(deal) {
-  const deals = readAllDeals();
-  const existingIdx = deals.findIndex(d => d.id === deal.id);
+  const existingIdx = _dealsCache.findIndex(d => d.id === deal.id);
+  let saved;
 
   if (existingIdx >= 0) {
-    deals[existingIdx] = Object.assign({}, deals[existingIdx], deal, { updatedAt: Date.now() });
+    saved = Object.assign({}, _dealsCache[existingIdx], deal, { updatedAt: Date.now() });
+    _dealsCache[existingIdx] = saved;
   } else {
-    deals.push(Object.assign({}, deal, {
+    saved = Object.assign({}, deal, {
       id: deal.id || crypto.randomUUID(),
       entryIndex: getNextEntryIndex(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    }));
+    });
+    _dealsCache.push(saved);
   }
 
-  writeAllDeals(deals);
-  return deals;
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('deals').upsert(_dealToRow(saved), { onConflict: 'id' }), 'saveDeal');
+  }
+
+  return _dealsCache;
 }
 
 function deleteDeal(id) {
-  const deals = readAllDeals().filter(d => d.id !== id);
-  writeAllDeals(deals);
-  return deals;
+  _dealsCache = _dealsCache.filter(d => d.id !== id);
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('deals').delete().eq('id', id), 'deleteDeal');
+  }
+  return _dealsCache;
 }
 
 // Distinct entity names seen across deals — powers the entity-name
@@ -120,37 +338,35 @@ function getEntityNames() {
 }
 
 // ---------- Expenses ----------
-// A new top-level entity (not deal-scoped like invoices/commLog) — a business
+// A top-level entity (not deal-scoped like invoices/commLog) — a business
 // expense can exist with no deal at all (rent, software subscriptions) or
 // optionally link to one (a contractor paid specifically for that project).
-const EXPENSES_KEY = 'deal-ledger:expenses';
-
 function getExpenses() {
-  let expenses;
-  try {
-    expenses = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
-  } catch (err) {
-    expenses = [];
-  }
-  return expenses.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  return _expensesCache.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 
 function saveExpense(expense) {
-  const expenses = getExpenses();
-  const idx = expenses.findIndex(e => e.id === expense.id);
+  const idx = _expensesCache.findIndex(e => e.id === expense.id);
+  let saved;
   if (idx >= 0) {
-    expenses[idx] = Object.assign({}, expenses[idx], expense);
+    saved = Object.assign({}, _expensesCache[idx], expense);
+    _expensesCache[idx] = saved;
   } else {
-    expenses.push(Object.assign({}, expense, { id: expense.id || crypto.randomUUID(), createdAt: Date.now() }));
+    saved = Object.assign({}, expense, { id: expense.id || crypto.randomUUID(), createdAt: Date.now() });
+    _expensesCache.push(saved);
   }
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
-  return expenses;
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('expenses').upsert(_expenseToRow(saved), { onConflict: 'id' }), 'saveExpense');
+  }
+  return _expensesCache;
 }
 
 function deleteExpense(id) {
-  const expenses = getExpenses().filter(e => e.id !== id);
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
-  return expenses;
+  _expensesCache = _expensesCache.filter(e => e.id !== id);
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('expenses').delete().eq('id', id), 'deleteExpense');
+  }
+  return _expensesCache;
 }
 
 // ---------- Contact-level updates ----------
@@ -158,44 +374,36 @@ function deleteExpense(id) {
 // computed live from every deal's firstContact/projectManager. But a
 // contact's update history genuinely doesn't belong to any single deal
 // (the same person can be the contact on several deals at once), so their
-// updates get their own storage key, keyed by the same identity
-// contacts.js already groups by: lowercased name + '|' + number.
-const CONTACT_UPDATES_KEY = 'deal-ledger:contact-updates';
-
+// updates get their own table, keyed by the same identity contacts.js
+// already groups by: lowercased name + '|' + number.
 function contactKeyOf(name, number) {
   return (name || '').trim().toLowerCase() + '|' + (number || '').trim();
 }
 
-function readContactUpdatesMap() {
-  try {
-    return JSON.parse(localStorage.getItem(CONTACT_UPDATES_KEY) || '{}');
-  } catch (err) {
-    return {};
-  }
-}
-
-function writeContactUpdatesMap(map) {
-  localStorage.setItem(CONTACT_UPDATES_KEY, JSON.stringify(map));
-}
-
 function getContactUpdates(contactKey) {
-  const map = readContactUpdatesMap();
-  return (map[contactKey] || []).slice();
+  return (_contactUpdatesCache[contactKey] || []).slice();
 }
 
 function addContactUpdate(contactKey, entry) {
-  const map = readContactUpdatesMap();
-  const list = (map[contactKey] || []).slice();
-  list.push(Object.assign({ id: crypto.randomUUID() }, entry));
-  map[contactKey] = list;
-  writeContactUpdatesMap(map);
-  return list;
+  const id = crypto.randomUUID();
+  const full = Object.assign({ id }, entry);
+  if (!_contactUpdatesCache[contactKey]) _contactUpdatesCache[contactKey] = [];
+  _contactUpdatesCache[contactKey].push(full);
+
+  if (supabaseClient) {
+    _bgPersist(
+      supabaseClient.from('contact_updates').upsert({ id, contact_key: contactKey, data: entry }, { onConflict: 'id' }),
+      'addContactUpdate'
+    );
+  }
+  return _contactUpdatesCache[contactKey];
 }
 
 function deleteContactUpdate(contactKey, entryId) {
-  const map = readContactUpdatesMap();
-  map[contactKey] = (map[contactKey] || []).filter(e => e.id !== entryId);
-  writeContactUpdatesMap(map);
+  _contactUpdatesCache[contactKey] = (_contactUpdatesCache[contactKey] || []).filter(e => e.id !== entryId);
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('contact_updates').delete().eq('id', entryId), 'deleteContactUpdate');
+  }
 }
 
 // Every contact update, across every contact, flattened and tagged with its
@@ -203,10 +411,9 @@ function deleteContactUpdate(contactKey, entryId) {
 // contact-level follow-ups in alongside deal-level ones without having to
 // loop the whole map themselves.
 function getAllContactUpdatesFlat() {
-  const map = readContactUpdatesMap();
   const out = [];
-  Object.keys(map).forEach(key => {
-    (map[key] || []).forEach(entry => out.push(Object.assign({ contactKey: key }, entry)));
+  Object.keys(_contactUpdatesCache).forEach(key => {
+    (_contactUpdatesCache[key] || []).forEach(entry => out.push(Object.assign({ contactKey: key }, entry)));
   });
   return out;
 }
@@ -270,12 +477,7 @@ const SEED_OPTIONS = {
 
 function getOptions(key) {
   const seed = SEED_OPTIONS[key] || [];
-  let custom = [];
-  try {
-    custom = JSON.parse(localStorage.getItem(optionsStorageKey(key)) || '[]');
-  } catch (err) {
-    custom = [];
-  }
+  const custom = _optionsCache[key] || [];
   const seen = new Set(seed.map(s => s.toLowerCase()));
   const merged = seed.slice();
   custom.forEach(c => {
@@ -294,59 +496,55 @@ function addOption(key, value) {
   const seed = SEED_OPTIONS[key] || [];
   if (seed.some(s => s.toLowerCase() === value.toLowerCase())) return;
 
-  let custom = [];
-  try {
-    custom = JSON.parse(localStorage.getItem(optionsStorageKey(key)) || '[]');
-  } catch (err) {
-    custom = [];
-  }
+  const custom = _optionsCache[key] || [];
   if (custom.some(c => c.toLowerCase() === value.toLowerCase())) return;
 
-  custom.push(value);
-  localStorage.setItem(optionsStorageKey(key), JSON.stringify(custom));
+  _optionsCache[key] = custom.concat([value]);
+
+  if (supabaseClient) {
+    _bgPersist(
+      supabaseClient.from('options').upsert({ key, value }, { onConflict: 'key,value', ignoreDuplicates: true }),
+      'addOption'
+    );
+  }
 }
 
 // ---------- Dual currency (USD / SDG) ----------
-// One global exchange rate, editable in Settings. Deals store only the
-// currency + amount as entered (original*); every displayed figure is
-// converted live from the CURRENT rate, so changing the rate updates every
-// display instantly without altering what was originally entered.
-const SETTINGS_KEY = 'deal-ledger:settings';
-const DEFAULT_EXCHANGE_RATE = 3200; // 1 USD = this many SDG, until the user sets their own
-
-function getSettings() {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (err) {
-    return {};
-  }
-}
+// One shared exchange rate, editable in Settings, synced through the
+// `settings` table so it's the same for everyone hitting this database.
+// Deals still store only the currency + amount as entered; every displayed
+// figure is converted live from the CURRENT rate.
+const DEFAULT_EXCHANGE_RATE = 3200; // 1 USD = this many SDG, until someone sets their own
 
 function getExchangeRate() {
-  const rate = Number(getSettings().usdToSdg);
+  const rate = Number(_settingsCache.usdToSdg);
   return rate > 0 ? rate : DEFAULT_EXCHANGE_RATE;
 }
 
 function setExchangeRate(rate) {
   rate = Number(rate);
   if (!(rate > 0)) return;
-  const settings = getSettings();
-  settings.usdToSdg = rate;
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  _settingsCache.usdToSdg = rate;
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('settings').upsert({ key: 'usdToSdg', value: rate }, { onConflict: 'key' }), 'setExchangeRate');
+  }
 }
 
 // ---------- Revenue goal (used by the Overview dashboard's goal tracker) ----------
 function getRevenueGoal() {
-  const goal = Number(getSettings().revenueGoalUSD);
+  const goal = Number(_settingsCache.revenueGoalUSD);
   return goal > 0 ? goal : 0;
 }
 
 function setRevenueGoal(amountUSD) {
   amountUSD = Number(amountUSD);
-  const settings = getSettings();
-  settings.revenueGoalUSD = amountUSD > 0 ? amountUSD : 0;
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  _settingsCache.revenueGoalUSD = amountUSD > 0 ? amountUSD : 0;
+  if (supabaseClient) {
+    _bgPersist(
+      supabaseClient.from('settings').upsert({ key: 'revenueGoalUSD', value: _settingsCache.revenueGoalUSD }, { onConflict: 'key' }),
+      'setRevenueGoal'
+    );
+  }
 }
 
 // ---------- Metric snapshots (powers real week-over-week deltas on Overview) ----------
@@ -355,23 +553,28 @@ function setRevenueGoal(amountUSD) {
 // since last week" — without stored history there's nothing real to compare
 // against, so we take a snapshot once per day (see recordTodaysSnapshotIfNeeded
 // in charts.js) instead of ever fabricating a trend.
-const METRIC_SNAPSHOTS_KEY = 'deal-ledger:metric-snapshots';
-const MAX_SNAPSHOTS = 120; // ~4 months of daily snapshots is plenty for week/month deltas
-
 function getMetricSnapshots() {
-  try {
-    return JSON.parse(localStorage.getItem(METRIC_SNAPSHOTS_KEY) || '[]');
-  } catch (err) {
-    return [];
-  }
+  return _metricSnapshotsCache.slice();
 }
 
 function saveMetricSnapshot(dateKey, metrics) {
-  let snapshots = getMetricSnapshots().filter(s => s.date !== dateKey);
+  let snapshots = _metricSnapshotsCache.filter(s => s.date !== dateKey);
   snapshots.push({ date: dateKey, metrics });
   snapshots.sort((a, b) => a.date.localeCompare(b.date));
-  if (snapshots.length > MAX_SNAPSHOTS) snapshots = snapshots.slice(-MAX_SNAPSHOTS);
-  localStorage.setItem(METRIC_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+
+  let trimmedOutDates = [];
+  if (snapshots.length > MAX_SNAPSHOTS) {
+    trimmedOutDates = snapshots.slice(0, snapshots.length - MAX_SNAPSHOTS).map(s => s.date);
+    snapshots = snapshots.slice(-MAX_SNAPSHOTS);
+  }
+  _metricSnapshotsCache = snapshots;
+
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('metric_snapshots').upsert({ date: dateKey, metrics }, { onConflict: 'date' }), 'saveMetricSnapshot');
+    if (trimmedOutDates.length) {
+      _bgPersist(supabaseClient.from('metric_snapshots').delete().in('date', trimmedOutDates), 'trimMetricSnapshots');
+    }
+  }
 }
 
 // Finds the snapshot closest to (but not after) `daysAgo` days ago — e.g.
@@ -381,9 +584,8 @@ function getSnapshotNDaysAgo(daysAgo) {
   const target = new Date();
   target.setDate(target.getDate() - daysAgo);
   const targetKey = target.toISOString().slice(0, 10);
-  const snapshots = getMetricSnapshots();
   let best = null;
-  snapshots.forEach(s => {
+  _metricSnapshotsCache.forEach(s => {
     if (s.date <= targetKey && (!best || s.date > best.date)) best = s;
   });
   return best;
@@ -415,27 +617,33 @@ function formatUSD(amount) {
 
 // Sequential, unique across the whole system — "INV-0001", "INV-0002", ...
 // Only call this when actually starting a NEW invoice, not on every render.
+// Note: incrementing this in the browser and syncing in the background
+// means two people creating an invoice in the same instant, on two
+// different devices, could theoretically collide on a number. Rare for a
+// small business's own usage; if that ever matters, replace this with a
+// Postgres sequence called via an RPC function instead.
 function getNextInvoiceNumber() {
-  const key = 'deal-ledger:invoice-counter';
-  let n = Number(localStorage.getItem(key)) || 0;
-  n += 1;
-  localStorage.setItem(key, String(n));
+  const n = (Number(_settingsCache.invoiceCounter) || 0) + 1;
+  _settingsCache.invoiceCounter = n;
+  if (supabaseClient) {
+    _bgPersist(supabaseClient.from('settings').upsert({ key: 'invoiceCounter', value: n }, { onConflict: 'key' }), 'getNextInvoiceNumber');
+  }
   return 'INV-' + String(n).padStart(4, '0');
 }
 
 // ---------- Invoice template (upload-once branding used on every invoice) ----------
-const INVOICE_TEMPLATE_KEY = 'deal-ledger:invoice-template';
-
 function getInvoiceTemplate() {
-  try {
-    return JSON.parse(localStorage.getItem(INVOICE_TEMPLATE_KEY) || '{}');
-  } catch (err) {
-    return {};
-  }
+  return _settingsCache.invoiceTemplate || {};
 }
 
 function setInvoiceTemplate(template) {
-  localStorage.setItem(INVOICE_TEMPLATE_KEY, JSON.stringify(template || {}));
+  _settingsCache.invoiceTemplate = template || {};
+  if (supabaseClient) {
+    _bgPersist(
+      supabaseClient.from('settings').upsert({ key: 'invoiceTemplate', value: template || {} }, { onConflict: 'key' }),
+      'setInvoiceTemplate'
+    );
+  }
 }
 
 // Returns an HTML string: the amount in its original currency (bold),
