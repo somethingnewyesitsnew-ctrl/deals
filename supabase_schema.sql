@@ -136,8 +136,18 @@ create policy "metric_snapshots_anon_all" on metric_snapshots for all using (tru
 -- ------------------------------------------------------------
 -- Lets a second open tab/device pick up changes live. storage.js
 -- subscribes to `deals` changes if this is enabled; harmless if you
--- skip it.
+-- skip it. Guarded so re-running this script is always safe, even
+-- if a table was already added to the publication before.
 -- ============================================================
-alter publication supabase_realtime add table deals;
-alter publication supabase_realtime add table expenses;
-alter publication supabase_realtime add table contact_updates;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'deals') then
+    alter publication supabase_realtime add table deals;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'expenses') then
+    alter publication supabase_realtime add table expenses;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'contact_updates') then
+    alter publication supabase_realtime add table contact_updates;
+  end if;
+end $$;
