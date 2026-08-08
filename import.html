@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Ledger — Import local data to Supabase</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { max-width: 720px; margin: 2.5rem auto; padding: 0 1.25rem; font-family: system-ui, sans-serif; }
+  h1 { font-size: 1.4rem; }
+  #log { background: #1B1B1B; color: #C5F0C5; font-family: 'Cascadia Mono', Consolas, monospace; font-size: 0.82rem;
+         padding: 1rem; border-radius: 8px; height: 320px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; }
+  .log-error { color: #FF9A9A; }
+  .log-warn { color: #FCE100; }
+  .count-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; margin: 1rem 0; }
+  .count-card { border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem 0.8rem; }
+  .count-card strong { display: block; font-size: 1.3rem; }
+</style>
+</head>
+<body>
+
+<h1>Import local data into Supabase</h1>
+<p class="text-muted">
+  This page reads the old <code>deal-ledger:*</code> data still sitting in this browser's
+  local storage (from before the switch to Supabase) and uploads it into your database.
+  It only sees data from <strong>this browser, on this device</strong> — if your data was
+  entered on a different computer/browser, open this same page there instead.
+</p>
+<p class="text-muted">
+  Safe to click "Scan" as many times as you want. Import uses upsert, so re-running it
+  won't create duplicates — but it also won't undo anything, so it's a one-way push.
+</p>
+
+<button type="button" class="btn btn-outline-secondary" id="scanBtn">1. Scan this browser's local storage</button>
+<div class="count-grid" id="countGrid"></div>
+<button type="button" class="btn btn-primary d-none" id="importBtn">2. Import everything into Supabase</button>
+
+<div id="log">Click "Scan" to see what's stored in this browser…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // Same public key storage.js uses — safe to ship client-side.
+  const SUPABASE_URL = 'https://tqjnahwfvhiictbmywog.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_bP8qpXFzl2oJDE_CiAJ6Xw_ibZahNZ8';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const logEl = document.getElementById('log');
+  const countGrid = document.getElementById('countGrid');
+  const scanBtn = document.getElementById('scanBtn');
+  const importBtn = document.getElementById('importBtn');
+
+  function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function clearLog() { logEl.innerHTML = ''; }
+
+  function readJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (err) {
+      log('Could not parse ' + key + ': ' + err.message, 'log-error');
+      return fallback;
+    }
+  }
+
+  let scanned = null;
+
+  function scan() {
+    clearLog();
+    const deals = readJSON('deal-ledger:deals', []);
+    const expenses = readJSON('deal-ledger:expenses', []);
+    const contactUpdatesMap = readJSON('deal-ledger:contact-updates', {});
+    const settings = readJSON('deal-ledger:settings', {});
+    const invoiceCounter = Number(localStorage.getItem('deal-ledger:invoice-counter')) || 0;
+    const invoiceTemplate = readJSON('deal-ledger:invoice-template', {});
+    const metricSnapshots = readJSON('deal-ledger:metric-snapshots', []);
+
+    const options = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('deal-ledger:opts:') === 0) {
+        const optKey = k.slice('deal-ledger:opts:'.length);
+        options[optKey] = readJSON(k, []);
+      }
+    }
+
+    let contactUpdateCount = 0;
+    Object.values(contactUpdatesMap).forEach(list => { contactUpdateCount += (list || []).length; });
+    let optionCount = 0;
+    Object.values(options).forEach(list => { optionCount += (list || []).length; });
+
+    scanned = { deals, expenses, contactUpdatesMap, settings, invoiceCounter, invoiceTemplate, metricSnapshots, options };
+
+    countGrid.innerHTML = [
+      ['Deals', deals.length],
+      ['Expenses', expenses.length],
+      ['Contact updates', contactUpdateCount],
+      ['Custom options', optionCount],
+      ['Metric snapshots', metricSnapshots.length],
+    ].map(([label, n]) => '<div class="count-card"><strong>' + n + '</strong>' + label + '</div>').join('');
+
+    log('Scan complete.');
+    if (deals.length === 0 && expenses.length === 0 && contactUpdateCount === 0 && optionCount === 0) {
+      log('Nothing found in this browser\'s local storage — you may be on the wrong device/browser, or it\'s already empty.', 'log-warn');
+      importBtn.classList.add('d-none');
+    } else {
+      importBtn.classList.remove('d-none');
+    }
+  }
+
+  function dealToRow(deal) {
+    const data = Object.assign({}, deal);
+    delete data.id; delete data.entryIndex; delete data.createdAt; delete data.updatedAt;
+    return { id: deal.id, entry_index: deal.entryIndex, created_at: deal.createdAt, updated_at: deal.updatedAt, data };
+  }
+
+  function expenseToRow(expense) {
+    return {
+      id: expense.id, description: expense.description || '', category: expense.category || '',
+      amount: Number(expense.amount) || 0, currency: expense.currency || 'USD', date: expense.date || '',
+      deal_id: expense.dealId || null, created_at: expense.createdAt,
+    };
+  }
+
+  async function upsertBatch(table, rows, onConflict, label) {
+    if (!rows.length) { log('No ' + label + ' to import.'); return; }
+    const { error } = await sb.from(table).upsert(rows, { onConflict });
+    if (error) { log('FAILED importing ' + label + ': ' + error.message, 'log-error'); }
+    else { log('Imported ' + rows.length + ' ' + label + '.'); }
+  }
+
+  async function runImport() {
+    if (!scanned) return;
+    importBtn.disabled = true;
+    scanBtn.disabled = true;
+    clearLog();
+    log('Starting import…');
+
+    await upsertBatch('deals', scanned.deals.map(dealToRow), 'id', 'deals');
+    await upsertBatch('expenses', scanned.expenses.map(expenseToRow), 'id', 'expenses');
+
+    const contactRows = [];
+    Object.keys(scanned.contactUpdatesMap).forEach(contactKey => {
+      (scanned.contactUpdatesMap[contactKey] || []).forEach(entry => {
+        const data = Object.assign({}, entry);
+        const id = data.id || (self.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+        delete data.id;
+        contactRows.push({ id, contact_key: contactKey, data });
+      });
+    });
+    await upsertBatch('contact_updates', contactRows, 'id', 'contact updates');
+
+    const optionRows = [];
+    Object.keys(scanned.options).forEach(key => {
+      (scanned.options[key] || []).forEach(value => { optionRows.push({ key, value }); });
+    });
+    await upsertBatch('options', optionRows, 'key,value', 'custom dropdown options');
+
+    const settingsRows = [];
+    if (scanned.settings.usdToSdg) settingsRows.push({ key: 'usdToSdg', value: Number(scanned.settings.usdToSdg) });
+    if (scanned.settings.revenueGoalUSD) settingsRows.push({ key: 'revenueGoalUSD', value: Number(scanned.settings.revenueGoalUSD) });
+    if (scanned.invoiceCounter) settingsRows.push({ key: 'invoiceCounter', value: scanned.invoiceCounter });
+    if (scanned.invoiceTemplate && Object.keys(scanned.invoiceTemplate).length) settingsRows.push({ key: 'invoiceTemplate', value: scanned.invoiceTemplate });
+    await upsertBatch('settings', settingsRows, 'key', 'settings');
+
+    await upsertBatch('metric_snapshots', scanned.metricSnapshots, 'date', 'metric snapshots');
+
+    log('');
+    log('Done. Go back to the main app and refresh — everything should now show up.');
+    importBtn.disabled = false;
+    scanBtn.disabled = false;
+  }
+
+  scanBtn.addEventListener('click', scan);
+  importBtn.addEventListener('click', runImport);
+</script>
+</body>
+</html>
