@@ -6,8 +6,9 @@
 <title>Deal Ledger — Import local data to Supabase</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <style>
-  body { max-width: 720px; margin: 2.5rem auto; padding: 0 1.25rem; font-family: system-ui, sans-serif; }
+  body { max-width: 760px; margin: 2.5rem auto; padding: 0 1.25rem; font-family: system-ui, sans-serif; }
   h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; }
   #log { background: #1B1B1B; color: #C5F0C5; font-family: 'Cascadia Mono', Consolas, monospace; font-size: 0.82rem;
          padding: 1rem; border-radius: 8px; height: 320px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; }
   .log-error { color: #FF9A9A; }
@@ -15,27 +16,44 @@
   .count-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; margin: 1rem 0; }
   .count-card { border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem 0.8rem; }
   .count-card strong { display: block; font-size: 1.3rem; }
+  .console-snippet { background: #1B1B1B; color: #9CDCFE; font-family: 'Cascadia Mono', Consolas, monospace;
+    font-size: 0.8rem; padding: 0.75rem; border-radius: 8px; overflow-x: auto; user-select: all; }
+  textarea#pasteArea { width: 100%; font-family: 'Cascadia Mono', Consolas, monospace; font-size: 0.78rem; }
 </style>
 </head>
 <body>
 
 <h1>Import local data into Supabase</h1>
 <p class="text-muted">
-  This page reads the old <code>deal-ledger:*</code> data still sitting in this browser's
-  local storage (from before the switch to Supabase) and uploads it into your database.
-  It only sees data from <strong>this browser, on this device</strong> — if your data was
-  entered on a different computer/browser, open this same page there instead.
-</p>
-<p class="text-muted">
-  Safe to click "Scan" as many times as you want. Import uses upsert, so re-running it
-  won't create duplicates — but it also won't undo anything, so it's a one-way push.
+  This reads the old <code>deal-ledger:*</code> data still sitting in browser local storage
+  (from before the switch to Supabase) and uploads it into your database.
+  Safe to run more than once — import uses upsert, so re-running won't create duplicates.
 </p>
 
-<button type="button" class="btn btn-outline-secondary" id="scanBtn">1. Scan this browser's local storage</button>
+<h2>Option A — data entered on this exact page/browser</h2>
+<button type="button" class="btn btn-outline-secondary" id="scanBtn">Scan this browser's local storage</button>
 <div class="count-grid" id="countGrid"></div>
-<button type="button" class="btn btn-primary d-none" id="importBtn">2. Import everything into Supabase</button>
 
-<div id="log">Click "Scan" to see what's stored in this browser…</div>
+<h2>Option B — data entered somewhere else (a local file, an older URL, another browser)</h2>
+<p class="text-muted">
+  Local storage is scoped per browser + per exact URL/file path — so if you ever opened this
+  app by double-clicking the HTML file, or from a different folder/URL, that data lives in a
+  <em>separate</em> bucket this page can't see directly. To bring it over:
+</p>
+<ol class="text-muted">
+  <li>Open <strong>that</strong> copy of the app in a browser (the file, or old URL, where your deals actually are).</li>
+  <li>Open DevTools (F12 or right-click → Inspect) → the <strong>Console</strong> tab.</li>
+  <li>Paste this in and press Enter — it copies your data to the clipboard automatically:</li>
+</ol>
+<pre class="console-snippet">copy(JSON.stringify(Object.fromEntries(Object.keys(localStorage).filter(k =&gt; k.startsWith('deal-ledger:')).map(k =&gt; [k, localStorage.getItem(k)]))))</pre>
+<p class="text-muted">Then come back to <strong>this</strong> page and paste it below:</p>
+<textarea id="pasteArea" class="form-control" rows="4" placeholder="Paste the copied JSON here…"></textarea>
+<button type="button" class="btn btn-outline-secondary mt-2" id="loadPastedBtn">Load pasted data</button>
+
+<hr class="my-4">
+<button type="button" class="btn btn-primary d-none" id="importBtn">Import everything into Supabase</button>
+
+<div id="log">Use Option A or B above to load data, then Import.</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
@@ -48,6 +66,8 @@
   const countGrid = document.getElementById('countGrid');
   const scanBtn = document.getElementById('scanBtn');
   const importBtn = document.getElementById('importBtn');
+  const pasteArea = document.getElementById('pasteArea');
+  const loadPastedBtn = document.getElementById('loadPastedBtn');
 
   function log(msg, cls) {
     const line = document.createElement('div');
@@ -58,9 +78,25 @@
   }
   function clearLog() { logEl.innerHTML = ''; }
 
-  function readJSON(key, fallback) {
+  // Abstracts "read from this browser's real localStorage" vs "read from a
+  // plain object parsed out of pasted JSON copied from somewhere else" —
+  // everything downstream (scan, import) doesn't care which one it's using.
+  function buildAccessor(pastedObj) {
+    if (pastedObj) {
+      return {
+        getItem: (k) => (Object.prototype.hasOwnProperty.call(pastedObj, k) ? pastedObj[k] : null),
+        allKeys: () => Object.keys(pastedObj),
+      };
+    }
+    return {
+      getItem: (k) => localStorage.getItem(k),
+      allKeys: () => { const out = []; for (let i = 0; i < localStorage.length; i++) out.push(localStorage.key(i)); return out; },
+    };
+  }
+
+  function readJSON(accessor, key, fallback) {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = accessor.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
     } catch (err) {
       log('Could not parse ' + key + ': ' + err.message, 'log-error');
@@ -70,24 +106,23 @@
 
   let scanned = null;
 
-  function scan() {
+  function scan(accessor, sourceLabel) {
     clearLog();
-    const deals = readJSON('deal-ledger:deals', []);
-    const expenses = readJSON('deal-ledger:expenses', []);
-    const contactUpdatesMap = readJSON('deal-ledger:contact-updates', {});
-    const settings = readJSON('deal-ledger:settings', {});
-    const invoiceCounter = Number(localStorage.getItem('deal-ledger:invoice-counter')) || 0;
-    const invoiceTemplate = readJSON('deal-ledger:invoice-template', {});
-    const metricSnapshots = readJSON('deal-ledger:metric-snapshots', []);
+    const deals = readJSON(accessor, 'deal-ledger:deals', []);
+    const expenses = readJSON(accessor, 'deal-ledger:expenses', []);
+    const contactUpdatesMap = readJSON(accessor, 'deal-ledger:contact-updates', {});
+    const settings = readJSON(accessor, 'deal-ledger:settings', {});
+    const invoiceCounter = Number(accessor.getItem('deal-ledger:invoice-counter')) || 0;
+    const invoiceTemplate = readJSON(accessor, 'deal-ledger:invoice-template', {});
+    const metricSnapshots = readJSON(accessor, 'deal-ledger:metric-snapshots', []);
 
     const options = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
+    accessor.allKeys().forEach(k => {
       if (k && k.indexOf('deal-ledger:opts:') === 0) {
         const optKey = k.slice('deal-ledger:opts:'.length);
-        options[optKey] = readJSON(k, []);
+        options[optKey] = readJSON(accessor, k, []);
       }
-    }
+    });
 
     let contactUpdateCount = 0;
     Object.values(contactUpdatesMap).forEach(list => { contactUpdateCount += (list || []).length; });
@@ -104,14 +139,29 @@
       ['Metric snapshots', metricSnapshots.length],
     ].map(([label, n]) => '<div class="count-card"><strong>' + n + '</strong>' + label + '</div>').join('');
 
-    log('Scan complete.');
+    log('Loaded from: ' + sourceLabel);
     if (deals.length === 0 && expenses.length === 0 && contactUpdateCount === 0 && optionCount === 0) {
-      log('Nothing found in this browser\'s local storage — you may be on the wrong device/browser, or it\'s already empty.', 'log-warn');
+      log('Nothing found there.', 'log-warn');
       importBtn.classList.add('d-none');
     } else {
       importBtn.classList.remove('d-none');
     }
   }
+
+  scanBtn.addEventListener('click', () => scan(buildAccessor(null), 'this browser\'s local storage'));
+
+  loadPastedBtn.addEventListener('click', () => {
+    const text = pasteArea.value.trim();
+    if (!text) { log('Paste the copied JSON first.', 'log-warn'); return; }
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      log('That doesn\'t look like valid JSON — make sure you copied the full output of the console command. (' + err.message + ')', 'log-error');
+      return;
+    }
+    scan(buildAccessor(parsed), 'pasted data');
+  });
 
   function dealToRow(deal) {
     const data = Object.assign({}, deal);
@@ -176,7 +226,6 @@
     scanBtn.disabled = false;
   }
 
-  scanBtn.addEventListener('click', scan);
   importBtn.addEventListener('click', runImport);
 </script>
 </body>
