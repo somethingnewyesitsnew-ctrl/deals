@@ -302,6 +302,38 @@ function fillWizardForm(deal) {
   modalDeleteBtn.classList.remove('d-none');
 }
 
+// ================= Unsaved-changes guard =================
+// Closing the modal (backdrop click, the header ×, Esc) used to silently
+// discard whatever was typed. This snapshots the form right after it's
+// populated (new or edit) and compares against that snapshot whenever
+// Bootstrap is about to hide the modal — if they differ, confirm first.
+// A real Save bypasses the check via wizardSkipDirtyCheck, set right
+// before that handler's own dealModal.hide() call.
+let wizardOpenSnapshot = '';
+let wizardSkipDirtyCheck = false;
+
+function serializeWizardForm() {
+  const fd = new FormData(dealForm);
+  const fields = [];
+  for (const [key, value] of fd.entries()) fields.push(key + '=' + value);
+  return fields.sort().join('&') + '||log:' + JSON.stringify(commLogEntries) + '||pb:' + JSON.stringify(paymentBreakdown);
+}
+
+function captureWizardSnapshot() {
+  wizardOpenSnapshot = serializeWizardForm();
+}
+
+function isWizardDirty() {
+  return serializeWizardForm() !== wizardOpenSnapshot;
+}
+
+dealModalEl.addEventListener('hide.bs.modal', (e) => {
+  if (wizardSkipDirtyCheck) { wizardSkipDirtyCheck = false; return; }
+  if (isWizardDirty() && !confirm('Discard unsaved changes to this deal?')) {
+    e.preventDefault();
+  }
+});
+
 function openWizard(dealId) {
   refreshAllDatalists();
   resetWizardForm();
@@ -310,6 +342,7 @@ function openWizard(dealId) {
     if (deal) fillWizardForm(deal);
   }
   goToStep(1);
+  captureWizardSnapshot();
   dealModal.show();
 }
 
@@ -390,6 +423,7 @@ dealForm.addEventListener('submit', (e) => {
 
   const wasEdit = Boolean(dealIdInput.value);
   saveDeal(deal);
+  wizardSkipDirtyCheck = true;
   dealModal.hide();
   renderEverything();
   showToast(wasEdit ? 'Deal updated.' : 'Deal recorded.');

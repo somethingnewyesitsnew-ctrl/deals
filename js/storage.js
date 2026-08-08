@@ -646,6 +646,37 @@ function setInvoiceTemplate(template) {
   }
 }
 
+// ---------- Full backup export ----------
+// A self-serve "download everything" button — independent of Supabase's own
+// backups, and cheap insurance against an accidental delete or a bad edit.
+// Pulls straight from the in-memory caches (already loaded by initStorage()),
+// so it works offline too as long as the app has finished its initial load.
+function exportAllDataAsJson() {
+  return JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    deals: _dealsCache,
+    expenses: _expensesCache,
+    contactUpdates: _contactUpdatesCache,
+    options: _optionsCache,
+    settings: _settingsCache,
+    metricSnapshots: _metricSnapshotsCache,
+  }, null, 2);
+}
+
+function downloadFullBackup() {
+  const json = exportAllDataAsJson();
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = 'deal-ledger-backup-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Returns an HTML string: the amount in its original currency (bold),
 // with the live-converted equivalent in the other currency alongside it.
 function formatDualCurrency(amount, currency) {

@@ -112,6 +112,7 @@ function confirmDelete(dealId) {
 }
 
 confirmDeleteBtn.addEventListener('click', () => {
+  if (typeof wizardSkipDirtyCheck !== 'undefined') wizardSkipDirtyCheck = true;
   if (!pendingDeleteId) return;
   deleteDeal(pendingDeleteId);
   pendingDeleteId = null;

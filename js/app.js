@@ -189,6 +189,14 @@ async function boot() {
 
   const fabNewDealBtn = document.getElementById('fabNewDealBtn');
   if (fabNewDealBtn) fabNewDealBtn.addEventListener('click', () => openWizard());
+
+  const exportDataBtn = document.getElementById('exportDataBtn');
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener('click', () => {
+      downloadFullBackup();
+      showToast('Backup downloaded.');
+    });
+  }
 }
 
 if (dbLoadingRetryBtn) {
