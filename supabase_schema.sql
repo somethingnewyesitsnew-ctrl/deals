@@ -151,3 +151,38 @@ begin
     alter publication supabase_realtime add table contact_updates;
   end if;
 end $$;
+
+-- ============================================================
+-- Maintenance & data-integrity hardening
+-- ------------------------------------------------------------
+-- net._http_response logs every outgoing webhook call (used by the
+-- optional Google Sheets sync trigger) with nothing cleaning it up by
+-- default — schedule a daily prune so it doesn't grow unbounded over
+-- months. The CHECK constraints below are unrelated to RLS/access
+-- control (see the RLS comment above — full anon read/write is correct
+-- for this no-login single-user app); they just stop obviously-invalid
+-- data from being written regardless of what wrote it.
+-- ============================================================
+
+create extension if not exists pg_cron;
+
+-- cron.schedule() updates the existing job in place if 'cleanup-http-response-log'
+-- already exists, so this is naturally safe to re-run.
+select cron.schedule(
+  'cleanup-http-response-log',
+  '0 3 * * *',  -- daily at 03:00 UTC
+  $$ delete from net._http_response where created < now() - interval '7 days' $$
+);
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'expenses_amount_nonnegative') then
+    alter table expenses add constraint expenses_amount_nonnegative check (amount >= 0);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'expenses_currency_valid') then
+    alter table expenses add constraint expenses_currency_valid check (currency in ('USD', 'SDG'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'deals_entry_index_positive') then
+    alter table deals add constraint deals_entry_index_positive check (entry_index > 0);
+  end if;
+end $$;

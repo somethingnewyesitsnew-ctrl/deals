@@ -31,13 +31,24 @@ function buildReferralGroups() {
     if (!ref || !ref.name) return;
     const key = ref.name.trim().toLowerCase();
 
-    if (!groups.has(key)) groups.set(key, Object.assign({}, ref, { deals: [], _latestUpdate: 0 }));
+    if (!groups.has(key)) groups.set(key, Object.assign({}, ref, { deals: [], _latestUpdate: 0, _numbersSeen: new Set() }));
     const group = groups.get(key);
     if (deal.updatedAt >= group._latestUpdate) {
       Object.assign(group, ref);
       group._latestUpdate = deal.updatedAt;
     }
+    if ((ref.number || '').trim()) group._numbersSeen.add(ref.number.trim());
     group.deals.push(deal);
+  });
+
+  // Referral grouping is by name ALONE — no number in the key — so two
+  // different referral sources sharing a name always merge into one row.
+  // If the deals feeding a group actually recorded different phone
+  // numbers for "the same" referral, that's concrete evidence they're
+  // probably not the same person; flag it rather than silently pick one.
+  groups.forEach(group => {
+    group._possibleMerge = group._numbersSeen.size > 1 ||
+      (group._numbersSeen.size === 0 && group.deals.length > 1);
   });
 
   return Array.from(groups.values());
@@ -49,10 +60,13 @@ function renderReferralRow(group) {
   if (group.email) contactBits.push(escapeHtml(group.email));
   const contact = contactBits.length ? contactBits.join('<br>') : '<span class="no-referral">—</span>';
   const totalValueUSD = group.deals.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
+  const dupWarning = group._possibleMerge
+    ? '<i class="bi bi-exclamation-triangle-fill ms-1" style="color:var(--amber)" title="This name is grouped without a matching phone number — it may be merging different referral sources that happen to share a name. Check the linked deals\' referral numbers."></i>'
+    : '';
 
   return '' +
     '<tr>' +
-      '<td><span class="deal-name">' + escapeHtml(group.name) + '</span></td>' +
+      '<td><span class="deal-name">' + escapeHtml(group.name) + '</span>' + dupWarning + '</td>' +
       '<td>' + contact + '</td>' +
       '<td>' + (group.relation ? escapeHtml(group.relation) : '<span class="no-referral">—</span>') + '</td>' +
       '<td>' + yesNoLabel(group.firstTime) + '</td>' +

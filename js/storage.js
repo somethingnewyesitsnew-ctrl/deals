@@ -73,17 +73,87 @@ const MAX_SNAPSHOTS = 120; // ~4 months of daily snapshots is plenty for week/mo
 // Fire-and-forget background persistence. Never throws into the caller —
 // storage functions already updated the cache and returned by the time
 // this runs, so a failure here just means "not saved to the cloud yet."
-function _bgPersist(promise, what) {
-  Promise.resolve(promise).then(({ error } = {}) => {
-    if (error) {
-      console.error('Supabase write failed (' + what + '):', error);
-      if (typeof showToast === 'function' && dbReady) {
-        showToast('Could not sync to the database — check your connection.');
+//
+// `run` is a zero-argument function that PERFORMS the Supabase call (not
+// an already-started promise) so it can be safely re-invoked later if it
+// fails — a promise can only ever settle once, but a function can be
+// called again. See the retry queue below.
+function _bgPersist(run, what) {
+  Promise.resolve().then(run).then(({ error } = {}) => {
+    if (error) _queueRetry(run, what, error);
+  }).catch(err => _queueRetry(run, what, err));
+}
+
+// ---------- Retry queue for failed background writes ----------
+// A brief connection blip used to mean that edit just silently never made
+// it to the cloud — the cache had it, but Supabase never did, and nothing
+// tried again. Failed writes now queue up here and retry automatically:
+// periodically in the background, and immediately when the browser fires
+// its 'online' event (e.g. wifi reconnecting, laptop waking up).
+let _retryQueue = [];        // [{ run, what, attempts }]
+let _retryFlushTimer = null;
+const MAX_RETRY_ATTEMPTS = 8;
+const RETRY_BASE_DELAY_MS = 15000;
+const RETRY_MAX_DELAY_MS = 120000;
+
+function _queueRetry(run, what, err) {
+  console.error('Supabase write failed (' + what + '):', err);
+  _retryQueue.push({ run, what, attempts: 0 });
+  if (typeof showToast === 'function' && dbReady) {
+    showToast('Sync issue — will keep retrying in the background.');
+  }
+  _scheduleRetryFlush(RETRY_BASE_DELAY_MS);
+}
+
+function _scheduleRetryFlush(delayMs) {
+  if (_retryFlushTimer) return;
+  _retryFlushTimer = setTimeout(() => {
+    _retryFlushTimer = null;
+    _flushRetryQueue();
+  }, delayMs);
+}
+
+function _flushRetryQueue() {
+  if (_retryQueue.length === 0) return;
+  const pending = _retryQueue;
+  const hadItems = pending.length;
+  _retryQueue = [];
+
+  let stillFailing = 0;
+  let settled = 0;
+
+  pending.forEach(item => {
+    item.attempts += 1;
+    Promise.resolve().then(item.run).then(({ error } = {}) => {
+      settled++;
+      if (error) throw error;
+      if (settled === hadItems && stillFailing === 0 && typeof showToast === 'function' && dbReady) {
+        showToast('Reconnected — pending changes synced.');
       }
-    }
-  }).catch(err => {
-    console.error('Supabase write threw (' + what + '):', err);
+    }).catch(err => {
+      settled++;
+      if (item.attempts < MAX_RETRY_ATTEMPTS) {
+        stillFailing++;
+        _retryQueue.push(item);
+      } else {
+        console.error('Giving up on "' + item.what + '" after ' + item.attempts + ' attempts:', err);
+        if (typeof showToast === 'function') {
+          showToast('Could not sync "' + item.what + '" after several tries — check your connection.');
+        }
+      }
+    });
   });
+
+  if (_retryQueue.length > 0 || hadItems > 0) {
+    // Simple exponential backoff, capped, so a long outage doesn't hammer
+    // Supabase every 15s indefinitely.
+    const nextDelay = Math.min(RETRY_BASE_DELAY_MS * Math.pow(2, Math.min(...pending.map(i => i.attempts), 5)), RETRY_MAX_DELAY_MS);
+    setTimeout(() => { if (_retryQueue.length > 0) _scheduleRetryFlush(nextDelay); }, 500);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => _flushRetryQueue());
 }
 
 // ---------- Init — call once from app.js before rendering anything ----------
@@ -309,7 +379,7 @@ function saveDeal(deal) {
   }
 
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('deals').upsert(_dealToRow(saved), { onConflict: 'id' }), 'saveDeal');
+    _bgPersist(() => supabaseClient.from('deals').upsert(_dealToRow(saved), { onConflict: 'id' }), 'saveDeal');
   }
 
   return _dealsCache;
@@ -318,7 +388,7 @@ function saveDeal(deal) {
 function deleteDeal(id) {
   _dealsCache = _dealsCache.filter(d => d.id !== id);
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('deals').delete().eq('id', id), 'deleteDeal');
+    _bgPersist(() => supabaseClient.from('deals').delete().eq('id', id), 'deleteDeal');
   }
   return _dealsCache;
 }
@@ -356,7 +426,7 @@ function saveExpense(expense) {
     _expensesCache.push(saved);
   }
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('expenses').upsert(_expenseToRow(saved), { onConflict: 'id' }), 'saveExpense');
+    _bgPersist(() => supabaseClient.from('expenses').upsert(_expenseToRow(saved), { onConflict: 'id' }), 'saveExpense');
   }
   return _expensesCache;
 }
@@ -364,7 +434,7 @@ function saveExpense(expense) {
 function deleteExpense(id) {
   _expensesCache = _expensesCache.filter(e => e.id !== id);
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('expenses').delete().eq('id', id), 'deleteExpense');
+    _bgPersist(() => supabaseClient.from('expenses').delete().eq('id', id), 'deleteExpense');
   }
   return _expensesCache;
 }
@@ -392,7 +462,7 @@ function addContactUpdate(contactKey, entry) {
 
   if (supabaseClient) {
     _bgPersist(
-      supabaseClient.from('contact_updates').upsert({ id, contact_key: contactKey, data: entry }, { onConflict: 'id' }),
+      () => supabaseClient.from('contact_updates').upsert({ id, contact_key: contactKey, data: entry }, { onConflict: 'id' }),
       'addContactUpdate'
     );
   }
@@ -402,7 +472,7 @@ function addContactUpdate(contactKey, entry) {
 function deleteContactUpdate(contactKey, entryId) {
   _contactUpdatesCache[contactKey] = (_contactUpdatesCache[contactKey] || []).filter(e => e.id !== entryId);
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('contact_updates').delete().eq('id', entryId), 'deleteContactUpdate');
+    _bgPersist(() => supabaseClient.from('contact_updates').delete().eq('id', entryId), 'deleteContactUpdate');
   }
 }
 
@@ -503,7 +573,7 @@ function addOption(key, value) {
 
   if (supabaseClient) {
     _bgPersist(
-      supabaseClient.from('options').upsert({ key, value }, { onConflict: 'key,value', ignoreDuplicates: true }),
+      () => supabaseClient.from('options').upsert({ key, value }, { onConflict: 'key,value', ignoreDuplicates: true }),
       'addOption'
     );
   }
@@ -526,7 +596,7 @@ function setExchangeRate(rate) {
   if (!(rate > 0)) return;
   _settingsCache.usdToSdg = rate;
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('settings').upsert({ key: 'usdToSdg', value: rate }, { onConflict: 'key' }), 'setExchangeRate');
+    _bgPersist(() => supabaseClient.from('settings').upsert({ key: 'usdToSdg', value: rate }, { onConflict: 'key' }), 'setExchangeRate');
   }
 }
 
@@ -541,7 +611,7 @@ function setRevenueGoal(amountUSD) {
   _settingsCache.revenueGoalUSD = amountUSD > 0 ? amountUSD : 0;
   if (supabaseClient) {
     _bgPersist(
-      supabaseClient.from('settings').upsert({ key: 'revenueGoalUSD', value: _settingsCache.revenueGoalUSD }, { onConflict: 'key' }),
+      () => supabaseClient.from('settings').upsert({ key: 'revenueGoalUSD', value: _settingsCache.revenueGoalUSD }, { onConflict: 'key' }),
       'setRevenueGoal'
     );
   }
@@ -570,9 +640,9 @@ function saveMetricSnapshot(dateKey, metrics) {
   _metricSnapshotsCache = snapshots;
 
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('metric_snapshots').upsert({ date: dateKey, metrics }, { onConflict: 'date' }), 'saveMetricSnapshot');
+    _bgPersist(() => supabaseClient.from('metric_snapshots').upsert({ date: dateKey, metrics }, { onConflict: 'date' }), 'saveMetricSnapshot');
     if (trimmedOutDates.length) {
-      _bgPersist(supabaseClient.from('metric_snapshots').delete().in('date', trimmedOutDates), 'trimMetricSnapshots');
+      _bgPersist(() => supabaseClient.from('metric_snapshots').delete().in('date', trimmedOutDates), 'trimMetricSnapshots');
     }
   }
 }
@@ -626,7 +696,7 @@ function getNextInvoiceNumber() {
   const n = (Number(_settingsCache.invoiceCounter) || 0) + 1;
   _settingsCache.invoiceCounter = n;
   if (supabaseClient) {
-    _bgPersist(supabaseClient.from('settings').upsert({ key: 'invoiceCounter', value: n }, { onConflict: 'key' }), 'getNextInvoiceNumber');
+    _bgPersist(() => supabaseClient.from('settings').upsert({ key: 'invoiceCounter', value: n }, { onConflict: 'key' }), 'getNextInvoiceNumber');
   }
   return 'INV-' + String(n).padStart(4, '0');
 }
@@ -640,7 +710,7 @@ function setInvoiceTemplate(template) {
   _settingsCache.invoiceTemplate = template || {};
   if (supabaseClient) {
     _bgPersist(
-      supabaseClient.from('settings').upsert({ key: 'invoiceTemplate', value: template || {} }, { onConflict: 'key' }),
+      () => supabaseClient.from('settings').upsert({ key: 'invoiceTemplate', value: template || {} }, { onConflict: 'key' }),
       'setInvoiceTemplate'
     );
   }

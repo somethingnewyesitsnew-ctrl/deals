@@ -36,6 +36,15 @@ function buildContactGroups() {
     addPerson(deal.projectManager, 'Project manager', deal);
   });
 
+  // Grouping is by name + number — two genuinely different people who
+  // happen to share a first name AND have no phone number on file for
+  // either of them collide into one group with no way to tell them apart
+  // after the fact. Flag that case (blank number, more than one deal
+  // feeding into the group) so it's visible instead of silent.
+  groups.forEach(group => {
+    group._possibleMerge = !((group.number || '').trim()) && group.deals.length > 1;
+  });
+
   return Array.from(groups.values());
 }
 
@@ -55,9 +64,13 @@ function renderContactRow(group) {
     return state === 'overdue' || state === 'soon';
   });
 
+  const dupWarning = group._possibleMerge
+    ? '<i class="bi bi-exclamation-triangle-fill ms-1" style="color:var(--amber)" title="No phone number on file — this row may be merging multiple different people who happen to share this name. Add a number on any linked deal to tell them apart."></i>'
+    : '';
+
   return '' +
     '<tr>' +
-      '<td><span class="deal-name">' + escapeHtml(group.name) + '</span></td>' +
+      '<td><span class="deal-name">' + escapeHtml(group.name) + '</span>' + dupWarning + '</td>' +
       '<td><div class="deal-badges">' + roles + '</div></td>' +
       '<td>' + contact + '</td>' +
       '<td>' + (group.relation ? escapeHtml(group.relation) : '<span class="no-referral">—</span>') + '</td>' +

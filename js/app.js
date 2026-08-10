@@ -24,6 +24,44 @@ function showToast(message) {
   toast.show();
 }
 
+// ---------- Lazy / dirty-view rendering ----------
+// Almost every save touches data that potentially affects every tab (a
+// new deal changes Deals, Attention, Today, Referrals, Contacts, Entities,
+// and every chart at once) — but the person is only ever looking at ONE
+// of those 9 tabs at a time. Re-painting all 9 (several of them full
+// ApexCharts rebuilds) on every single keystroke-triggered save was pure
+// waste for the 8 tabs not on screen. Now a save just marks every view
+// "dirty"; only the currently-visible view actually re-renders right
+// away, and the rest catch up the moment the person switches to them.
+const VIEW_RENDERERS = {
+  today: renderToday,
+  deals: renderDeals,
+  attention: renderAttention,
+  calendar: renderCalendar,
+  referrals: renderReferrals,
+  contacts: renderContacts,
+  entities: renderEntities,
+  financial: renderFinancial,
+  overview: renderCharts,
+};
+
+let _dirtyViews = new Set(VIEWS);
+
+function _currentActiveView() {
+  const tab = viewTabs.querySelector('.view-tab.is-active');
+  return tab ? tab.dataset.view : VIEWS[0];
+}
+
+function _renderViewNow(view) {
+  const fn = VIEW_RENDERERS[view];
+  if (fn) fn();
+  _dirtyViews.delete(view);
+}
+
+function _renderViewIfDirty(view) {
+  if (_dirtyViews.has(view)) _renderViewNow(view);
+}
+
 function switchView(view, options) {
   options = options || {};
 
@@ -35,14 +73,13 @@ function switchView(view, options) {
     if (section) section.classList.toggle('d-none', v !== view);
   });
 
-  if (view === 'deals' && options.searchTerm !== undefined) setDealsSearch(options.searchTerm);
-  if (view === 'deals') renderDealsAnalytics(getDeals());
-  if (view === 'referrals' && options.searchTerm !== undefined) setReferralSearch(options.searchTerm);
-  if (view === 'contacts' && options.searchTerm !== undefined) setContactSearch(options.searchTerm);
-  if (view === 'entities' && options.searchTerm !== undefined) setEntitySearch(options.searchTerm);
-  if (view === 'calendar') renderCalendar();
-  if (view === 'financial') renderFinancial();
-  if (view === 'overview') renderCharts();
+  // A search-jump (e.g. clicking a referral chip) needs the target view's
+  // own setXSearch() — that already renders internally, so just mark clean.
+  if (view === 'deals' && options.searchTerm !== undefined) { setDealsSearch(options.searchTerm); _dirtyViews.delete('deals'); }
+  else if (view === 'referrals' && options.searchTerm !== undefined) { setReferralSearch(options.searchTerm); _dirtyViews.delete('referrals'); }
+  else if (view === 'contacts' && options.searchTerm !== undefined) { setContactSearch(options.searchTerm); _dirtyViews.delete('contacts'); }
+  else if (view === 'entities' && options.searchTerm !== undefined) { setEntitySearch(options.searchTerm); _dirtyViews.delete('entities'); }
+  else { _renderViewIfDirty(view); }
 }
 
 viewTabs.addEventListener('click', (e) => {
@@ -70,27 +107,15 @@ function updateTabCounts() {
   document.getElementById('tabCountFinancial').textContent = getAllInvoicesFlat().length;
 }
 
-// Re-render every tab's data. Cheap at this data scale and avoids stale
-// Referrals/Contacts/Entities/Charts after a deal is saved or deleted.
+// Called after any save/delete/realtime update. Refreshes the tab counts
+// (cheap — pure counting, no DOM table/chart rebuilds) immediately, fully
+// re-renders whichever tab is actually on screen right now, and marks
+// every other tab dirty so it renders fresh the moment it's opened —
+// never stale, never wasted on tabs nobody's looking at.
 function renderEverything() {
-  renderToday();
-  renderDeals();
-  renderAttention();
-  renderReferrals();
-  renderContacts();
-  renderEntities();
+  VIEWS.forEach(v => _dirtyViews.add(v));
   updateTabCounts();
-  const calendarViewEl = document.getElementById('calendarView');
-  if (calendarViewEl && !calendarViewEl.classList.contains('d-none')) {
-    renderCalendar();
-  }
-  const financialViewEl = document.getElementById('financialView');
-  if (financialViewEl) {
-    renderFinancial(); // stats/tables always refresh; the chart itself only renders if visible (see renderFinancial)
-  }
-  if (document.getElementById('overviewView') && !document.getElementById('overviewView').classList.contains('d-none')) {
-    renderCharts();
-  }
+  _renderViewNow(_currentActiveView());
 }
 
 // ---------- Theme (light / dark) ----------
