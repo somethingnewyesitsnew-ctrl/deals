@@ -1,48 +1,35 @@
 /* invoices.css — invoice editor, the Invoices list in the detail view, and the printable client-facing document. */
 
-/* ===== Print modal footer layout ===== */
-.invoice-print-footer{ display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+.invoice-print-footer{ display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; }
 
-/* ===== Invoice template modal: logo upload ===== */
 .template-logo-row{ display: flex; align-items: center; gap: 1rem; }
-.template-logo-preview{ width: 72px; height: 72px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 0.4rem; }
-.template-logo-empty{ width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--text-faint); font-size: 1.4rem; }
+.template-logo-preview{ width: 68px; height: 68px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 0.35rem; }
+.template-logo-empty{ width: 68px; height: 68px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line-strong); border-radius: var(--r-md); color: var(--text-faint); font-size: 1.3rem; }
 .template-logo-empty.d-none{ display: none; }
 
-/* ===== Editor: line items grid ===== */
-.invoice-items-table{ border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.invoice-items-head{ display: grid; grid-template-columns: 1fr 90px 130px 32px; gap: 0.5rem; padding: 0.5rem 0.7rem; background: var(--surface); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
-.invoice-items-row{ display: grid; grid-template-columns: 1fr 90px 130px 32px; gap: 0.5rem; align-items: center; padding: 0.4rem 0.7rem; border-top: 1px solid var(--line); }
-.invoice-items-row input{ font-size: 0.85rem; }
+.invoice-items-table{ border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.invoice-items-head{ display: grid; grid-template-columns: 1fr 90px 130px 32px; gap: 0.5rem; padding: 0.45rem 0.65rem; background: var(--surface); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 700; }
+.invoice-items-row{ display: grid; grid-template-columns: 1fr 90px 130px 32px; gap: 0.5rem; align-items: center; padding: 0.35rem 0.65rem; border-top: 1px solid var(--line); }
+.invoice-items-row input{ font-size: 0.82rem; }
 .invoice-items-row--extra{ background: var(--accent-soft); }
-.invoice-item-extra-tag{ display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.68rem; font-weight: 700; color: var(--accent); background: var(--bg-raise); border: 1px dashed var(--accent); border-radius: 4px; padding: 0.3rem 0.4rem; text-align: center; white-space: nowrap; }
-.invoice-item-amount{ font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
-.invoice-item-remove{ border: none; background: none; color: var(--text-faint); font-size: 0.85rem; justify-self: center; }
+.invoice-item-extra-tag{ display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.64rem; font-weight: 700; color: var(--accent); background: var(--bg-raise); border: 1px dashed var(--accent); border-radius: var(--r-sm); padding: 0.28rem 0.4rem; text-align: center; white-space: nowrap; }
+.invoice-item-amount{ font-size: 0.82rem; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.invoice-item-remove{ border: none; background: none; color: var(--text-faint); font-size: 0.82rem; justify-self: center; }
 .invoice-item-remove:hover{ color: var(--red); }
-.invoice-editor-total{ text-align: right; font-size: 1.1rem; font-weight: 700; margin-top: 0.75rem; }
+.invoice-editor-total{ text-align: right; font-size: 1.05rem; font-weight: 700; margin-top: 0.7rem; }
 
-/* ===== Detail view: invoice list ===== */
-.invoice-list{ display: flex; flex-direction: column; gap: 0.4rem; }
-.invoice-row{ display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.15rem; }
-.invoice-row__main{ flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.75rem; border: none; background: transparent; padding: 0.5rem 0.6rem; text-align: left; border-radius: 4px; }
+.invoice-list{ display: flex; flex-direction: column; gap: 0.35rem; }
+.invoice-row{ display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.12rem; }
+.invoice-row__main{ flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.7rem; border: none; background: transparent; padding: 0.45rem 0.55rem; text-align: left; border-radius: var(--r-sm); }
 .invoice-row__main:hover{ background: var(--surface); }
-.invoice-row__number{ font-weight: 600; font-size: 0.86rem; color: var(--text); }
-.invoice-row__amount{ font-variant-numeric: tabular-nums; font-size: 0.86rem; color: var(--text-dim); margin-left: auto; }
-.invoice-row__actions{ display: flex; gap: 0.15rem; padding-right: 0.3rem; flex-shrink: 0; }
-.invoice-status-btn, .edit-invoice-btn, .delete-invoice-btn{ border: none; background: transparent; color: var(--text-faint); padding: 0.35rem 0.5rem; border-radius: 4px; font-size: 0.9rem; }
+.invoice-row__number{ font-weight: 600; font-size: 0.82rem; color: var(--text); }
+.invoice-row__amount{ font-variant-numeric: tabular-nums; font-size: 0.82rem; color: var(--text-dim); margin-left: auto; }
+.invoice-row__actions{ display: flex; gap: 0.12rem; padding-right: 0.25rem; flex-shrink: 0; }
+.invoice-status-btn, .edit-invoice-btn, .delete-invoice-btn{ border: none; background: transparent; color: var(--text-faint); padding: 0.32rem 0.45rem; border-radius: var(--r-sm); font-size: 0.86rem; }
 .invoice-status-btn:hover, .edit-invoice-btn:hover{ background: var(--surface-hi); color: var(--text); }
 .delete-invoice-btn:hover{ background: var(--red-soft); color: var(--red); }
 
-/* ===== Printable invoice document =====
-   Pixel-faithful recreation of a specific reference design — colors,
-   sizes, and spacing below are exact values from that spec, not
-   approximations. All colors are hardcoded hex, not CSS variables, and
-   the width is fixed rather than fluid: both are deliberate, since this
-   element gets snapshotted by html2canvas for the PDF download (see the
-   PDF button's handler in invoices.js for the matching fixed-size fix on
-   the JS side). Do not "improve" these values without checking the spec —
-   this file is intentionally plain (no shadows, no rounded cards, no
-   gradients) because the reference is. */
+/* Printable invoice document — pixel-faithful to spec, hardcoded hex on purpose. Do not swap for tokens. */
 .invoice-printable{
   background: #fff; color: #2E2E2E; width: 100%; max-width: 800px; margin: 0 auto;
   font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -76,7 +63,6 @@
 .invoice-doc-notes p{ font-size: 14px; color: #777777; white-space: pre-wrap; margin: 6px 0 0; }
 .invoice-doc-footer{ margin: 0 48px; padding: 0 0 40px; font-size: 13px; color: #8E99AA; white-space: pre-wrap; text-align: center; }
 
-/* ===== Print isolation: only the invoice document prints ===== */
 @media print{
   body *{ visibility: hidden; }
   .invoice-printable, .invoice-printable *{ visibility: visible; }

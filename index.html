@@ -66,48 +66,59 @@
 
 <div class="win-shell">
 
-  <!-- ============ TITLE BAR ============ -->
-  <header class="win-titlebar">
-    <div class="win-titlebar__brand">
-      <span class="win-titlebar__icon"><i class="bi bi-journal-text"></i></span>
-      <span class="win-titlebar__title">Deal Ledger</span>
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="win-sidebar" id="winSidebar">
+    <div class="win-sidebar__brand">
+      <span class="win-sidebar__brand-icon"><i class="bi bi-journal-text"></i></span>
+      <span class="win-sidebar__brand-name">Deal Ledger</span>
     </div>
-    <div class="win-titlebar__actions">
-      <button type="button" class="win-icon-btn" id="exportDataBtn" title="Download a full backup (JSON)">
-        <i class="bi bi-download"></i>
-      </button>
-      <button type="button" class="win-icon-btn" id="themeToggleBtn" title="Switch light / dark mode">
-        <i class="bi bi-moon-stars" id="themeToggleIcon"></i>
-      </button>
-      <button type="button" class="fx-pill" id="exchangeRateBtn" title="Set USD → SDG exchange rate">
-        <i class="bi bi-currency-exchange"></i><span id="exchangeRateLabel">1 USD = 3,200 SDG</span>
-      </button>
-    </div>
-  </header>
 
-  <div class="win-body">
+    <nav class="win-sidebar__nav" id="viewTabs">
+      <span class="win-sidebar__section-label">Overview</span>
+      <button class="view-tab is-active" data-view="today" title="Dashboard"><i class="bi bi-grid-1x2"></i><span>Dashboard</span><span class="chip-count chip-count--alert" id="tabCountToday">0</span></button>
+      <button class="view-tab" data-view="attention" title="Attention"><i class="bi bi-bell"></i><span>Attention</span><span class="chip-count chip-count--alert" id="tabCountAttention">0</span></button>
+      <button class="view-tab" data-view="calendar" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></button>
 
-    <!-- ============ NAVIGATION ============ -->
-    <nav class="win-nav" id="viewTabs">
-      <button class="view-tab is-active" data-view="today"><i class="bi bi-grid-1x2"></i><span>Dashboard</span><span class="chip-count chip-count--alert" id="tabCountToday">0</span></button>
-      <button class="view-tab" data-view="deals"><i class="bi bi-journal-text"></i><span>Deals</span><span class="chip-count" id="tabCountDeals">0</span></button>
-      <button class="view-tab" data-view="attention"><i class="bi bi-bell"></i><span>Attention</span><span class="chip-count chip-count--alert" id="tabCountAttention">0</span></button>
-      <button class="view-tab" data-view="calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></button>
-      <button class="view-tab" data-view="referrals"><i class="bi bi-people"></i><span>Referrals</span><span class="chip-count" id="tabCountReferrals">0</span></button>
-      <button class="view-tab" data-view="contacts"><i class="bi bi-person-lines-fill"></i><span>Contacts</span><span class="chip-count" id="tabCountContacts">0</span></button>
-      <button class="view-tab" data-view="entities"><i class="bi bi-building"></i><span>Entities</span><span class="chip-count" id="tabCountEntities">0</span></button>
-      <button class="view-tab" data-view="financial"><i class="bi bi-wallet2"></i><span>Financial</span><span class="chip-count" id="tabCountFinancial">0</span></button>
-      <button class="view-tab" data-view="overview"><i class="bi bi-bar-chart-line"></i><span>Overview</span></button>
+      <span class="win-sidebar__section-label">Pipeline</span>
+      <button class="view-tab" data-view="deals" title="Deals"><i class="bi bi-journal-text"></i><span>Deals</span><span class="chip-count" id="tabCountDeals">0</span></button>
+      <button class="view-tab" data-view="referrals" title="Referrals"><i class="bi bi-people"></i><span>Referrals</span><span class="chip-count" id="tabCountReferrals">0</span></button>
+      <button class="view-tab" data-view="contacts" title="Contacts"><i class="bi bi-person-lines-fill"></i><span>Contacts</span><span class="chip-count" id="tabCountContacts">0</span></button>
+      <button class="view-tab" data-view="entities" title="Entities"><i class="bi bi-building"></i><span>Entities</span><span class="chip-count" id="tabCountEntities">0</span></button>
+
+      <span class="win-sidebar__section-label">Money</span>
+      <button class="view-tab" data-view="financial" title="Financial"><i class="bi bi-wallet2"></i><span>Financial</span><span class="chip-count" id="tabCountFinancial">0</span></button>
+      <button class="view-tab" data-view="overview" title="Reports"><i class="bi bi-bar-chart-line"></i><span>Reports</span></button>
     </nav>
 
-    <!-- ============ CONTENT ============ -->
-    <main class="win-content">
-
-    <div class="global-search" id="globalSearchWrap">
-      <i class="bi bi-search"></i>
-      <input type="text" id="globalSearchInput" placeholder="Search everything — deals, referrals, contacts, entities…" autocomplete="off">
-      <div class="global-search__results d-none" id="globalSearchResults"></div>
+    <div class="win-sidebar__footer">
+      <button type="button" class="win-sidebar__footer-btn" id="exportDataBtn" title="Download a full backup (JSON)">
+        <i class="bi bi-download"></i><span>Backup</span>
+      </button>
+      <button type="button" class="win-sidebar__footer-btn" id="exchangeRateBtn" title="Set USD → SDG exchange rate">
+        <i class="bi bi-currency-exchange"></i><span id="exchangeRateLabel">1 USD = 3,200 SDG</span>
+      </button>
+      <button type="button" class="win-sidebar__footer-btn" id="themeToggleBtn" title="Switch light / dark mode">
+        <i class="bi bi-moon-stars" id="themeToggleIcon"></i><span id="themeToggleLabel">Dark mode</span>
+      </button>
+      <button type="button" class="win-sidebar__footer-btn" id="sidebarCollapseBtn" title="Collapse sidebar">
+        <i class="bi bi-layout-sidebar-inset" id="sidebarCollapseIcon"></i><span>Collapse</span>
+      </button>
     </div>
+  </aside>
+
+  <!-- ============ MAIN COLUMN ============ -->
+  <div class="win-main">
+    <header class="win-titlebar">
+      <div class="win-titlebar__left">
+        <button type="button" class="win-icon-btn d-none" id="sidebarOpenBtn" title="Open menu"><i class="bi bi-list"></i></button>
+        <span class="win-titlebar__crumb" id="titlebarCrumb">Dashboard</span>
+      </div>
+      <div class="win-titlebar__actions">
+        <button type="button" class="btn btn-ink btn-sm" id="newDealBtnTop"><i class="bi bi-plus-lg me-1"></i>New deal</button>
+      </div>
+    </header>
+
+    <main class="win-content">
 
   <!-- ============ DASHBOARD ============
        (kept id="todayView" / "today*" internally — this section replaced the
@@ -1369,7 +1380,6 @@
 <script src="js/referrals.js"></script>
 <script src="js/contacts.js"></script>
 <script src="js/entities.js"></script>
-<script src="js/globalsearch.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

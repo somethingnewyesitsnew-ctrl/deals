@@ -14,6 +14,10 @@
 
 const viewTabs = document.getElementById('viewTabs');
 const VIEWS = ['today', 'deals', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'overview'];
+const VIEW_LABELS = {
+  today: 'Dashboard', deals: 'Deals', attention: 'Attention', calendar: 'Calendar',
+  referrals: 'Referrals', contacts: 'Contacts', entities: 'Entities', financial: 'Financial', overview: 'Reports',
+};
 
 const toastEl = document.getElementById('appToast');
 const toastBody = document.getElementById('appToastBody');
@@ -73,6 +77,14 @@ function switchView(view, options) {
     if (section) section.classList.toggle('d-none', v !== view);
   });
 
+  const crumb = document.getElementById('titlebarCrumb');
+  if (crumb) crumb.textContent = VIEW_LABELS[view] || 'Deal Ledger';
+
+  const sidebarEl = document.getElementById('winSidebar');
+  if (sidebarEl && window.matchMedia('(max-width: 900px)').matches) {
+    sidebarEl.classList.remove('is-open');
+  }
+
   // A search-jump (e.g. clicking a referral chip) needs the target view's
   // own setXSearch() — that already renders internally, so just mark clean.
   if (view === 'deals' && options.searchTerm !== undefined) { setDealsSearch(options.searchTerm); _dirtyViews.delete('deals'); }
@@ -125,11 +137,13 @@ function renderEverything() {
 const THEME_KEY = 'deal-ledger:theme';
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const themeToggleIcon = document.getElementById('themeToggleIcon');
+const themeToggleLabel = document.getElementById('themeToggleLabel');
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   document.documentElement.setAttribute('data-bs-theme', theme);
   themeToggleIcon.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+  if (themeToggleLabel) themeToggleLabel.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
   try { localStorage.setItem(THEME_KEY, theme); } catch (err) {}
 }
 
@@ -146,6 +160,47 @@ themeToggleBtn.addEventListener('click', () => {
 
 // Sync the icon to whatever the pre-paint script in <head> already set.
 applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+// ---------- Sidebar collapse (desktop) + flyout open (mobile) ----------
+const SIDEBAR_KEY = 'deal-ledger:sidebar-collapsed';
+const winSidebar = document.getElementById('winSidebar');
+const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
+const sidebarCollapseIcon = document.getElementById('sidebarCollapseIcon');
+const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
+
+function applySidebarCollapsed(collapsed) {
+  winSidebar.classList.toggle('is-collapsed', collapsed);
+  sidebarCollapseIcon.className = collapsed ? 'bi bi-layout-sidebar' : 'bi bi-layout-sidebar-inset';
+  sidebarCollapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch (err) {}
+}
+
+sidebarCollapseBtn.addEventListener('click', () => {
+  applySidebarCollapsed(!winSidebar.classList.contains('is-collapsed'));
+});
+
+try {
+  if (localStorage.getItem(SIDEBAR_KEY) === '1' && !window.matchMedia('(max-width: 900px)').matches) {
+    applySidebarCollapsed(true);
+  }
+} catch (err) {}
+
+function syncMobileSidebarChrome() {
+  const isMobile = window.matchMedia('(max-width: 900px)').matches;
+  sidebarOpenBtn.classList.toggle('d-none', !isMobile);
+  if (!isMobile) winSidebar.classList.remove('is-open');
+}
+syncMobileSidebarChrome();
+window.addEventListener('resize', syncMobileSidebarChrome);
+
+sidebarOpenBtn.addEventListener('click', () => winSidebar.classList.toggle('is-open'));
+
+document.addEventListener('click', (e) => {
+  if (!window.matchMedia('(max-width: 900px)').matches) return;
+  if (winSidebar.classList.contains('is-open') && !e.target.closest('#winSidebar') && !e.target.closest('#sidebarOpenBtn')) {
+    winSidebar.classList.remove('is-open');
+  }
+});
 
 // ---------- Currency settings ----------
 const exchangeRateBtn = document.getElementById('exchangeRateBtn');
@@ -214,6 +269,9 @@ async function boot() {
 
   const fabNewDealBtn = document.getElementById('fabNewDealBtn');
   if (fabNewDealBtn) fabNewDealBtn.addEventListener('click', () => openWizard());
+
+  const newDealBtnTop = document.getElementById('newDealBtnTop');
+  if (newDealBtnTop) newDealBtnTop.addEventListener('click', () => openWizard());
 
   const exportDataBtn = document.getElementById('exportDataBtn');
   if (exportDataBtn) {

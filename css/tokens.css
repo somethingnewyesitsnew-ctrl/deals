@@ -1,102 +1,110 @@
-/* tokens.css — design tokens (:root, both light and dark) + base/reset. Load first. */
-
-/* ============================================================
-   Fluent Design System tokens — matches Windows 11's visual
-   language: Segoe UI Variable typography, Windows accent blue,
-   Fluent system colors, and Fluent's actual corner-radius scale
-   (4px controls, 8px surfaces — NOT the large "pill" radii a
-   generic modern-SaaS look tends to reach for).
-
-   Table of contents (this file):
-   1. Design tokens (:root, light + dark)
-   2. Base / reset
+/* tokens.css — design tokens (:root, both light and dark) + base/reset. Load first.
+   ============================================================
+   Fluent Design System tokens, tightened for a denser, more
+   "professional B2B software" feel: smaller base scale, a real
+   spacing ramp instead of ad-hoc rem values, restrained shadows,
+   and new variables for the sidebar + slide-over drawer.
    ============================================================ */
 
-/* ===== 1. Design tokens ===== */
 :root{
-  /* surfaces — Fluent's layered "Mica"/"Layer" fills */
+  /* surfaces */
   --bg:          #F3F3F3;
   --bg-raise:    #FFFFFF;
   --surface:     #F9F9F9;
-  --surface-hi:  #F0F0F0;
+  --surface-hi:  #EFEFEF;
   --line:        rgba(0,0,0,0.08);
-  --line-strong: rgba(0,0,0,0.14);
+  --line-strong: rgba(0,0,0,0.15);
 
-  /* text — Fluent neutral text ramp */
+  /* text */
   --text:        #1B1B1B;
   --text-dim:    #5C5C5C;
   --text-faint:  #8A8886;
 
-  /* brand accent — Windows default accent blue */
-  --accent:        #0078D4;
-  --accent-soft:   rgba(0,120,212,0.10);
+  /* brand accent */
+  --accent:        #0F6CBD;
+  --accent-hover:  #115EA3;
+  --accent-soft:   rgba(15,108,189,0.09);
   --violet:        #7719AA;
-  --violet-soft:   rgba(119,25,170,0.10);
+  --violet-soft:   rgba(119,25,170,0.09);
   --pink:          #C239B3;
-  --pink-soft:     rgba(194,57,179,0.10);
+  --pink-soft:     rgba(194,57,179,0.09);
 
-  /* status hues — Fluent system colors (success/caution/severe) */
-  --cyan:        #0078D4;
-  --cyan-soft:   rgba(0,120,212,0.10);
+  /* status hues */
+  --cyan:        #0F6CBD;
+  --cyan-soft:   rgba(15,108,189,0.09);
   --amber:       #9D5D00;
-  --amber-soft:  rgba(157,93,0,0.10);
-  --green:       #0F7B0F;
-  --green-soft:  rgba(15,123,15,0.10);
+  --amber-soft:  rgba(157,93,0,0.09);
+  --green:       #0E7A0D;
+  --green-soft:  rgba(14,122,13,0.09);
   --red:         #C42B1C;
-  --red-soft:    rgba(196,43,28,0.10);
-  --slate-soft:  rgba(0,0,0,0.05);
+  --red-soft:    rgba(196,43,28,0.09);
+  --slate-soft:  rgba(0,0,0,0.045);
 
-  /* elevation — Fluent shadows are much subtler than a typical
-     "SaaS card" look: a soft, close, low-opacity blur */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.07);
-  --shadow-md: 0 2px 4px rgba(0,0,0,0.08), 0 0.5px 1.5px rgba(0,0,0,0.06);
-  --shadow-lg: 0 8px 16px rgba(0,0,0,0.14), 0 1.5px 4px rgba(0,0,0,0.10);
+  /* spacing ramp */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px;
 
-  /* typography — Segoe UI Variable is Windows-native (no CDN: it's
-     installed with Windows 11 itself); falls back gracefully elsewhere */
+  /* radius — Fluent's real scale: small controls 4px, cards 8px, nothing bigger */
+  --r-sm: 4px; --r-md: 8px;
+
+  /* elevation — subtle, close, low-opacity */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 2px 5px rgba(0,0,0,0.08), 0 0.5px 1.5px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 24px rgba(0,0,0,0.16), 0 2px 5px rgba(0,0,0,0.10);
+
+  /* typography */
   --font-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --font-body:    'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --font-mono:    'Cascadia Mono', 'Consolas', 'Segoe UI', monospace;
+
+  /* shell dimensions */
+  --sidebar-w:            232px;
+  --sidebar-w-collapsed:  60px;
+  --titlebar-h:           44px;
+  --drawer-w:             560px;
+
+  --motion-fast: 120ms ease;
+  --motion-med:  220ms cubic-bezier(.2,.7,.3,1);
 }
 
-/* ---- Dark mode: Windows 11 dark theme neutrals, same accent/status hues ---- */
 :root[data-theme="dark"]{
-  --bg:          #202020;
-  --bg-raise:    #2C2C2C;
-  --surface:     #292929;
-  --surface-hi:  #333333;
+  --bg:          #1E1E1E;
+  --bg-raise:    #2A2A2A;
+  --surface:     #262626;
+  --surface-hi:  #313131;
   --line:        rgba(255,255,255,0.08);
-  --line-strong: rgba(255,255,255,0.14);
+  --line-strong: rgba(255,255,255,0.15);
 
-  --text:        #FFFFFF;
+  --text:        #F3F3F3;
   --text-dim:    #C5C5C5;
-  --text-faint:  #8A8886;
+  --text-faint:  #8F8F8F;
 
-  --accent:        #60CDFF;
-  --accent-soft:   rgba(96,205,255,0.14);
+  --accent:        #4CC2FF;
+  --accent-hover:  #62CBFF;
+  --accent-soft:   rgba(76,194,255,0.14);
   --violet:        #C29CFF;
   --violet-soft:   rgba(194,156,255,0.14);
   --pink:          #E68AC5;
   --pink-soft:     rgba(230,138,197,0.14);
 
-  --cyan:        #60CDFF;
-  --cyan-soft:   rgba(96,205,255,0.14);
+  --cyan:        #4CC2FF;
+  --cyan-soft:   rgba(76,194,255,0.14);
   --amber:       #FCE100;
   --amber-soft:  rgba(252,225,0,0.12);
   --green:       #6CCB5F;
   --green-soft:  rgba(108,203,95,0.14);
   --red:         #FF99A4;
   --red-soft:    rgba(255,153,164,0.14);
-  --slate-soft:  rgba(255,255,255,0.07);
+  --slate-soft:  rgba(255,255,255,0.06);
 
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.30);
   --shadow-md: 0 2px 6px rgba(0,0,0,0.34);
-  --shadow-lg: 0 10px 22px rgba(0,0,0,0.44);
+  --shadow-lg: 0 14px 30px rgba(0,0,0,0.50);
 }
 
 [data-theme="dark"] body{ background: var(--bg); }
 
-/* ===== 2. Base / reset ===== */
+/* ===== Base / reset ===== */
 *{ box-sizing: border-box; }
 
 body{
@@ -110,14 +118,20 @@ body{
 }
 
 ::selection{ background: var(--accent-soft); color: var(--accent); }
-::-webkit-scrollbar{ width: 10px; height: 10px; }
+::-webkit-scrollbar{ width: 9px; height: 9px; }
 ::-webkit-scrollbar-track{ background: transparent; }
-::-webkit-scrollbar-thumb{ background: var(--line-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb{ background: var(--line-strong); border-radius: var(--r-sm); }
 
-.form-select, .form-control{ background-color: var(--bg-raise); color: var(--text); border-color: var(--line-strong); font-size: 13px; border-radius: 4px; }
+.form-select, .form-control{ background-color: var(--bg-raise); color: var(--text); border-color: var(--line-strong); font-size: 13px; border-radius: var(--r-sm); }
 .form-select:focus, .form-control:focus{ background-color: var(--bg-raise); color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .form-control::placeholder{ color: var(--text-faint); }
-.form-label{ font-size: 0.8rem; font-weight: 600; color: var(--text-dim); }
+.form-label{ font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
 .link-btn{ border: none; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; }
 .btn-close{ opacity: 0.6; }
 .btn-close:hover{ opacity: 1; }
+
+:focus-visible{ outline: 2px solid var(--accent); outline-offset: 1px; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
