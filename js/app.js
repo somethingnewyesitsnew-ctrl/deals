@@ -13,9 +13,9 @@
    ============================================================ */
 
 const viewTabs = document.getElementById('viewTabs');
-const VIEWS = ['today', 'deals', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'overview'];
+const VIEWS = ['today', 'todos', 'deals', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'overview'];
 const VIEW_LABELS = {
-  today: 'Dashboard', deals: 'Deals', attention: 'Attention', calendar: 'Calendar',
+  today: 'Dashboard', todos: 'To-Do', deals: 'Deals', attention: 'Attention', calendar: 'Calendar',
   referrals: 'Referrals', contacts: 'Contacts', entities: 'Entities', financial: 'Financial', overview: 'Reports',
 };
 
@@ -39,6 +39,7 @@ function showToast(message) {
 // away, and the rest catch up the moment the person switches to them.
 const VIEW_RENDERERS = {
   today: renderToday,
+  todos: renderTodos,
   deals: renderDeals,
   attention: renderAttention,
   calendar: renderCalendar,
@@ -112,6 +113,13 @@ function updateTabCounts() {
   const attentionBadge = document.getElementById('tabCountAttention');
   attentionBadge.textContent = attentionCount;
   attentionBadge.classList.toggle('has-items', attentionCount > 0);
+
+  const _now = new Date();
+  const _todayKey = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
+  const todosDueCount = getTodos().filter(t => t.status === 'open' && t.dueDate && t.dueDate <= _todayKey).length;
+  const todosBadge = document.getElementById('tabCountTodos');
+  todosBadge.textContent = todosDueCount;
+  todosBadge.classList.toggle('has-items', todosDueCount > 0);
 
   document.getElementById('tabCountReferrals').textContent = buildReferralGroups().length;
   document.getElementById('tabCountContacts').textContent = buildContactGroups().length;

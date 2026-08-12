@@ -58,6 +58,7 @@ let dbInitError = null;
 // ---------- In-memory cache (what every other file actually reads) ----------
 let _dealsCache = [];               // array of deal objects, same shape as before
 let _expensesCache = [];            // array of expense objects, same shape as before
+let _todosCache = [];               // array of todo objects — standalone tasks, optionally linked to a deal
 let _contactUpdatesCache = {};      // { contactKey: [entry, entry, ...] }
 let _optionsCache = {};             // { relation: ['...','...'], channel: [...], ... }
 let _metricSnapshotsCache = [];     // [{ date, metrics }, ...]
@@ -172,21 +173,23 @@ async function initStorage() {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   try {
-    const [dealsRes, expensesRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
+    const [dealsRes, expensesRes, todosRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
       supabaseClient.from('deals').select('*'),
       supabaseClient.from('expenses').select('*'),
+      supabaseClient.from('todos').select('*'),
       supabaseClient.from('contact_updates').select('*'),
       supabaseClient.from('options').select('*'),
       supabaseClient.from('settings').select('*'),
       supabaseClient.from('metric_snapshots').select('*'),
     ]);
 
-    [dealsRes, expensesRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
+    [dealsRes, expensesRes, todosRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
       if (res.error) throw res.error;
     });
 
     _dealsCache = (dealsRes.data || []).map(_rowToDeal);
     _expensesCache = (expensesRes.data || []).map(_rowToExpense);
+    _todosCache = (todosRes.data || []).map(_rowToTodo);
 
     _contactUpdatesCache = {};
     (contactUpdatesRes.data || []).forEach(row => {
@@ -242,6 +245,17 @@ function _subscribeToRealtime() {
         if (error) { console.error('Realtime refresh failed (expenses):', error); return; }
         _expensesCache = (data || []).map(_rowToExpense);
         if (typeof renderFinancial === 'function') renderFinancial();
+      });
+    })
+    .subscribe();
+
+  supabaseClient
+    .channel('todos-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, () => {
+      supabaseClient.from('todos').select('*').then(({ data, error }) => {
+        if (error) { console.error('Realtime refresh failed (todos):', error); return; }
+        _todosCache = (data || []).map(_rowToTodo);
+        if (typeof renderEverything === 'function') renderEverything();
       });
     })
     .subscribe();
@@ -311,6 +325,38 @@ function _expenseToRow(expense) {
     date: expense.date || '',
     deal_id: expense.dealId || null,
     created_at: expense.createdAt,
+  };
+}
+
+function _rowToTodo(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    notes: row.notes || '',
+    dueDate: row.due_date || '',
+    priority: row.priority || 'normal',
+    status: row.status || 'open',
+    recurring: row.recurring || '',
+    dealId: row.deal_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+  };
+}
+
+function _todoToRow(todo) {
+  return {
+    id: todo.id,
+    title: todo.title || '',
+    notes: todo.notes || '',
+    due_date: todo.dueDate || null,
+    priority: todo.priority || 'normal',
+    status: todo.status || 'open',
+    recurring: todo.recurring || null,
+    deal_id: todo.dealId || null,
+    created_at: todo.createdAt,
+    updated_at: todo.updatedAt,
+    completed_at: todo.completedAt || null,
   };
 }
 
@@ -437,6 +483,74 @@ function deleteExpense(id) {
     _bgPersist(() => supabaseClient.from('expenses').delete().eq('id', id), 'deleteExpense');
   }
   return _expensesCache;
+}
+
+// ---------- To-Dos ----------
+// Standalone tasks — personal admin work, ideas, follow-ups that aren't
+// tied to a specific client. Optionally linked to a deal via dealId, but
+// don't have to be. Feeds the Daily Action Center and the reminder engine.
+function getTodos() {
+  return _todosCache.slice();
+}
+
+function saveTodo(todo) {
+  const idx = _todosCache.findIndex(t => t.id === todo.id);
+  let saved;
+  const now = Date.now();
+  if (idx >= 0) {
+    saved = Object.assign({}, _todosCache[idx], todo, { updatedAt: now });
+    _todosCache[idx] = saved;
+  } else {
+    saved = Object.assign({
+      priority: 'normal', status: 'open', notes: '', recurring: '', dealId: null, completedAt: null,
+    }, todo, { id: todo.id || crypto.randomUUID(), createdAt: now, updatedAt: now });
+    _todosCache.push(saved);
+  }
+  if (supabaseClient) {
+    _bgPersist(() => supabaseClient.from('todos').upsert(_todoToRow(saved), { onConflict: 'id' }), 'saveTodo');
+  }
+  return _todosCache;
+}
+
+function deleteTodo(id) {
+  _todosCache = _todosCache.filter(t => t.id !== id);
+  if (supabaseClient) {
+    _bgPersist(() => supabaseClient.from('todos').delete().eq('id', id), 'deleteTodo');
+  }
+  return _todosCache;
+}
+
+// Marking a recurring to-do done doesn't just close it — it spins up the
+// next occurrence (today's date + the recurrence interval) as a fresh open
+// task, so a "daily" or "weekly" reminder never has to be manually re-created.
+function nextRecurringDate(fromDateStr, recurring) {
+  const base = fromDateStr ? new Date(fromDateStr + 'T00:00:00') : new Date();
+  if (recurring === 'daily') base.setDate(base.getDate() + 1);
+  else if (recurring === 'weekly') base.setDate(base.getDate() + 7);
+  else if (recurring === 'monthly') base.setMonth(base.getMonth() + 1);
+  else return null;
+  return base.toISOString().slice(0, 10);
+}
+
+function toggleTodoDone(id) {
+  const todo = _todosCache.find(t => t.id === id);
+  if (!todo) return _todosCache;
+
+  if (todo.status === 'done') {
+    saveTodo({ id, status: 'open', completedAt: null });
+    return _todosCache;
+  }
+
+  saveTodo({ id, status: 'done', completedAt: Date.now() });
+
+  if (todo.recurring) {
+    const nextDue = nextRecurringDate(todo.dueDate, todo.recurring);
+    saveTodo({
+      title: todo.title, notes: todo.notes, dueDate: nextDue, priority: todo.priority,
+      recurring: todo.recurring, dealId: todo.dealId, status: 'open',
+    });
+  }
+  return _todosCache;
 }
 
 // ---------- Contact-level updates ----------
@@ -726,6 +840,7 @@ function exportAllDataAsJson() {
     exportedAt: new Date().toISOString(),
     deals: _dealsCache,
     expenses: _expensesCache,
+    todos: _todosCache,
     contactUpdates: _contactUpdatesCache,
     options: _optionsCache,
     settings: _settingsCache,

@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/modals.css">
 <link rel="stylesheet" href="css/invoices.css">
 <link rel="stylesheet" href="css/charts-motion.css">
+<link rel="stylesheet" href="css/todos.css">
 <script>
   // Set the theme before first paint so there's no flash of the wrong mode.
   (function () {
@@ -77,6 +78,7 @@
       <span class="win-sidebar__section-label">Overview</span>
       <button class="view-tab is-active" data-view="today" title="Dashboard"><i class="bi bi-grid-1x2"></i><span>Dashboard</span><span class="chip-count chip-count--alert" id="tabCountToday">0</span></button>
       <button class="view-tab" data-view="attention" title="Attention"><i class="bi bi-bell"></i><span>Attention</span><span class="chip-count chip-count--alert" id="tabCountAttention">0</span></button>
+      <button class="view-tab" data-view="todos" title="To-Do"><i class="bi bi-list-check"></i><span>To-Do</span><span class="chip-count chip-count--alert" id="tabCountTodos">0</span></button>
       <button class="view-tab" data-view="calendar" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></button>
 
       <span class="win-sidebar__section-label">Pipeline</span>
@@ -166,6 +168,28 @@
       </div>
       <div id="dashDealsTable" class="dash-card__table-body"></div>
     </div>
+  </section>
+
+  <!-- ============ TO-DO ============ -->
+  <section class="ledger-view d-none" id="todosView">
+    <div class="page-header">
+      <h1 class="page-title">To-Do</h1>
+      <div class="page-header__actions">
+        <button type="button" class="btn btn-ink" id="todosNewTaskBtn"><i class="bi bi-plus-lg me-1"></i>New task</button>
+      </div>
+    </div>
+
+    <div class="attention-summary" id="todosSummary"></div>
+
+    <div class="todos-quick-add">
+      <input type="text" id="todosQuickAddInput" placeholder="Quick-add a task and press Enter…">
+      <button type="button" class="btn btn-outline-secondary" id="todosQuickAddBtn"><i class="bi bi-plus-lg"></i></button>
+    </div>
+
+    <div class="todo-filter-bar" id="todosFilterBar"></div>
+
+    <div class="todos-list" id="todosList"></div>
+    <div class="ledger-empty d-none" id="todosEmptyState"><i class="bi bi-list-check"></i><p>Nothing here — add a task above or switch filters.</p></div>
   </section>
 
   <!-- ============ DEALS ============ -->
@@ -944,6 +968,67 @@
   </div>
 </div>
 
+<!-- To-Do editor modal -->
+<div class="modal fade" id="todoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="todoModalTitle">New task</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="todoForm">
+        <input type="hidden" id="todoId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="todoTitle" class="form-label">Task</label>
+            <input type="text" class="form-control" id="todoTitle" placeholder="e.g. Follow up on Al-Fanar proposal" required>
+          </div>
+          <div class="mb-3">
+            <label for="todoNotes" class="form-label">Notes <span class="dropdown-hint d-inline">(optional)</span></label>
+            <textarea class="form-control" id="todoNotes" rows="2" placeholder="Any extra detail…"></textarea>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="todoDueDate" class="form-label">Due date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control" id="todoDueDate">
+            </div>
+            <div class="col-md-6">
+              <label for="todoPriority" class="form-label">Priority</label>
+              <select class="form-select" id="todoPriority">
+                <option value="low">Low</option>
+                <option value="normal" selected>Normal</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-3 mb-1">
+            <div class="col-md-6">
+              <label for="todoRecurring" class="form-label">Repeats <span class="dropdown-hint d-inline">(optional)</span></label>
+              <select class="form-select" id="todoRecurring">
+                <option value="">Doesn't repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="todoDeal" class="form-label">Linked deal <span class="dropdown-hint d-inline">(optional)</span></label>
+              <select class="form-select" id="todoDeal">
+                <option value="">Not linked to a deal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto d-none" id="todoDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-ink btn-sm"><i class="bi bi-check-lg me-1"></i>Save task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Quick Update modal — the fast path for logging an update, from a table
      row or the detail view, without opening the full multi-step wizard. -->
 <div class="modal fade" id="quickUpdateModal" tabindex="-1" aria-hidden="true">
@@ -1366,6 +1451,7 @@
 <script src="js/storage.js"></script>
 <script src="js/dropdowns.js"></script>
 <script src="js/updates.js"></script>
+<script src="js/todos.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/deals-shared.js"></script>
 <script src="js/deals-table.js"></script>

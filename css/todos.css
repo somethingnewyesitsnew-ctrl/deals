@@ -1,0 +1,63 @@
+/* todos.css — quick-add bar, filter chips, task list rows, priority badges. */
+
+.todos-quick-add{ display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.todos-quick-add input{
+  flex: 1; padding: 0.55rem 0.85rem; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: var(--bg-raise); color: var(--text); font-size: 0.86rem;
+}
+.todos-quick-add input::placeholder{ color: var(--text-faint); }
+.todos-quick-add input:focus{ outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+.todo-filter-bar{ display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: var(--sp-3); }
+.todo-filter-chip{
+  display: inline-flex; align-items: center; gap: 0.35rem; border: 1px solid var(--line); background: var(--bg-raise);
+  color: var(--text-dim); font-size: 0.78rem; font-weight: 600; padding: 0.32rem 0.7rem; border-radius: 999px;
+}
+.todo-filter-chip:hover{ border-color: var(--accent); color: var(--accent); }
+.todo-filter-chip.is-active{ background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.todo-filter-chip .chip-count{ background: transparent; padding: 0; margin: 0; font-weight: 700; }
+
+.todos-list{ display: flex; flex-direction: column; gap: 0.4rem; }
+
+.todo-row{
+  display: flex; align-items: flex-start; gap: 0.6rem; background: var(--bg-raise); border: 1px solid var(--line);
+  border-left: 3px solid var(--tone-color, var(--line-strong)); border-radius: var(--r-md); padding: 0.15rem;
+  box-shadow: var(--shadow-sm);
+}
+.todo-row--danger{ --tone-color: var(--red); }
+.todo-row--amber{ --tone-color: var(--amber); }
+.todo-row--slate{ --tone-color: var(--line-strong); }
+.todo-row--done{ opacity: 0.62; }
+.todo-row--done .todo-row__title{ text-decoration: line-through; }
+
+.todo-row__check{
+  flex-shrink: 0; border: none; background: transparent; color: var(--text-faint); font-size: 1.15rem;
+  padding: 0.55rem 0 0.55rem 0.6rem; line-height: 1;
+}
+.todo-row__check:hover{ color: var(--accent); }
+.todo-row--done .todo-row__check{ color: var(--green); }
+
+.todo-row__main{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; border: none; background: transparent; text-align: left; padding: 0.55rem 0.6rem; border-radius: var(--r-sm); }
+.todo-row__main:hover{ background: var(--surface); }
+.todo-row__title{ font-weight: 600; font-size: 0.86rem; color: var(--text); }
+.todo-row__notes{ font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; }
+.todo-row__meta{ display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.1rem; }
+
+.todo-row__due{ display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; font-weight: 600; color: var(--text-faint); }
+.todo-row__due i{ font-size: 0.72rem; }
+.todo-row__due--danger{ color: var(--red); }
+.todo-row__due--amber{ color: var(--amber); }
+
+.priority-badge{ display: inline-block; font-size: 0.66rem; font-weight: 700; padding: 0.12rem 0.5rem; border-radius: var(--r-sm); text-transform: uppercase; letter-spacing: 0.03em; }
+.priority-badge--slate{ background: var(--slate-soft); color: var(--text-dim); }
+.priority-badge--cyan{ background: var(--cyan-soft); color: var(--cyan); }
+.priority-badge--danger{ background: var(--red-soft); color: var(--red); }
+
+.todo-row__recurring{ display: inline-flex; align-items: center; gap: 0.28rem; font-size: 0.72rem; color: var(--violet); font-weight: 600; }
+.todo-row__recurring i{ font-size: 0.78rem; }
+
+.todo-row__deal-chip{ display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--accent); font-weight: 600; }
+.todo-row__deal-chip i{ font-size: 0.72rem; }
+
+.todo-row__remove{ flex-shrink: 0; align-self: flex-start; margin-top: 0.4rem; margin-right: 0.35rem; border: none; background: none; color: var(--text-faint); padding: 0.3rem 0.4rem; border-radius: var(--r-sm); font-size: 0.82rem; }
+.todo-row__remove:hover{ background: var(--red-soft); color: var(--red); }
