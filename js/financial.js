@@ -25,7 +25,6 @@ const financialInvoicesEmptyState = document.getElementById('financialInvoicesEm
 const financialInvoiceSearchInput = document.getElementById('financialInvoiceSearchInput');
 const expensesTableBody = document.getElementById('expensesTableBody');
 const expensesEmptyState = document.getElementById('expensesEmptyState');
-const newExpenseBtn = document.getElementById('newExpenseBtn');
 
 let incomeExpenseChartInstance = null;
 let financialInvoiceSearchTerm = '';
@@ -48,9 +47,10 @@ function computeFinancialStats() {
     if (invoice.status === 'paid') collectedUSD += amt;
   });
   const outstandingUSD = Math.max(0, invoicedUSD - collectedUSD);
-  const expensesUSD = getExpenses().reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-  const netUSD = collectedUSD - expensesUSD;
-  return { invoicedUSD, collectedUSD, outstandingUSD, expensesUSD, netUSD };
+  const expensesUSD = getExpenses().filter(e => e.kind !== 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  const otherIncomeUSD = getExpenses().filter(e => e.kind === 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  const netUSD = collectedUSD + otherIncomeUSD - expensesUSD;
+  return { invoicedUSD, collectedUSD, outstandingUSD, expensesUSD, otherIncomeUSD, netUSD };
 }
 
 // ---------- Summary stats ----------
@@ -61,6 +61,7 @@ function renderFinancialStats() {
     { label: 'Total invoiced', value: formatUSD(s.invoicedUSD), icon: 'bi-receipt', tone: 'slate', kind: null },
     { label: 'Collected (income)', value: formatUSD(s.collectedUSD), icon: 'bi-cash-stack', tone: 'green', kind: 'collected' },
     { label: 'Outstanding', value: formatUSD(s.outstandingUSD), icon: 'bi-exclamation-diamond', tone: s.outstandingUSD > 0.01 ? 'amber' : 'slate', kind: 'outstanding' },
+    { label: 'Other income', value: formatUSD(s.otherIncomeUSD), icon: 'bi-plus-circle', tone: s.otherIncomeUSD > 0 ? 'green' : 'slate', kind: null },
     { label: 'Expenses', value: formatUSD(s.expensesUSD), icon: 'bi-wallet2', tone: s.expensesUSD > 0 ? 'danger' : 'slate', kind: null },
     { label: 'Net profit', value: formatUSD(s.netUSD), icon: 'bi-piggy-bank', tone: s.netUSD >= 0 ? 'green' : 'danger', kind: null },
   ].map(c => {
@@ -95,7 +96,12 @@ function renderIncomeExpenseChart() {
   getExpenses().forEach(exp => {
     if (!exp.date) return;
     const key = monthKey(new Date(exp.date).getTime());
-    expenseByMonth.set(key, (expenseByMonth.get(key) || 0) + toUSD(exp.amount, exp.currency));
+    const usd = toUSD(exp.amount, exp.currency);
+    if (exp.kind === 'income') {
+      incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + usd);
+    } else {
+      expenseByMonth.set(key, (expenseByMonth.get(key) || 0) + usd);
+    }
   });
 
   const keys = Array.from(new Set([...incomeByMonth.keys(), ...expenseByMonth.keys()])).sort();
@@ -211,6 +217,7 @@ function openExpenseModal(expenseId) {
     expenseDateInput.value = existing.date || '';
     expenseAmountInput.value = existing.amount || '';
     document.getElementById(existing.currency === 'SDG' ? 'expenseCurrencySDG' : 'expenseCurrencyUSD').checked = true;
+    document.getElementById(existing.kind === 'income' ? 'expenseKindIncome' : 'expenseKindExpense').checked = true;
     populateExpenseDealSelect(existing.dealId);
     expenseDeleteBtn.classList.remove('d-none');
   } else {
@@ -221,6 +228,7 @@ function openExpenseModal(expenseId) {
     expenseDateInput.value = new Date().toISOString().slice(0, 10);
     expenseAmountInput.value = '';
     document.getElementById('expenseCurrencyUSD').checked = true;
+    document.getElementById('expenseKindExpense').checked = true;
     populateExpenseDealSelect('');
     expenseDeleteBtn.classList.add('d-none');
   }
@@ -247,6 +255,7 @@ saveExpenseBtn.addEventListener('click', () => {
     date: expenseDateInput.value,
     amount,
     currency: document.getElementById('expenseCurrencySDG').checked ? 'SDG' : 'USD',
+    kind: document.getElementById('expenseKindIncome').checked ? 'income' : 'expense',
     dealId: expenseDealSelect.value || null,
   });
 
@@ -265,8 +274,6 @@ expenseDeleteBtn.addEventListener('click', () => {
   showToast('Expense deleted.');
 });
 
-newExpenseBtn.addEventListener('click', () => openExpenseModal());
-
 function renderExpensesTable() {
   const expenses = getExpenses();
   if (expenses.length === 0) {
@@ -280,9 +287,12 @@ function renderExpensesTable() {
 
   expensesTableBody.innerHTML = expenses.map(exp => {
     const deal = exp.dealId ? dealsById.get(exp.dealId) : null;
+    const isIncome = exp.kind === 'income';
     return '' +
       '<tr class="row-clickable" data-id="' + exp.id + '">' +
-        '<td><span class="deal-name">' + escapeHtml(exp.description) + '</span></td>' +
+        '<td><span class="deal-name">' + escapeHtml(exp.description) + '</span>' +
+          (exp.sourceTodoId ? ' <i class="bi bi-link-45deg" title="Linked from a to-do"></i>' : '') + '</td>' +
+        '<td><span class="status-badge status-badge--' + (isIncome ? 'done' : 'canceled') + '">' + (isIncome ? 'Income' : 'Expense') + '</span></td>' +
         '<td>' + (exp.category ? escapeHtml(exp.category) : '<span class="no-referral">—</span>') + '</td>' +
         '<td>' + (deal ? escapeHtml(deal.entityName || 'Untitled entity') : '<span class="no-referral">—</span>') + '</td>' +
         '<td class="text-end deal-value">' + formatInvoiceAmount(exp.amount, exp.currency) + '</td>' +

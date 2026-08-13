@@ -210,6 +210,34 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ---------- FAB speed-dial (the app-wide "add new" entry point) ----------
+const fabSpeedDial = document.getElementById('fabSpeedDial');
+const fabMainBtn = document.getElementById('fabMainBtn');
+const fabMainIcon = document.getElementById('fabMainIcon');
+
+function closeFabSpeedDial() {
+  fabSpeedDial.classList.remove('is-open');
+  fabMainBtn.setAttribute('aria-expanded', 'false');
+  fabMainIcon.className = 'bi bi-plus-lg';
+}
+function openFabSpeedDial() {
+  fabSpeedDial.classList.add('is-open');
+  fabMainBtn.setAttribute('aria-expanded', 'true');
+  fabMainIcon.className = 'bi bi-x-lg';
+}
+
+fabMainBtn.addEventListener('click', () => {
+  if (fabSpeedDial.classList.contains('is-open')) closeFabSpeedDial();
+  else openFabSpeedDial();
+});
+
+document.addEventListener('click', (e) => {
+  if (fabSpeedDial.classList.contains('is-open') && !e.target.closest('#fabSpeedDial')) closeFabSpeedDial();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeFabSpeedDial();
+});
+
 // ---------- Currency settings ----------
 const exchangeRateBtn = document.getElementById('exchangeRateBtn');
 const exchangeRateLabel = document.getElementById('exchangeRateLabel');
@@ -275,11 +303,14 @@ async function boot() {
   recordTodaysSnapshotIfNeeded(getDeals());
   renderEverything();
 
-  const fabNewDealBtn = document.getElementById('fabNewDealBtn');
-  if (fabNewDealBtn) fabNewDealBtn.addEventListener('click', () => openWizard());
+  const fabAddDealBtn = document.getElementById('fabAddDealBtn');
+  if (fabAddDealBtn) fabAddDealBtn.addEventListener('click', () => { closeFabSpeedDial(); openWizard(); });
 
-  const newDealBtnTop = document.getElementById('newDealBtnTop');
-  if (newDealBtnTop) newDealBtnTop.addEventListener('click', () => openWizard());
+  const fabAddTaskBtn = document.getElementById('fabAddTaskBtn');
+  if (fabAddTaskBtn) fabAddTaskBtn.addEventListener('click', () => { closeFabSpeedDial(); openNewTodoModal(); });
+
+  const fabAddExpenseBtn = document.getElementById('fabAddExpenseBtn');
+  if (fabAddExpenseBtn) fabAddExpenseBtn.addEventListener('click', () => { closeFabSpeedDial(); openExpenseModal(); });
 
   const exportDataBtn = document.getElementById('exportDataBtn');
   if (exportDataBtn) {

@@ -133,15 +133,35 @@
 .btn-outline-secondary{ color: var(--text-dim); border-color: var(--line-strong); border-radius: var(--r-sm); font-size: 0.83rem; }
 .btn-outline-secondary:hover{ background: var(--surface); color: var(--text); border-color: var(--line-strong); }
 
+/* ---- Expanding "Add new" speed-dial (the sole creation entry point) ---- */
+.fab-speed-dial{ position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 1030; display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-3); }
+
 .fab-new-deal{
-  position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 1030;
-  width: 2.9rem; height: 2.9rem; border-radius: 50%; border: none;
+  position: static; width: 2.9rem; height: 2.9rem; border-radius: 50%; border: none;
   background: var(--accent); color: #fff; font-size: 1.2rem;
   display: inline-flex; align-items: center; justify-content: center;
   box-shadow: var(--shadow-lg); transition: transform var(--motion-fast), background var(--motion-fast);
 }
 .fab-new-deal:hover{ background: var(--accent-hover); transform: translateY(-1px) scale(1.03); }
 .fab-new-deal:active{ transform: scale(0.96); }
+.fab-speed-dial.is-open .fab-new-deal{ background: var(--text-dim); }
+
+.fab-speed-dial__menu{ display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
+.fab-speed-dial__item{
+  display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line);
+  background: var(--bg-raise); color: var(--text); font-size: 0.82rem; font-weight: 600;
+  padding: 0.5rem 0.5rem 0.5rem 0.9rem; border-radius: 999px; box-shadow: var(--shadow-md);
+  white-space: nowrap; opacity: 0; transform: translateY(6px) scale(0.96); pointer-events: none;
+  transition: opacity var(--motion-fast), transform var(--motion-fast), border-color var(--motion-fast);
+}
+.fab-speed-dial__icon{ display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 0.9rem; flex-shrink: 0; }
+.fab-speed-dial__item:hover{ border-color: var(--accent); color: var(--accent); }
+.fab-speed-dial__item:hover .fab-speed-dial__icon{ background: var(--accent); color: #fff; }
+
+.fab-speed-dial.is-open .fab-speed-dial__item{ opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.fab-speed-dial.is-open .fab-speed-dial__item:nth-child(1){ transition-delay: 0ms; }
+.fab-speed-dial.is-open .fab-speed-dial__item:nth-child(2){ transition-delay: 30ms; }
+.fab-speed-dial.is-open .fab-speed-dial__item:nth-child(3){ transition-delay: 60ms; }
 
 /* ===== Toolbar (search / filter chips with counts) ===== */
 .ledger-toolbar{ display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-bottom: var(--sp-3); }

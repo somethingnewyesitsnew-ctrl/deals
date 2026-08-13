@@ -30,8 +30,6 @@ const totalCountEl = document.getElementById('totalCount');
 const moneyStatsGrid = document.getElementById('moneyStatsGrid');
 const pipelineFunnel = document.getElementById('pipelineFunnel');
 
-const newDealBtn = document.getElementById('newDealBtn');
-
 let dealsTrendChartInstance = null;
 let dealsMixChartInstance = null;
 let collectionEfficiencyChartInstance = null;
@@ -525,8 +523,6 @@ dealsSearchInput.addEventListener('input', (e) => {
   clearTimeout(dealsSearchDebounce);
   dealsSearchDebounce = setTimeout(() => { dealsSearchTerm = e.target.value; renderDeals(); }, 150);
 });
-
-newDealBtn.addEventListener('click', () => openWizard());
 
 // Called by app.js's tab switcher to jump into the Deals tab pre-filtered.
 function setDealsSearch(term) {

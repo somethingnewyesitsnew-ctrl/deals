@@ -311,6 +311,8 @@ function _rowToExpense(row) {
     currency: row.currency,
     date: row.date,
     dealId: row.deal_id,
+    kind: row.kind || 'expense',
+    sourceTodoId: row.source_todo_id || null,
     createdAt: row.created_at,
   };
 }
@@ -324,6 +326,8 @@ function _expenseToRow(expense) {
     currency: expense.currency || 'USD',
     date: expense.date || '',
     deal_id: expense.dealId || null,
+    kind: expense.kind === 'income' ? 'income' : 'expense',
+    source_todo_id: expense.sourceTodoId || null,
     created_at: expense.createdAt,
   };
 }
@@ -338,6 +342,12 @@ function _rowToTodo(row) {
     status: row.status || 'open',
     recurring: row.recurring || '',
     dealId: row.deal_id,
+    links: row.links || [],
+    subtasks: row.subtasks || [],
+    documents: row.documents || [],
+    amount: row.amount,
+    currency: row.currency || 'USD',
+    moneyKind: row.money_kind || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at,
@@ -354,6 +364,12 @@ function _todoToRow(todo) {
     status: todo.status || 'open',
     recurring: todo.recurring || null,
     deal_id: todo.dealId || null,
+    links: todo.links || [],
+    subtasks: todo.subtasks || [],
+    documents: todo.documents || [],
+    amount: (todo.amount === '' || todo.amount === undefined) ? null : Number(todo.amount),
+    currency: todo.currency || null,
+    money_kind: todo.moneyKind || null,
     created_at: todo.createdAt,
     updated_at: todo.updatedAt,
     completed_at: todo.completedAt || null,
@@ -493,6 +509,33 @@ function getTodos() {
   return _todosCache.slice();
 }
 
+// A to-do carrying an amount + moneyKind ('expense'|'income') always has a
+// mirror row in `expenses`, tagged via sourceTodoId, so it shows up in
+// Financial without double-entry. Called after every saveTodo() — cheap and
+// idempotent, since it no-ops unless the to-do's money fields are actually set.
+function _syncTodoLinkedExpense(todo) {
+  const existing = _expensesCache.find(e => e.sourceTodoId === todo.id);
+  const hasMoney = Number(todo.amount) > 0 && (todo.moneyKind === 'expense' || todo.moneyKind === 'income');
+
+  if (!hasMoney) {
+    if (existing) deleteExpense(existing.id);
+    return;
+  }
+
+  const dealLink = (todo.links || []).find(l => l.type === 'deal');
+  saveExpense({
+    id: existing ? existing.id : undefined,
+    description: todo.title,
+    category: existing ? existing.category : 'From to-do',
+    amount: Number(todo.amount) || 0,
+    currency: todo.currency || 'USD',
+    date: todo.dueDate || new Date().toISOString().slice(0, 10),
+    dealId: dealLink ? dealLink.id : null,
+    kind: todo.moneyKind,
+    sourceTodoId: todo.id,
+  });
+}
+
 function saveTodo(todo) {
   const idx = _todosCache.findIndex(t => t.id === todo.id);
   let saved;
@@ -503,17 +546,21 @@ function saveTodo(todo) {
   } else {
     saved = Object.assign({
       priority: 'normal', status: 'open', notes: '', recurring: '', dealId: null, completedAt: null,
+      links: [], subtasks: [], documents: [], amount: null, currency: 'USD', moneyKind: '',
     }, todo, { id: todo.id || crypto.randomUUID(), createdAt: now, updatedAt: now });
     _todosCache.push(saved);
   }
   if (supabaseClient) {
     _bgPersist(() => supabaseClient.from('todos').upsert(_todoToRow(saved), { onConflict: 'id' }), 'saveTodo');
   }
+  _syncTodoLinkedExpense(saved);
   return _todosCache;
 }
 
 function deleteTodo(id) {
   _todosCache = _todosCache.filter(t => t.id !== id);
+  const linkedExpense = _expensesCache.find(e => e.sourceTodoId === id);
+  if (linkedExpense) _expensesCache = _expensesCache.filter(e => e.id !== linkedExpense.id); // DB row cascades on delete
   if (supabaseClient) {
     _bgPersist(() => supabaseClient.from('todos').delete().eq('id', id), 'deleteTodo');
   }

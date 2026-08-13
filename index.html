@@ -115,9 +115,6 @@
         <button type="button" class="win-icon-btn d-none" id="sidebarOpenBtn" title="Open menu"><i class="bi bi-list"></i></button>
         <span class="win-titlebar__crumb" id="titlebarCrumb">Dashboard</span>
       </div>
-      <div class="win-titlebar__actions">
-        <button type="button" class="btn btn-ink btn-sm" id="newDealBtnTop"><i class="bi bi-plus-lg me-1"></i>New deal</button>
-      </div>
     </header>
 
     <main class="win-content">
@@ -174,9 +171,6 @@
   <section class="ledger-view d-none" id="todosView">
     <div class="page-header">
       <h1 class="page-title">To-Do</h1>
-      <div class="page-header__actions">
-        <button type="button" class="btn btn-ink" id="todosNewTaskBtn"><i class="bi bi-plus-lg me-1"></i>New task</button>
-      </div>
     </div>
 
     <div class="attention-summary" id="todosSummary"></div>
@@ -198,9 +192,6 @@
       <h1 class="page-title">Deals</h1>
       <div class="page-header__actions">
         <span class="entries-badge"><i class="bi bi-collection"></i><span id="totalCount">0</span> deals</span>
-        <button type="button" class="btn btn-ink" id="newDealBtn">
-          <i class="bi bi-plus-lg me-1"></i>New deal
-        </button>
       </div>
     </div>
 
@@ -367,9 +358,6 @@
   <section class="ledger-view d-none" id="financialView">
     <div class="page-header">
       <h1 class="page-title">Financial</h1>
-      <div class="page-header__actions">
-        <button type="button" class="btn btn-outline-secondary" id="newExpenseBtn"><i class="bi bi-plus-lg me-1"></i>Add expense</button>
-      </div>
     </div>
 
     <div class="attention-summary" id="financialStatsGrid"></div>
@@ -403,7 +391,7 @@
       <div class="table-responsive ledger-table-wrap">
         <table class="table ledger-table">
           <thead>
-            <tr><th>Description</th><th>Category</th><th>Linked deal</th><th class="text-end">Amount</th><th>Date</th><th></th></tr>
+            <tr><th>Description</th><th>Type</th><th>Category</th><th>Linked deal</th><th class="text-end">Amount</th><th>Date</th><th></th></tr>
           </thead>
           <tbody id="expensesTableBody"></tbody>
         </table>
@@ -969,8 +957,8 @@
 </div>
 
 <!-- To-Do editor modal -->
-<div class="modal fade" id="todoModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade" id="todoModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title" id="todoModalTitle">New task</h2>
@@ -988,11 +976,11 @@
             <textarea class="form-control" id="todoNotes" rows="2" placeholder="Any extra detail…"></textarea>
           </div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-md-4">
               <label for="todoDueDate" class="form-label">Due date <span class="dropdown-hint d-inline">(optional)</span></label>
               <input type="date" class="form-control" id="todoDueDate">
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
               <label for="todoPriority" class="form-label">Priority</label>
               <select class="form-select" id="todoPriority">
                 <option value="low">Low</option>
@@ -1000,9 +988,7 @@
                 <option value="high">High</option>
               </select>
             </div>
-          </div>
-          <div class="row g-3 mb-1">
-            <div class="col-md-6">
+            <div class="col-md-4">
               <label for="todoRecurring" class="form-label">Repeats <span class="dropdown-hint d-inline">(optional)</span></label>
               <select class="form-select" id="todoRecurring">
                 <option value="">Doesn't repeat</option>
@@ -1011,11 +997,57 @@
                 <option value="monthly">Monthly</option>
               </select>
             </div>
-            <div class="col-md-6">
-              <label for="todoDeal" class="form-label">Linked deal <span class="dropdown-hint d-inline">(optional)</span></label>
-              <select class="form-select" id="todoDeal">
-                <option value="">Not linked to a deal</option>
-              </select>
+          </div>
+
+          <!-- Universal link picker — deals, contacts, referrals, entities,
+               invoices, or a free-typed custom tag. -->
+          <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — link to anything: a deal, contact, referral, entity, invoice, or type your own)</span></label>
+          <div class="link-picker">
+            <input type="text" class="form-control form-control-sm" id="todoLinkInput" placeholder="Type to search, or type anything and press Enter…" autocomplete="off">
+            <div class="link-picker__results d-none" id="todoLinkResults"></div>
+          </div>
+          <div class="link-chips mt-2 mb-3" id="todoLinkChips"></div>
+
+          <!-- Subtasks -->
+          <label class="form-label">Subtasks <span class="dropdown-hint d-inline">(optional — break this task down)</span></label>
+          <div class="subtask-add">
+            <input type="text" class="form-control form-control-sm" id="todoSubtaskInput" placeholder="Add a subtask and press Enter…">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="todoSubtaskAddBtn"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <ul class="subtask-list mb-3" id="todoSubtaskList"></ul>
+
+          <!-- Documents -->
+          <label class="form-label">Documents <span class="dropdown-hint d-inline">(optional — small file under 350KB, or a link)</span></label>
+          <div class="todo-doc-add">
+            <input type="file" class="form-control form-control-sm" id="todoDocFile">
+            <input type="url" class="form-control form-control-sm" id="todoDocUrl" placeholder="…or paste a link">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="todoDocAddBtn"><i class="bi bi-plus-lg"></i> Add</button>
+          </div>
+          <div class="document-list mb-3" id="todoDocList"></div>
+
+          <!-- Money — auto-syncs to Financial -->
+          <label class="form-label">Money <span class="dropdown-hint d-inline">(optional — automatically shows up in Financial as income or an expense)</span></label>
+          <div class="row g-2 mb-1">
+            <div class="col-md-4">
+              <input type="number" class="form-control form-control-sm" id="todoAmount" min="0" step="0.01" placeholder="Amount">
+            </div>
+            <div class="col-md-3">
+              <div class="btn-group w-100" role="group" aria-label="Todo money currency">
+                <input type="radio" class="btn-check" name="todoCurrency" id="todoCurrencyUSD" value="USD" checked>
+                <label class="btn btn-outline-secondary btn-sm" for="todoCurrencyUSD">USD</label>
+                <input type="radio" class="btn-check" name="todoCurrency" id="todoCurrencySDG" value="SDG">
+                <label class="btn btn-outline-secondary btn-sm" for="todoCurrencySDG">SDG</label>
+              </div>
+            </div>
+            <div class="col-md-5">
+              <div class="btn-group w-100" role="group" aria-label="Todo money type">
+                <input type="radio" class="btn-check" name="todoMoneyKind" id="todoMoneyKindNone" value="" checked>
+                <label class="btn btn-outline-secondary btn-sm" for="todoMoneyKindNone">None</label>
+                <input type="radio" class="btn-check" name="todoMoneyKind" id="todoMoneyKindExpense" value="expense">
+                <label class="btn btn-outline-secondary btn-sm" for="todoMoneyKindExpense">Expense</label>
+                <input type="radio" class="btn-check" name="todoMoneyKind" id="todoMoneyKindIncome" value="income">
+                <label class="btn btn-outline-secondary btn-sm" for="todoMoneyKindIncome">Income</label>
+              </div>
             </div>
           </div>
         </div>
@@ -1028,6 +1060,8 @@
     </div>
   </div>
 </div>
+<datalist id="todoDocNameOptionsList"></datalist>
+
 
 <!-- Quick Update modal — the fast path for logging an update, from a table
      row or the detail view, without opening the full multi-step wizard. -->
@@ -1364,6 +1398,15 @@
           <label for="expenseDescription" class="form-label">Description</label>
           <input type="text" class="form-control" id="expenseDescription" list="expenseDescriptionOptionsList" placeholder="e.g. Freelance designer payment">
         </div>
+        <div class="mb-3">
+          <label class="form-label d-block">Type</label>
+          <div class="btn-group w-100" role="group" aria-label="Expense type">
+            <input type="radio" class="btn-check" name="expenseKind" id="expenseKindExpense" value="expense" checked>
+            <label class="btn btn-outline-secondary" for="expenseKindExpense">Expense</label>
+            <input type="radio" class="btn-check" name="expenseKind" id="expenseKindIncome" value="income">
+            <label class="btn btn-outline-secondary" for="expenseKindIncome">Income</label>
+          </div>
+        </div>
         <div class="row g-3 mb-3">
           <div class="col-md-6">
             <label for="expenseCategory" class="form-label">Category</label>
@@ -1425,10 +1468,25 @@
 </div>
 <datalist id="documentNameOptionsList"></datalist>
 
-<!-- Floating quick-action — visible on every tab, not just Deals -->
-<button type="button" class="fab-new-deal" id="fabNewDealBtn" title="New deal" aria-label="New deal">
-  <i class="bi bi-plus-lg"></i>
-</button>
+<!-- Expanding "Add new" speed-dial — the ONLY entry point for creating a
+     deal, task, or expense anywhere in the app; every page-level "New X"
+     button was removed in favor of this one consistent control. -->
+<div class="fab-speed-dial" id="fabSpeedDial">
+  <div class="fab-speed-dial__menu" id="fabSpeedDialMenu">
+    <button type="button" class="fab-speed-dial__item" id="fabAddExpenseBtn">
+      <span>New expense</span><span class="fab-speed-dial__icon"><i class="bi bi-wallet2"></i></span>
+    </button>
+    <button type="button" class="fab-speed-dial__item" id="fabAddTaskBtn">
+      <span>New task</span><span class="fab-speed-dial__icon"><i class="bi bi-list-check"></i></span>
+    </button>
+    <button type="button" class="fab-speed-dial__item" id="fabAddDealBtn">
+      <span>New deal</span><span class="fab-speed-dial__icon"><i class="bi bi-journal-text"></i></span>
+    </button>
+  </div>
+  <button type="button" class="fab-new-deal" id="fabMainBtn" title="Add new" aria-label="Add new" aria-expanded="false">
+    <i class="bi bi-plus-lg" id="fabMainIcon"></i>
+  </button>
+</div>
 
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="appToast" class="toast align-items-center border-0" role="alert">

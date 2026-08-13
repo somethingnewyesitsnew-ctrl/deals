@@ -61,3 +61,48 @@
 
 .todo-row__remove{ flex-shrink: 0; align-self: flex-start; margin-top: 0.4rem; margin-right: 0.35rem; border: none; background: none; color: var(--text-faint); padding: 0.3rem 0.4rem; border-radius: var(--r-sm); font-size: 0.82rem; }
 .todo-row__remove:hover{ background: var(--red-soft); color: var(--red); }
+
+.todo-row__money{ font-family: var(--font-mono); font-weight: 700; font-size: 0.76rem; }
+.todo-row__money--green{ color: var(--green); }
+.todo-row__money--danger{ color: var(--red); }
+
+.todo-row__doc-count{ display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--text-faint); }
+
+.todo-row__link-chip{ display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; font-weight: 600; color: var(--text-dim); background: var(--slate-soft); padding: 0.1rem 0.5rem; border-radius: 999px; }
+.todo-row__link-chip i{ font-size: 0.68rem; }
+.todo-row__link-chip--more{ color: var(--text-faint); }
+
+.todo-row__subtask-progress{ display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-faint); margin-top: 0.15rem; }
+.todo-row__subtask-bar{ width: 60px; height: 4px; border-radius: 4px; background: var(--slate-soft); overflow: hidden; flex-shrink: 0; }
+.todo-row__subtask-bar span{ display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+
+/* ---- Universal link picker (To-Do modal) ---- */
+.link-picker{ position: relative; }
+.link-picker__results{
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; max-height: 220px; overflow-y: auto;
+  background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-lg); padding: 0.3rem;
+}
+.link-picker__item{ display: flex; align-items: center; gap: 0.5rem; width: 100%; border: none; background: transparent; color: var(--text); text-align: left; padding: 0.4rem 0.55rem; border-radius: var(--r-sm); font-size: 0.82rem; }
+.link-picker__item:hover{ background: var(--surface); }
+.link-picker__item i{ color: var(--accent); width: 1rem; text-align: center; flex-shrink: 0; }
+.link-picker__item span:nth-child(2){ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-picker__type{ font-size: 0.66rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
+
+.link-chips{ display: flex; flex-wrap: wrap; gap: 0.35rem; min-height: 1.6rem; }
+.link-chip{ display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; padding: 0.24rem 0.35rem 0.24rem 0.6rem; border-radius: 999px; }
+.link-chip i{ font-size: 0.76rem; }
+.link-chip__remove{ border: none; background: none; color: var(--accent); opacity: 0.7; padding: 0.1rem; display: inline-flex; }
+.link-chip__remove:hover{ opacity: 1; }
+
+/* ---- Subtasks ---- */
+.subtask-add{ display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
+.subtask-list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; max-height: 180px; overflow-y: auto; }
+.subtask-item{ display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.subtask-item--done .subtask-item__text{ text-decoration: line-through; color: var(--text-faint); }
+.subtask-item__check{ border: none; background: none; color: var(--accent); font-size: 0.95rem; flex-shrink: 0; padding: 0; }
+.subtask-item__text{ flex: 1; font-size: 0.82rem; color: var(--text); }
+.subtask-item__remove{ border: none; background: none; color: var(--text-faint); font-size: 0.78rem; flex-shrink: 0; }
+.subtask-item__remove:hover{ color: var(--red); }
+
+/* ---- Documents (To-Do modal) ---- */
+.todo-doc-add{ display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.4rem; margin-bottom: 0.5rem; }
