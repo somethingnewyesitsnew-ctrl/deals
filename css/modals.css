@@ -151,6 +151,21 @@
 #deleteModal .modal-content, #settingsModal .modal-content,
 #quickUpdateModal .modal-content, #dayUpdatesModal .modal-content,
 #contactUpdateModal .modal-content{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); box-shadow: var(--shadow-lg); }
+
+/* To-Do editor — themed like the other modals, and explicitly capped so
+   the footer's Save button is always reachable no matter how much content
+   (links/subtasks/documents/money) is in the body. */
+#todoModal .modal-content{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); box-shadow: var(--shadow-lg); }
+#todoModal .modal-dialog{ max-height: 90vh; }
+#todoModal .modal-header, #todoModal .modal-footer{ border-color: var(--line); flex-shrink: 0; }
+#todoModal .modal-body{ overflow-y: auto; }
+#todoModal .modal-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; }
+
+#debtModal .modal-content{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); box-shadow: var(--shadow-lg); }
+#debtModal .modal-dialog{ max-height: 90vh; }
+#debtModal .modal-header, #debtModal .modal-footer{ border-color: var(--line); flex-shrink: 0; }
+#debtModal .modal-body{ overflow-y: auto; }
+#debtModal .modal-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; }
 #deleteModal .modal-footer{ border-top: none; }
 #settingsModal .modal-header, #settingsModal .modal-footer,
 #quickUpdateModal .modal-header, #quickUpdateModal .modal-footer,

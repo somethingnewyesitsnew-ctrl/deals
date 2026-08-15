@@ -59,6 +59,7 @@ let dbInitError = null;
 let _dealsCache = [];               // array of deal objects, same shape as before
 let _expensesCache = [];            // array of expense objects, same shape as before
 let _todosCache = [];               // array of todo objects — standalone tasks, optionally linked to a deal
+let _debtsCache = [];               // array of debt objects — money owed, either direction
 let _contactUpdatesCache = {};      // { contactKey: [entry, entry, ...] }
 let _optionsCache = {};             // { relation: ['...','...'], channel: [...], ... }
 let _metricSnapshotsCache = [];     // [{ date, metrics }, ...]
@@ -173,23 +174,25 @@ async function initStorage() {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   try {
-    const [dealsRes, expensesRes, todosRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
+    const [dealsRes, expensesRes, todosRes, debtsRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
       supabaseClient.from('deals').select('*'),
       supabaseClient.from('expenses').select('*'),
       supabaseClient.from('todos').select('*'),
+      supabaseClient.from('debts').select('*'),
       supabaseClient.from('contact_updates').select('*'),
       supabaseClient.from('options').select('*'),
       supabaseClient.from('settings').select('*'),
       supabaseClient.from('metric_snapshots').select('*'),
     ]);
 
-    [dealsRes, expensesRes, todosRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
+    [dealsRes, expensesRes, todosRes, debtsRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
       if (res.error) throw res.error;
     });
 
     _dealsCache = (dealsRes.data || []).map(_rowToDeal);
     _expensesCache = (expensesRes.data || []).map(_rowToExpense);
     _todosCache = (todosRes.data || []).map(_rowToTodo);
+    _debtsCache = (debtsRes.data || []).map(_rowToDebt);
 
     _contactUpdatesCache = {};
     (contactUpdatesRes.data || []).forEach(row => {
@@ -261,6 +264,18 @@ function _subscribeToRealtime() {
     .subscribe();
 
   supabaseClient
+    .channel('debts-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'debts' }, () => {
+      supabaseClient.from('debts').select('*').then(({ data, error }) => {
+        if (error) { console.error('Realtime refresh failed (debts):', error); return; }
+        _debtsCache = (data || []).map(_rowToDebt);
+        if (typeof renderDebts === 'function') renderDebts();
+        if (typeof updateTabCounts === 'function') updateTabCounts();
+      });
+    })
+    .subscribe();
+
+  supabaseClient
     .channel('contact-updates-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_updates' }, () => {
       supabaseClient.from('contact_updates').select('*').then(({ data, error }) => {
@@ -313,6 +328,8 @@ function _rowToExpense(row) {
     dealId: row.deal_id,
     kind: row.kind || 'expense',
     sourceTodoId: row.source_todo_id || null,
+    recurring: row.recurring || '',
+    links: row.links || [],
     createdAt: row.created_at,
   };
 }
@@ -328,6 +345,8 @@ function _expenseToRow(expense) {
     deal_id: expense.dealId || null,
     kind: expense.kind === 'income' ? 'income' : 'expense',
     source_todo_id: expense.sourceTodoId || null,
+    recurring: expense.recurring || null,
+    links: expense.links || [],
     created_at: expense.createdAt,
   };
 }
@@ -373,6 +392,42 @@ function _todoToRow(todo) {
     created_at: todo.createdAt,
     updated_at: todo.updatedAt,
     completed_at: todo.completedAt || null,
+  };
+}
+
+function _rowToDebt(row) {
+  return {
+    id: row.id,
+    description: row.description,
+    direction: row.direction || 'i_owe',
+    amount: row.amount,
+    currency: row.currency || 'USD',
+    counterparty: row.counterparty || '',
+    dueDate: row.due_date || '',
+    status: row.status || 'open',
+    notes: row.notes || '',
+    links: row.links || [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    paidAt: row.paid_at,
+  };
+}
+
+function _debtToRow(debt) {
+  return {
+    id: debt.id,
+    description: debt.description || '',
+    direction: debt.direction === 'owed_to_me' ? 'owed_to_me' : 'i_owe',
+    amount: Number(debt.amount) || 0,
+    currency: debt.currency || 'USD',
+    counterparty: debt.counterparty || '',
+    due_date: debt.dueDate || null,
+    status: debt.status || 'open',
+    notes: debt.notes || '',
+    links: debt.links || [],
+    created_at: debt.createdAt,
+    updated_at: debt.updatedAt,
+    paid_at: debt.paidAt || null,
   };
 }
 
@@ -575,6 +630,7 @@ function nextRecurringDate(fromDateStr, recurring) {
   if (recurring === 'daily') base.setDate(base.getDate() + 1);
   else if (recurring === 'weekly') base.setDate(base.getDate() + 7);
   else if (recurring === 'monthly') base.setMonth(base.getMonth() + 1);
+  else if (recurring === 'yearly') base.setFullYear(base.getFullYear() + 1);
   else return null;
   return base.toISOString().slice(0, 10);
 }
@@ -598,6 +654,49 @@ function toggleTodoDone(id) {
     });
   }
   return _todosCache;
+}
+
+// ---------- Debts ----------
+// Money owed, either direction: 'i_owe' (a debt I owe someone) or
+// 'owed_to_me' (someone owes me). Same universal `links` mechanism as
+// todos/expenses, so a debt can point at a deal, contact, or anything else.
+function getDebts() {
+  return _debtsCache.slice();
+}
+
+function saveDebt(debt) {
+  const idx = _debtsCache.findIndex(d => d.id === debt.id);
+  let saved;
+  const now = Date.now();
+  if (idx >= 0) {
+    saved = Object.assign({}, _debtsCache[idx], debt, { updatedAt: now });
+    _debtsCache[idx] = saved;
+  } else {
+    saved = Object.assign({
+      direction: 'i_owe', currency: 'USD', status: 'open', counterparty: '', notes: '', links: [],
+    }, debt, { id: debt.id || crypto.randomUUID(), createdAt: now, updatedAt: now });
+    _debtsCache.push(saved);
+  }
+  if (supabaseClient) {
+    _bgPersist(() => supabaseClient.from('debts').upsert(_debtToRow(saved), { onConflict: 'id' }), 'saveDebt');
+  }
+  return _debtsCache;
+}
+
+function deleteDebt(id) {
+  _debtsCache = _debtsCache.filter(d => d.id !== id);
+  if (supabaseClient) {
+    _bgPersist(() => supabaseClient.from('debts').delete().eq('id', id), 'deleteDebt');
+  }
+  return _debtsCache;
+}
+
+function toggleDebtPaid(id) {
+  const debt = _debtsCache.find(d => d.id === id);
+  if (!debt) return _debtsCache;
+  if (debt.status === 'paid') saveDebt({ id, status: 'open', paidAt: null });
+  else saveDebt({ id, status: 'paid', paidAt: Date.now() });
+  return _debtsCache;
 }
 
 // ---------- Contact-level updates ----------
@@ -693,6 +792,9 @@ const SEED_OPTIONS = {
   expenseCategory: [
     'Contractor / Freelancer', 'Software & Tools', 'Advertising & Marketing',
     'Hosting & Infrastructure', 'Office & Admin', 'Travel', 'Bank & Payment Fees', 'Other',
+  ],
+  incomeSource: [
+    'Deal revenue', 'External project', 'Consulting', 'Retainer', 'Royalties', 'Interest', 'Other',
   ],
   // These start empty on purpose — pure learn-as-you-go from what gets typed,
   // rather than guessing at a business's specific fields/locations/etc.
@@ -888,6 +990,7 @@ function exportAllDataAsJson() {
     deals: _dealsCache,
     expenses: _expensesCache,
     todos: _todosCache,
+    debts: _debtsCache,
     contactUpdates: _contactUpdatesCache,
     options: _optionsCache,
     settings: _settingsCache,

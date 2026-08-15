@@ -80,6 +80,7 @@
       <button class="view-tab" data-view="attention" title="Attention"><i class="bi bi-bell"></i><span>Attention</span><span class="chip-count chip-count--alert" id="tabCountAttention">0</span></button>
       <button class="view-tab" data-view="todos" title="To-Do"><i class="bi bi-list-check"></i><span>To-Do</span><span class="chip-count chip-count--alert" id="tabCountTodos">0</span></button>
       <button class="view-tab" data-view="calendar" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></button>
+      <button class="view-tab" data-view="documentation" title="Documentation"><i class="bi bi-archive"></i><span>Documentation</span><span class="chip-count" id="tabCountDocumentation">0</span></button>
 
       <span class="win-sidebar__section-label">Pipeline</span>
       <button class="view-tab" data-view="deals" title="Deals"><i class="bi bi-journal-text"></i><span>Deals</span><span class="chip-count" id="tabCountDeals">0</span></button>
@@ -89,6 +90,7 @@
 
       <span class="win-sidebar__section-label">Money</span>
       <button class="view-tab" data-view="financial" title="Financial"><i class="bi bi-wallet2"></i><span>Financial</span><span class="chip-count" id="tabCountFinancial">0</span></button>
+      <button class="view-tab" data-view="debts" title="Debts"><i class="bi bi-credit-card"></i><span>Debts</span><span class="chip-count chip-count--alert" id="tabCountDebts">0</span></button>
       <button class="view-tab" data-view="overview" title="Reports"><i class="bi bi-bar-chart-line"></i><span>Reports</span></button>
     </nav>
 
@@ -391,7 +393,7 @@
       <div class="table-responsive ledger-table-wrap">
         <table class="table ledger-table">
           <thead>
-            <tr><th>Description</th><th>Type</th><th>Category</th><th>Linked deal</th><th class="text-end">Amount</th><th>Date</th><th></th></tr>
+            <tr><th>Description</th><th>Type</th><th>Category / source</th><th>Linked</th><th class="text-end">Amount</th><th>Date</th><th></th></tr>
           </thead>
           <tbody id="expensesTableBody"></tbody>
         </table>
@@ -400,9 +402,35 @@
     </div>
   </section>
 
+  <!-- ============ DEBTS ============ -->
+  <section class="ledger-view d-none" id="debtsView">
+    <div class="page-header"><h1 class="page-title">Debts</h1></div>
+
+    <div class="attention-summary" id="debtsSummary"></div>
+
+    <div class="todo-filter-bar" id="debtsFilterBar"></div>
+
+    <div class="todos-list" id="debtsList"></div>
+    <div class="ledger-empty d-none" id="debtsEmptyState"><i class="bi bi-credit-card"></i><p>No debts recorded — use the + button to add money you owe or are owed.</p></div>
+  </section>
+
+  <!-- ============ DOCUMENTATION ============ -->
+  <section class="ledger-view d-none" id="documentationView">
+    <div class="page-header"><h1 class="page-title">Documentation</h1></div>
+    <p class="today-greeting mb-3">Every completed task lands here automatically — a searchable archive of what's been done.</p>
+
+    <div class="ledger-toolbar">
+      <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="documentationSearchInput" placeholder="Search completed tasks…"></div>
+    </div>
+    <div class="todo-filter-bar" id="documentationFilterBar"></div>
+
+    <div class="todos-list" id="documentationList"></div>
+    <div class="ledger-empty d-none" id="documentationEmptyState"><i class="bi bi-archive"></i><p>Nothing completed yet — finished to-dos will show up here.</p></div>
+  </section>
+
   <!-- ============ OVERVIEW (dashboard) ============ -->
   <section class="ledger-view d-none" id="overviewView">
-    <div class="page-header"><h1 class="page-title">Overview</h1></div>
+    <div class="page-header"><h1 class="page-title">Reports</h1></div>
     <div class="ledger-empty d-none" id="overviewEmptyState"><i class="bi bi-bar-chart-line"></i><p>Record a deal to see charts here.</p></div>
 
     <div id="overviewContent">
@@ -1062,6 +1090,78 @@
 </div>
 <datalist id="todoDocNameOptionsList"></datalist>
 
+<!-- Debt editor modal -->
+<div class="modal fade" id="debtModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="debtModalTitle">New debt</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="debtForm">
+        <input type="hidden" id="debtId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label d-block">Direction</label>
+            <div class="btn-group w-100" role="group" aria-label="Debt direction">
+              <input type="radio" class="btn-check" name="debtDirection" id="debtDirectionIOwe" value="i_owe" checked>
+              <label class="btn btn-outline-secondary" for="debtDirectionIOwe">I owe this</label>
+              <input type="radio" class="btn-check" name="debtDirection" id="debtDirectionOwedToMe" value="owed_to_me">
+              <label class="btn btn-outline-secondary" for="debtDirectionOwedToMe">Owed to me</label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="debtDescription" class="form-label">Description</label>
+            <input type="text" class="form-control" id="debtDescription" placeholder="e.g. Contractor advance for the mobile app build">
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="debtCounterparty" class="form-label">Who <span class="dropdown-hint d-inline">(optional — name of the person/company)</span></label>
+              <input type="text" class="form-control" id="debtCounterparty" placeholder="e.g. Acme Contracting">
+            </div>
+            <div class="col-md-6">
+              <label for="debtDueDate" class="form-label">Due date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control" id="debtDueDate">
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-8">
+              <label for="debtAmount" class="form-label">Amount</label>
+              <input type="number" class="form-control" id="debtAmount" min="0" step="1" placeholder="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label d-block">Currency</label>
+              <div class="btn-group w-100" role="group" aria-label="Debt currency">
+                <input type="radio" class="btn-check" name="debtCurrency" id="debtCurrencyUSD" value="USD" checked>
+                <label class="btn btn-outline-secondary" for="debtCurrencyUSD">USD</label>
+                <input type="radio" class="btn-check" name="debtCurrency" id="debtCurrencySDG" value="SDG">
+                <label class="btn btn-outline-secondary" for="debtCurrencySDG">SDG</label>
+              </div>
+            </div>
+          </div>
+
+          <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — a deal, contact, referral, entity, invoice, or type your own)</span></label>
+          <div class="link-picker">
+            <input type="text" class="form-control form-control-sm" id="debtLinkInput" placeholder="Type to search, or type anything and press Enter…" autocomplete="off">
+            <div class="link-picker__results d-none" id="debtLinkResults"></div>
+          </div>
+          <div class="link-chips mt-2 mb-3" id="debtLinkChips"></div>
+
+          <div class="mb-1">
+            <label for="debtNotes" class="form-label">Notes <span class="dropdown-hint d-inline">(optional)</span></label>
+            <textarea class="form-control" id="debtNotes" rows="2" placeholder="Payment terms, agreement details…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto d-none" id="debtDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-ink btn-sm"><i class="bi bi-check-lg me-1"></i>Save debt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 
 <!-- Quick Update modal — the fast path for logging an update, from a table
      row or the detail view, without opening the full multi-step wizard. -->
@@ -1385,8 +1485,8 @@
 </div>
 
 <!-- Add/Edit Expense modal -->
-<div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title" id="expenseModalTitle">Add expense</h2>
@@ -1409,11 +1509,12 @@
         </div>
         <div class="row g-3 mb-3">
           <div class="col-md-6">
-            <label for="expenseCategory" class="form-label">Category</label>
+            <label for="expenseCategory" class="form-label" id="expenseCategoryLabel">Category</label>
             <div class="dropdown-field">
               <input type="text" class="form-control" id="expenseCategory" list="expenseCategoryOptionsList" placeholder="Select or type new…">
               <i class="bi bi-chevron-down"></i>
             </div>
+            <p class="dropdown-hint" id="expenseCategoryHint">What kind of expense this is.</p>
           </div>
           <div class="col-md-6">
             <label for="expenseDate" class="form-label">Date</label>
@@ -1421,11 +1522,11 @@
           </div>
         </div>
         <div class="row g-3 mb-3">
-          <div class="col-md-8">
+          <div class="col-md-5">
             <label for="expenseAmount" class="form-label">Amount</label>
             <input type="number" class="form-control" id="expenseAmount" min="0" step="1" placeholder="0">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label d-block">Currency</label>
             <div class="btn-group w-100" role="group" aria-label="Expense currency">
               <input type="radio" class="btn-check" name="expenseCurrency" id="expenseCurrencyUSD" value="USD" checked>
@@ -1434,13 +1535,24 @@
               <label class="btn btn-outline-secondary" for="expenseCurrencySDG">SDG</label>
             </div>
           </div>
+          <div class="col-md-4">
+            <label for="expenseRecurring" class="form-label">Repeats <span class="dropdown-hint d-inline">(optional)</span></label>
+            <select class="form-select" id="expenseRecurring">
+              <option value="">Doesn't repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
         </div>
-        <div class="mb-1">
-          <label for="expenseDeal" class="form-label">Linked deal <span class="dropdown-hint d-inline">(optional)</span></label>
-          <select class="form-select" id="expenseDeal">
-            <option value="">Not linked to a specific deal</option>
-          </select>
+
+        <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — a deal, contact, referral, entity, invoice, or an external project you type yourself)</span></label>
+        <div class="link-picker">
+          <input type="text" class="form-control form-control-sm" id="expenseLinkInput" placeholder="Type to search, or type an external project name and press Enter…" autocomplete="off">
+          <div class="link-picker__results d-none" id="expenseLinkResults"></div>
         </div>
+        <div class="link-chips mt-2" id="expenseLinkChips"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-danger me-auto d-none" id="expenseDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
@@ -1451,6 +1563,7 @@
   </div>
 </div>
 <datalist id="expenseCategoryOptionsList"></datalist>
+<datalist id="incomeSourceOptionsList"></datalist>
 <datalist id="expenseDescriptionOptionsList"></datalist>
 
 <!-- Invoice Status modal — opened by clicking Collected/Outstanding on the
@@ -1473,6 +1586,9 @@
      button was removed in favor of this one consistent control. -->
 <div class="fab-speed-dial" id="fabSpeedDial">
   <div class="fab-speed-dial__menu" id="fabSpeedDialMenu">
+    <button type="button" class="fab-speed-dial__item" id="fabAddDebtBtn">
+      <span>New debt</span><span class="fab-speed-dial__icon"><i class="bi bi-credit-card"></i></span>
+    </button>
     <button type="button" class="fab-speed-dial__item" id="fabAddExpenseBtn">
       <span>New expense</span><span class="fab-speed-dial__icon"><i class="bi bi-wallet2"></i></span>
     </button>
@@ -1509,7 +1625,10 @@
 <script src="js/storage.js"></script>
 <script src="js/dropdowns.js"></script>
 <script src="js/updates.js"></script>
+<script src="js/links.js"></script>
 <script src="js/todos.js"></script>
+<script src="js/debts.js"></script>
+<script src="js/documentation.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/deals-shared.js"></script>
 <script src="js/deals-table.js"></script>

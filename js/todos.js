@@ -25,15 +25,6 @@ const PRIORITY_LABELS = { low: 'Low', normal: 'Normal', high: 'High' };
 const PRIORITY_TONE = { low: 'slate', normal: 'cyan', high: 'danger' };
 const RECURRING_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
 
-const LINK_TYPE_META = {
-  deal: { icon: 'bi-journal-text', label: 'Deal' },
-  contact: { icon: 'bi-person', label: 'Contact' },
-  referral: { icon: 'bi-arrow-up-right-circle', label: 'Referral' },
-  entity: { icon: 'bi-building', label: 'Entity' },
-  invoice: { icon: 'bi-receipt', label: 'Invoice' },
-  custom: { icon: 'bi-tag', label: 'Tag' },
-};
-
 const todosQuickAddInput = document.getElementById('todosQuickAddInput');
 const todosQuickAddBtn = document.getElementById('todosQuickAddBtn');
 const todosFilterBar = document.getElementById('todosFilterBar');
@@ -106,29 +97,31 @@ function todoRow(todo) {
   const subtasks = todo.subtasks || [];
   const doneSubtasks = subtasks.filter(s => s.done).length;
 
-  const linkChips = links.slice(0, 3).map(l => {
+  const linkChipsHtml = links.slice(0, 4).map((l, i) => {
     const meta = LINK_TYPE_META[l.type] || LINK_TYPE_META.custom;
-    return '<span class="todo-row__link-chip"><i class="bi ' + meta.icon + '"></i>' + escapeHtml(l.label) + '</span>';
-  }).join('') + (links.length > 3 ? '<span class="todo-row__link-chip todo-row__link-chip--more">+' + (links.length - 3) + '</span>' : '');
+    return '<button type="button" class="todo-row__link-chip" data-row-link="' + i + '"><i class="bi ' + meta.icon + '"></i>' + escapeHtml(l.label) + '</button>';
+  }).join('') + (links.length > 4 ? '<span class="todo-row__link-chip todo-row__link-chip--more">+' + (links.length - 4) + '</span>' : '');
 
   return '' +
     '<div class="todo-row todo-row--' + tone + (isDone ? ' todo-row--done' : '') + '" data-id="' + todo.id + '">' +
       '<button type="button" class="todo-row__check" data-toggle="' + todo.id + '" title="' + (isDone ? 'Mark not done' : 'Mark done') + '" aria-label="Toggle done">' +
         '<i class="bi ' + (isDone ? 'bi-check-circle-fill' : 'bi-circle') + '"></i>' +
       '</button>' +
-      '<button type="button" class="todo-row__main" data-edit="' + todo.id + '">' +
-        '<span class="todo-row__title">' + escapeHtml(todo.title) + '</span>' +
-        (todo.notes ? '<span class="todo-row__notes">' + escapeHtml(todo.notes) + '</span>' : '') +
-        (subtasks.length ? '<span class="todo-row__subtask-progress"><span class="todo-row__subtask-bar"><span style="width:' + Math.round((doneSubtasks / subtasks.length) * 100) + '%"></span></span>' + doneSubtasks + '/' + subtasks.length + ' subtasks</span>' : '') +
-        '<span class="todo-row__meta">' +
-          (dueLabel ? '<span class="todo-row__due todo-row__due--' + tone + '"><i class="bi bi-calendar-event"></i>' + escapeHtml(dueLabel) + '</span>' : '') +
-          (todo.priority && todo.priority !== 'normal' ? '<span class="priority-badge priority-badge--' + PRIORITY_TONE[todo.priority] + '">' + PRIORITY_LABELS[todo.priority] + '</span>' : '') +
-          (todo.recurring ? '<span class="todo-row__recurring" title="Repeats ' + RECURRING_LABELS[todo.recurring] + '"><i class="bi bi-arrow-repeat"></i>' + RECURRING_LABELS[todo.recurring] + '</span>' : '') +
-          todoMoneyBadge(todo) +
-          ((todo.documents || []).length ? '<span class="todo-row__doc-count"><i class="bi bi-paperclip"></i>' + todo.documents.length + '</span>' : '') +
-          linkChips +
-        '</span>' +
-      '</button>' +
+      '<div class="todo-row__body">' +
+        '<button type="button" class="todo-row__main" data-edit="' + todo.id + '">' +
+          '<span class="todo-row__title">' + escapeHtml(todo.title) + '</span>' +
+          (todo.notes ? '<span class="todo-row__notes">' + escapeHtml(todo.notes) + '</span>' : '') +
+          (subtasks.length ? '<span class="todo-row__subtask-progress"><span class="todo-row__subtask-bar"><span style="width:' + Math.round((doneSubtasks / subtasks.length) * 100) + '%"></span></span>' + doneSubtasks + '/' + subtasks.length + ' subtasks</span>' : '') +
+          '<span class="todo-row__meta">' +
+            (dueLabel ? '<span class="todo-row__due todo-row__due--' + tone + '"><i class="bi bi-calendar-event"></i>' + escapeHtml(dueLabel) + '</span>' : '') +
+            (todo.priority && todo.priority !== 'normal' ? '<span class="priority-badge priority-badge--' + PRIORITY_TONE[todo.priority] + '">' + PRIORITY_LABELS[todo.priority] + '</span>' : '') +
+            (todo.recurring ? '<span class="todo-row__recurring" title="Repeats ' + RECURRING_LABELS[todo.recurring] + '"><i class="bi bi-arrow-repeat"></i>' + RECURRING_LABELS[todo.recurring] + '</span>' : '') +
+            todoMoneyBadge(todo) +
+            ((todo.documents || []).length ? '<span class="todo-row__doc-count"><i class="bi bi-paperclip"></i>' + todo.documents.length + '</span>' : '') +
+          '</span>' +
+        '</button>' +
+        (links.length ? '<div class="todo-row__links">' + linkChipsHtml + '</div>' : '') +
+      '</div>' +
       '<button type="button" class="todo-row__remove" data-remove="' + todo.id + '" aria-label="Delete task"><i class="bi bi-trash3"></i></button>' +
     '</div>';
 }
@@ -217,6 +210,14 @@ todosListEl.addEventListener('click', (e) => {
     showToast('Task deleted.');
     return;
   }
+  const rowLinkBtn = e.target.closest('[data-row-link]');
+  if (rowLinkBtn) {
+    const rowEl = rowLinkBtn.closest('.todo-row');
+    const todo = getTodos().find(t => t.id === rowEl.dataset.id);
+    const link = todo && (todo.links || [])[Number(rowLinkBtn.dataset.rowLink)];
+    if (link) openLinkDetails(link);
+    return;
+  }
   const editBtn = e.target.closest('[data-edit]');
   if (editBtn) openTodoModal(editBtn.dataset.edit);
 });
@@ -237,137 +238,14 @@ const todoDeleteBtn = document.getElementById('todoDeleteBtn');
 const todoForm = document.getElementById('todoForm');
 const todoAmountInput = document.getElementById('todoAmount');
 
-let todoEditLinks = [];
 let todoEditSubtasks = [];
 let todoEditDocuments = [];
 
-// ---------- Universal link picker ----------
-const todoLinkInput = document.getElementById('todoLinkInput');
-const todoLinkResults = document.getElementById('todoLinkResults');
-const todoLinkChips = document.getElementById('todoLinkChips');
-
-function searchLinkableItems(term) {
-  term = term.trim().toLowerCase();
-  if (!term) return [];
-  const results = [];
-
-  getDeals().forEach(d => {
-    if ((d.entityName || '').toLowerCase().includes(term)) {
-      results.push({ type: 'deal', id: d.id, label: d.entityName || 'Untitled entity' });
-    }
-  });
-
-  if (typeof buildContactGroups === 'function') {
-    buildContactGroups().forEach(g => {
-      if (g.name.toLowerCase().includes(term)) {
-        results.push({ type: 'contact', id: contactKeyOf(g.name, g.number), label: g.name });
-      }
-    });
-  }
-
-  if (typeof buildReferralGroups === 'function') {
-    buildReferralGroups().forEach(g => {
-      if (g.name.toLowerCase().includes(term)) {
-        results.push({ type: 'referral', id: g.name.toLowerCase(), label: g.name });
-      }
-    });
-  }
-
-  if (typeof buildEntityGroups === 'function') {
-    buildEntityGroups().forEach(g => {
-      if (g.name.toLowerCase().includes(term)) {
-        results.push({ type: 'entity', id: g.name.toLowerCase(), label: g.name });
-      }
-    });
-  }
-
-  if (typeof getAllInvoicesFlat === 'function') {
-    getAllInvoicesFlat().forEach(({ deal, invoice }) => {
-      const hay = (invoice.number + ' ' + (deal.entityName || '')).toLowerCase();
-      if (hay.includes(term)) {
-        results.push({ type: 'invoice', id: invoice.id, dealId: deal.id, label: invoice.number + ' · ' + (deal.entityName || 'Untitled entity') });
-      }
-    });
-  }
-
-  return results.slice(0, 8);
-}
-
-function renderTodoLinkChips() {
-  if (todoEditLinks.length === 0) {
-    todoLinkChips.innerHTML = '<span class="no-referral">Nothing linked yet.</span>';
-    return;
-  }
-  todoLinkChips.innerHTML = todoEditLinks.map((l, i) => {
-    const meta = LINK_TYPE_META[l.type] || LINK_TYPE_META.custom;
-    return '<span class="link-chip"><i class="bi ' + meta.icon + '"></i>' + escapeHtml(l.label) +
-      '<button type="button" class="link-chip__remove" data-remove-link="' + i + '" aria-label="Remove link"><i class="bi bi-x"></i></button></span>';
-  }).join('');
-}
-
-function addTodoLink(link) {
-  const exists = todoEditLinks.some(l => l.type === link.type && l.id === link.id);
-  if (exists) return;
-  todoEditLinks.push(link);
-  renderTodoLinkChips();
-}
-
-function renderLinkResults() {
-  const matches = searchLinkableItems(todoLinkInput.value);
-  if (matches.length === 0) {
-    todoLinkResults.classList.add('d-none');
-    return;
-  }
-  todoLinkResults.innerHTML = matches.map((m, i) => {
-    const meta = LINK_TYPE_META[m.type] || LINK_TYPE_META.custom;
-    return '<button type="button" class="link-picker__item" data-result-index="' + i + '">' +
-      '<i class="bi ' + meta.icon + '"></i>' +
-      '<span>' + escapeHtml(m.label) + '</span>' +
-      '<span class="link-picker__type">' + meta.label + '</span>' +
-    '</button>';
-  }).join('');
-  todoLinkResults._matches = matches;
-  todoLinkResults.classList.remove('d-none');
-}
-
-todoLinkInput.addEventListener('input', renderLinkResults);
-todoLinkInput.addEventListener('focus', renderLinkResults);
-
-todoLinkInput.addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  const matches = todoLinkResults._matches || [];
-  if (matches.length > 0 && !todoLinkResults.classList.contains('d-none')) {
-    addTodoLink(matches[0]);
-  } else {
-    const text = todoLinkInput.value.trim();
-    if (!text) return;
-    addTodoLink({ type: 'custom', id: 'custom-' + Date.now(), label: text });
-  }
-  todoLinkInput.value = '';
-  todoLinkResults.classList.add('d-none');
-});
-
-todoLinkResults.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-result-index]');
-  if (!btn) return;
-  const matches = todoLinkResults._matches || [];
-  const item = matches[Number(btn.dataset.resultIndex)];
-  if (item) addTodoLink(item);
-  todoLinkInput.value = '';
-  todoLinkResults.classList.add('d-none');
-  todoLinkInput.focus();
-});
-
-todoLinkChips.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-remove-link]');
-  if (!btn) return;
-  todoEditLinks.splice(Number(btn.dataset.removeLink), 1);
-  renderTodoLinkChips();
-});
-
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.link-picker')) todoLinkResults.classList.add('d-none');
+// ---------- Universal link picker (shared component — see links.js) ----------
+const todoLinkPicker = createLinkPicker({
+  inputEl: document.getElementById('todoLinkInput'),
+  resultsEl: document.getElementById('todoLinkResults'),
+  chipsEl: document.getElementById('todoLinkChips'),
 });
 
 // ---------- Subtasks ----------
@@ -490,7 +368,6 @@ function resetTodoMoneyFields(existing) {
 function openTodoModal(id) {
   const existing = id ? getTodos().find(t => t.id === id) : null;
 
-  todoEditLinks = existing ? (existing.links || []).slice() : [];
   todoEditSubtasks = existing ? (existing.subtasks || []).map(s => Object.assign({}, s)) : [];
   todoEditDocuments = existing ? (existing.documents || []).slice() : [];
 
@@ -515,11 +392,10 @@ function openTodoModal(id) {
   }
 
   resetTodoMoneyFields(existing);
-  renderTodoLinkChips();
+  todoLinkPicker.reset();
+  todoLinkPicker.setLinks(existing ? existing.links || [] : []);
   renderTodoSubtaskList();
   renderTodoDocList();
-  todoLinkInput.value = '';
-  todoLinkResults.classList.add('d-none');
 
   todoModal.show();
   setTimeout(() => todoTitleInput.focus(), 200);
@@ -531,7 +407,8 @@ todoForm.addEventListener('submit', (e) => {
   if (!title) { todoTitleInput.focus(); return; }
 
   const moneyKind = document.querySelector('input[name="todoMoneyKind"]:checked').value;
-  const dealLink = todoEditLinks.find(l => l.type === 'deal');
+  const links = todoLinkPicker.getLinks();
+  const dealLink = links.find(l => l.type === 'deal');
 
   const wasEdit = Boolean(todoIdInput.value);
   saveTodo({
@@ -542,7 +419,7 @@ todoForm.addEventListener('submit', (e) => {
     priority: todoPriorityInput.value,
     recurring: todoRecurringInput.value,
     dealId: dealLink ? dealLink.id : null,
-    links: todoEditLinks,
+    links,
     subtasks: todoEditSubtasks,
     documents: todoEditDocuments,
     amount: todoAmountInput.value ? Number(todoAmountInput.value) : null,

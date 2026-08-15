@@ -13,10 +13,10 @@
    ============================================================ */
 
 const viewTabs = document.getElementById('viewTabs');
-const VIEWS = ['today', 'todos', 'deals', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'overview'];
+const VIEWS = ['today', 'todos', 'documentation', 'deals', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'debts', 'overview'];
 const VIEW_LABELS = {
-  today: 'Dashboard', todos: 'To-Do', deals: 'Deals', attention: 'Attention', calendar: 'Calendar',
-  referrals: 'Referrals', contacts: 'Contacts', entities: 'Entities', financial: 'Financial', overview: 'Reports',
+  today: 'Dashboard', todos: 'To-Do', documentation: 'Documentation', deals: 'Deals', attention: 'Attention', calendar: 'Calendar',
+  referrals: 'Referrals', contacts: 'Contacts', entities: 'Entities', financial: 'Financial', debts: 'Debts', overview: 'Reports',
 };
 
 const toastEl = document.getElementById('appToast');
@@ -40,6 +40,7 @@ function showToast(message) {
 const VIEW_RENDERERS = {
   today: renderToday,
   todos: renderTodos,
+  documentation: renderDocumentation,
   deals: renderDeals,
   attention: renderAttention,
   calendar: renderCalendar,
@@ -47,6 +48,7 @@ const VIEW_RENDERERS = {
   contacts: renderContacts,
   entities: renderEntities,
   financial: renderFinancial,
+  debts: renderDebts,
   overview: renderCharts,
 };
 
@@ -125,6 +127,13 @@ function updateTabCounts() {
   document.getElementById('tabCountContacts').textContent = buildContactGroups().length;
   document.getElementById('tabCountEntities').textContent = buildEntityGroups().length;
   document.getElementById('tabCountFinancial').textContent = getAllInvoicesFlat().length;
+
+  const debtsOpenCount = getDebts().filter(d => d.status === 'open').length;
+  const debtsBadge = document.getElementById('tabCountDebts');
+  debtsBadge.textContent = debtsOpenCount;
+  debtsBadge.classList.toggle('has-items', debtsOpenCount > 0);
+
+  document.getElementById('tabCountDocumentation').textContent = getTodos().filter(t => t.status === 'done').length;
 }
 
 // Called after any save/delete/realtime update. Refreshes the tab counts
@@ -311,6 +320,9 @@ async function boot() {
 
   const fabAddExpenseBtn = document.getElementById('fabAddExpenseBtn');
   if (fabAddExpenseBtn) fabAddExpenseBtn.addEventListener('click', () => { closeFabSpeedDial(); openExpenseModal(); });
+
+  const fabAddDebtBtn = document.getElementById('fabAddDebtBtn');
+  if (fabAddDebtBtn) fabAddDebtBtn.addEventListener('click', () => { closeFabSpeedDial(); openNewDebtModal(); });
 
   const exportDataBtn = document.getElementById('exportDataBtn');
   if (exportDataBtn) {

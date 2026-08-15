@@ -193,32 +193,45 @@ const expenseModalTitle = document.getElementById('expenseModalTitle');
 const expenseIdInput = document.getElementById('expenseId');
 const expenseDescriptionInput = document.getElementById('expenseDescription');
 const expenseCategoryInput = document.getElementById('expenseCategory');
+const expenseCategoryLabel = document.getElementById('expenseCategoryLabel');
+const expenseCategoryHint = document.getElementById('expenseCategoryHint');
 const expenseDateInput = document.getElementById('expenseDate');
 const expenseAmountInput = document.getElementById('expenseAmount');
-const expenseDealSelect = document.getElementById('expenseDeal');
+const expenseRecurringInput = document.getElementById('expenseRecurring');
 const saveExpenseBtn = document.getElementById('saveExpenseBtn');
 const expenseDeleteBtn = document.getElementById('expenseDeleteBtn');
 
-function populateExpenseDealSelect(selectedId) {
-  const options = ['<option value="">Not linked to a specific deal</option>']
-    .concat(getDeals().map(d => '<option value="' + d.id + '">' + escapeHtml(d.entityName || 'Untitled entity') + '</option>'));
-  expenseDealSelect.innerHTML = options.join('');
-  expenseDealSelect.value = selectedId || '';
+const expenseLinkPicker = createLinkPicker({
+  inputEl: document.getElementById('expenseLinkInput'),
+  resultsEl: document.getElementById('expenseLinkResults'),
+  chipsEl: document.getElementById('expenseLinkChips'),
+});
+
+// The Category field doubles as "Source" for income rows — same underlying
+// column, just a different label/datalist/placeholder so it reads right.
+function syncExpenseCategoryFieldToKind() {
+  const isIncome = document.getElementById('expenseKindIncome').checked;
+  expenseCategoryLabel.textContent = isIncome ? 'Source' : 'Category';
+  expenseCategoryInput.setAttribute('list', isIncome ? 'incomeSourceOptionsList' : 'expenseCategoryOptionsList');
+  expenseCategoryInput.placeholder = isIncome ? 'Where this income came from…' : 'Select or type new…';
+  expenseCategoryHint.textContent = isIncome ? 'Where the money came from — a deal, an external project, consulting, etc.' : 'What kind of expense this is.';
 }
+document.getElementById('expenseKindExpense').addEventListener('change', syncExpenseCategoryFieldToKind);
+document.getElementById('expenseKindIncome').addEventListener('change', syncExpenseCategoryFieldToKind);
 
 function openExpenseModal(expenseId) {
   const existing = expenseId ? getExpenses().find(e => e.id === expenseId) : null;
 
   if (existing) {
-    expenseModalTitle.textContent = 'Edit expense';
+    expenseModalTitle.textContent = existing.kind === 'income' ? 'Edit income' : 'Edit expense';
     expenseIdInput.value = existing.id;
     expenseDescriptionInput.value = existing.description || '';
     expenseCategoryInput.value = existing.category || '';
     expenseDateInput.value = existing.date || '';
     expenseAmountInput.value = existing.amount || '';
+    expenseRecurringInput.value = existing.recurring || '';
     document.getElementById(existing.currency === 'SDG' ? 'expenseCurrencySDG' : 'expenseCurrencyUSD').checked = true;
     document.getElementById(existing.kind === 'income' ? 'expenseKindIncome' : 'expenseKindExpense').checked = true;
-    populateExpenseDealSelect(existing.dealId);
     expenseDeleteBtn.classList.remove('d-none');
   } else {
     expenseModalTitle.textContent = 'Add expense';
@@ -227,11 +240,14 @@ function openExpenseModal(expenseId) {
     expenseCategoryInput.value = '';
     expenseDateInput.value = new Date().toISOString().slice(0, 10);
     expenseAmountInput.value = '';
+    expenseRecurringInput.value = '';
     document.getElementById('expenseCurrencyUSD').checked = true;
     document.getElementById('expenseKindExpense').checked = true;
-    populateExpenseDealSelect('');
     expenseDeleteBtn.classList.add('d-none');
   }
+  syncExpenseCategoryFieldToKind();
+  expenseLinkPicker.reset();
+  expenseLinkPicker.setLinks(existing ? existing.links || (existing.dealId ? [{ type: 'deal', id: existing.dealId, label: (getDeals().find(d => d.id === existing.dealId) || {}).entityName || 'Deal' }] : []) : []);
   expenseModal.show();
 }
 
@@ -242,10 +258,14 @@ saveExpenseBtn.addEventListener('click', () => {
     showToast('Add a description and an amount first.');
     return;
   }
+  const isIncome = document.getElementById('expenseKindIncome').checked;
   const category = expenseCategoryInput.value.trim();
-  if (category) addOption('expenseCategory', category);
+  if (category) addOption(isIncome ? 'incomeSource' : 'expenseCategory', category);
   if (description) addOption('expenseDescription', description);
   refreshAllDatalists();
+
+  const links = expenseLinkPicker.getLinks();
+  const dealLink = links.find(l => l.type === 'deal');
 
   const wasEdit = Boolean(expenseIdInput.value);
   saveExpense({
@@ -255,14 +275,16 @@ saveExpenseBtn.addEventListener('click', () => {
     date: expenseDateInput.value,
     amount,
     currency: document.getElementById('expenseCurrencySDG').checked ? 'SDG' : 'USD',
-    kind: document.getElementById('expenseKindIncome').checked ? 'income' : 'expense',
-    dealId: expenseDealSelect.value || null,
+    kind: isIncome ? 'income' : 'expense',
+    recurring: expenseRecurringInput.value,
+    dealId: dealLink ? dealLink.id : null,
+    links,
   });
 
   expenseModal.hide();
   renderFinancial();
   updateTabCounts();
-  showToast(wasEdit ? 'Expense updated.' : 'Expense recorded.');
+  showToast(wasEdit ? (isIncome ? 'Income updated.' : 'Expense updated.') : (isIncome ? 'Income recorded.' : 'Expense recorded.'));
 });
 
 expenseDeleteBtn.addEventListener('click', () => {
@@ -271,7 +293,7 @@ expenseDeleteBtn.addEventListener('click', () => {
   deleteExpense(id);
   expenseModal.hide();
   renderFinancial();
-  showToast('Expense deleted.');
+  showToast('Entry deleted.');
 });
 
 function renderExpensesTable() {
@@ -286,23 +308,38 @@ function renderExpensesTable() {
   const dealsById = new Map(getDeals().map(d => [d.id, d]));
 
   expensesTableBody.innerHTML = expenses.map(exp => {
-    const deal = exp.dealId ? dealsById.get(exp.dealId) : null;
     const isIncome = exp.kind === 'income';
+    const links = (exp.links && exp.links.length) ? exp.links : (exp.dealId ? [{ type: 'deal', id: exp.dealId, label: (dealsById.get(exp.dealId) || {}).entityName || 'Deal' }] : []);
+    const linkedHtml = links.length
+      ? links.slice(0, 2).map((l, i) => {
+          const meta = LINK_TYPE_META[l.type] || LINK_TYPE_META.custom;
+          return '<button type="button" class="todo-row__link-chip" data-expense-link="' + exp.id + '" data-link-index="' + i + '"><i class="bi ' + meta.icon + '"></i>' + escapeHtml(l.label) + '</button>';
+        }).join('') + (links.length > 2 ? '<span class="todo-row__link-chip todo-row__link-chip--more">+' + (links.length - 2) + '</span>' : '')
+      : '<span class="no-referral">—</span>';
+
     return '' +
       '<tr class="row-clickable" data-id="' + exp.id + '">' +
-        '<td><span class="deal-name">' + escapeHtml(exp.description) + '</span>' +
+        '<td><span class="deal-name" data-edit-expense="' + exp.id + '">' + escapeHtml(exp.description) + '</span>' +
           (exp.sourceTodoId ? ' <i class="bi bi-link-45deg" title="Linked from a to-do"></i>' : '') + '</td>' +
         '<td><span class="status-badge status-badge--' + (isIncome ? 'done' : 'canceled') + '">' + (isIncome ? 'Income' : 'Expense') + '</span></td>' +
         '<td>' + (exp.category ? escapeHtml(exp.category) : '<span class="no-referral">—</span>') + '</td>' +
-        '<td>' + (deal ? escapeHtml(deal.entityName || 'Untitled entity') : '<span class="no-referral">—</span>') + '</td>' +
+        '<td><div class="deal-badges">' + linkedHtml + '</div></td>' +
         '<td class="text-end deal-value">' + formatInvoiceAmount(exp.amount, exp.currency) + '</td>' +
-        '<td>' + (exp.date || '<span class="no-referral">—</span>') + '</td>' +
+        '<td>' + (exp.date || '<span class="no-referral">—</span>') + (exp.recurring ? ' <span class="todo-row__recurring" title="Repeats ' + exp.recurring + '"><i class="bi bi-arrow-repeat"></i></span>' : '') + '</td>' +
         '<td><button type="button" class="btn btn-sm btn-outline-secondary" data-edit-expense="' + exp.id + '"><i class="bi bi-pencil"></i></button></td>' +
       '</tr>';
   }).join('');
 }
 
 expensesTableBody.addEventListener('click', (e) => {
+  const linkBtn = e.target.closest('[data-expense-link]');
+  if (linkBtn) {
+    const exp = getExpenses().find(x => x.id === linkBtn.dataset.expenseLink);
+    const links = exp && ((exp.links && exp.links.length) ? exp.links : (exp.dealId ? [{ type: 'deal', id: exp.dealId, label: '' }] : []));
+    const link = links && links[Number(linkBtn.dataset.linkIndex)];
+    if (link) openLinkDetails(link);
+    return;
+  }
   const btn = e.target.closest('[data-edit-expense]');
   if (btn) { openExpenseModal(btn.dataset.editExpense); return; }
   const row = e.target.closest('tr[data-id]');

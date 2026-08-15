@@ -29,6 +29,7 @@ function refreshAllDatalists() {
   populateDatalist('actionOptionsList', 'action');
   populateDatalist('nextStepOptionsList', 'nextstep');
   populateDatalist('expenseCategoryOptionsList', 'expenseCategory');
+  populateDatalist('incomeSourceOptionsList', 'incomeSource');
   populateDatalist('expenseDescriptionOptionsList', 'expenseDescription');
   populateDatalist('documentNameOptionsList', 'documentName');
   populateDatalist('fieldOfWorkOptionsList', 'fieldOfWork');

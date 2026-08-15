@@ -39,6 +39,8 @@
 
 .todo-row__main{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; border: none; background: transparent; text-align: left; padding: 0.55rem 0.6rem; border-radius: var(--r-sm); }
 .todo-row__main:hover{ background: var(--surface); }
+.todo-row__body{ flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.todo-row__links{ display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0 0.6rem 0.5rem; }
 .todo-row__title{ font-weight: 600; font-size: 0.86rem; color: var(--text); }
 .todo-row__notes{ font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; }
 .todo-row__meta{ display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.1rem; }
@@ -52,6 +54,7 @@
 .priority-badge--slate{ background: var(--slate-soft); color: var(--text-dim); }
 .priority-badge--cyan{ background: var(--cyan-soft); color: var(--cyan); }
 .priority-badge--danger{ background: var(--red-soft); color: var(--red); }
+.priority-badge--green{ background: var(--green-soft); color: var(--green); }
 
 .todo-row__recurring{ display: inline-flex; align-items: center; gap: 0.28rem; font-size: 0.72rem; color: var(--violet); font-weight: 600; }
 .todo-row__recurring i{ font-size: 0.78rem; }
@@ -68,7 +71,8 @@
 
 .todo-row__doc-count{ display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--text-faint); }
 
-.todo-row__link-chip{ display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; font-weight: 600; color: var(--text-dim); background: var(--slate-soft); padding: 0.1rem 0.5rem; border-radius: 999px; }
+.todo-row__link-chip{ display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; font-weight: 600; color: var(--text-dim); background: var(--slate-soft); border: none; padding: 0.16rem 0.55rem; border-radius: 999px; }
+.todo-row__link-chip:hover{ background: var(--accent-soft); color: var(--accent); }
 .todo-row__link-chip i{ font-size: 0.68rem; }
 .todo-row__link-chip--more{ color: var(--text-faint); }
 
@@ -84,12 +88,17 @@
 }
 .link-picker__item{ display: flex; align-items: center; gap: 0.5rem; width: 100%; border: none; background: transparent; color: var(--text); text-align: left; padding: 0.4rem 0.55rem; border-radius: var(--r-sm); font-size: 0.82rem; }
 .link-picker__item:hover{ background: var(--surface); }
-.link-picker__item i{ color: var(--accent); width: 1rem; text-align: center; flex-shrink: 0; }
-.link-picker__item span:nth-child(2){ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-picker__item.is-checked{ background: var(--accent-soft); }
+.link-picker__checkbox{ color: var(--text-faint); width: 1rem; text-align: center; flex-shrink: 0; }
+.link-picker__item.is-checked .link-picker__checkbox{ color: var(--accent); }
+.link-picker__item i:not(.link-picker__checkbox){ color: var(--accent); width: 1rem; text-align: center; flex-shrink: 0; }
+.link-picker__item span:nth-child(3){ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-picker__type{ font-size: 0.66rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
 
 .link-chips{ display: flex; flex-wrap: wrap; gap: 0.35rem; min-height: 1.6rem; }
-.link-chip{ display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; padding: 0.24rem 0.35rem 0.24rem 0.6rem; border-radius: 999px; }
+.link-chip{ display: inline-flex; align-items: center; gap: 0.15rem; font-size: 0.76rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; padding: 0.1rem 0.35rem 0.1rem 0.1rem; border-radius: 999px; }
+.link-chip__label{ display: inline-flex; align-items: center; gap: 0.35rem; border: none; background: none; color: var(--accent); padding: 0.14rem 0.2rem 0.14rem 0.5rem; }
+.link-chip__label:hover{ text-decoration: underline; }
 .link-chip i{ font-size: 0.76rem; }
 .link-chip__remove{ border: none; background: none; color: var(--accent); opacity: 0.7; padding: 0.1rem; display: inline-flex; }
 .link-chip__remove:hover{ opacity: 1; }
