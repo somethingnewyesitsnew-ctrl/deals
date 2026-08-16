@@ -406,6 +406,7 @@ function renderDealRow(deal) {
           relDot +
           '<span class="deal-name">' + escapeHtml(deal.entityName || 'Untitled entity') + '</span>' +
           (needsAttention ? '<span class="deal-notify" title="Needs attention — see the Attention page"><i class="bi bi-bell-fill"></i></span>' : '') +
+          linkedItemsBadgeHtml('deal', deal.id) +
         '</div>' +
         metaHtml +
         recentHtml +
@@ -495,6 +496,8 @@ dealsTableBody.addEventListener('click', (e) => {
   const row = e.target.closest('tr[data-id]');
   if (!row) return;
   const id = row.dataset.id;
+
+  if (e.target.closest('.linked-badge')) return; // handled by related.js's document-level listener
 
   const actionBtn = e.target.closest('[data-action]');
   if (actionBtn) {

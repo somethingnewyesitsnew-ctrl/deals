@@ -81,9 +81,12 @@ function renderContactRow(group) {
         '</button>' +
       '</td>' +
       '<td>' +
-        '<button type="button" class="referral-chip" data-jump="' + escapeHtml(group.name) + '">' +
+        '<div class="deal-badges">' +
+        '<button type="button" class="referral-chip" data-related-deals="' + escapeHtml(group.name) + '">' +
           '<i class="bi bi-journal-text me-1"></i>' + group.deals.length + (group.deals.length === 1 ? ' deal' : ' deals') +
         '</button>' +
+        linkedItemsBadgeHtml('contact', contactKey) +
+        '</div>' +
       '</td>' +
     '</tr>';
 }
@@ -122,9 +125,11 @@ contactsTableBody.addEventListener('click', (e) => {
     openContactUpdateModal(updateBtn.dataset.contactUpdate, updateBtn.dataset.contactName);
     return;
   }
-  const chip = e.target.closest('[data-jump]');
+  const chip = e.target.closest('[data-related-deals]');
   if (!chip) return;
-  switchView('deals', { searchTerm: chip.dataset.jump });
+  const name = chip.dataset.relatedDeals;
+  const group = buildContactGroups().find(g => g.name === name);
+  openRelatedDealsModal(name + ' — deals', group ? group.deals : []);
 });
 
 let contactSearchDebounce;

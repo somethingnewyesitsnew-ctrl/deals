@@ -150,7 +150,11 @@
 /* ===== Delete / settings modal / toast ===== */
 #deleteModal .modal-content, #settingsModal .modal-content,
 #quickUpdateModal .modal-content, #dayUpdatesModal .modal-content,
-#contactUpdateModal .modal-content{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); box-shadow: var(--shadow-lg); }
+#contactUpdateModal .modal-content, #relatedItemsModal .modal-content,
+#linkedItemsModal .modal-content{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); box-shadow: var(--shadow-lg); }
+#relatedItemsModal .modal-header, #relatedItemsModal .modal-footer,
+#linkedItemsModal .modal-header, #linkedItemsModal .modal-footer{ border-color: var(--line); }
+#relatedItemsModal .modal-title, #linkedItemsModal .modal-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
 
 /* To-Do editor — themed like the other modals, and explicitly capped so
    the footer's Save button is always reachable no matter how much content

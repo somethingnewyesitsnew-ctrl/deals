@@ -75,9 +75,20 @@ function buildAttentionGroups() {
   const contactFollowUpsOverdue = contactFollowUps.filter(f => f.state === 'overdue');
   const contactFollowUpsDueSoon = contactFollowUps.filter(f => f.state === 'soon');
 
+  // To-dos and debts feed the same unified board — a to-do due today looks
+  // exactly as urgent here as a deal closing today, which is the point.
+  const openTodos = getTodos().filter(t => t.status === 'open' && t.dueDate);
+  const todosOverdue = openTodos.filter(t => daysUntil(t.dueDate) < 0);
+  const todosDueSoon = openTodos.filter(t => daysUntil(t.dueDate) >= 0 && daysUntil(t.dueDate) <= CLOSING_SOON_DAYS);
+
+  const openDebts = (typeof getDebts === 'function' ? getDebts() : []).filter(d => d.status === 'open' && d.dueDate);
+  const debtsOverdue = openDebts.filter(d => daysUntil(d.dueDate) < 0);
+  const debtsDueSoon = openDebts.filter(d => daysUntil(d.dueDate) >= 0 && daysUntil(d.dueDate) <= CLOSING_SOON_DAYS);
+
   return {
     overdue, closingSoon, stalled, neverContacted, invoicesOverdue, invoicesDueSoon,
     followUpsOverdue, followUpsDueSoon, contactFollowUpsOverdue, contactFollowUpsDueSoon,
+    todosOverdue, todosDueSoon, debtsOverdue, debtsDueSoon,
   };
 }
 
@@ -98,7 +109,9 @@ function getAttentionCounts() {
   // Contact follow-ups aren't tied to a deal id, so they get their own
   // count added on top rather than folded into the dedup set above.
   const contactCount = new Set([...g.contactFollowUpsOverdue, ...g.contactFollowUpsDueSoon].map(f => f.contactKey)).size;
-  return uniqueIds.size + contactCount;
+  const todoCount = new Set([...g.todosOverdue, ...g.todosDueSoon].map(t => t.id)).size;
+  const debtCount = new Set([...g.debtsOverdue, ...g.debtsDueSoon].map(d => d.id)).size;
+  return uniqueIds.size + contactCount + todoCount + debtCount;
 }
 
 function attentionRow(deal, contextLabel) {
@@ -144,6 +157,25 @@ function contactFollowUpAttentionRow(entry, contextLabel) {
     '</button>';
 }
 
+function todoAttentionRow(todo, contextLabel) {
+  return '' +
+    '<button type="button" class="attention-row" data-todo-id="' + todo.id + '">' +
+      '<span class="attention-row__name" title="' + escapeHtml(todo.title) + '">' + escapeHtml(todo.title) + '</span>' +
+      '<span class="attention-row__context">' + contextLabel + '</span>' +
+      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+    '</button>';
+}
+
+function debtAttentionRow(debt, contextLabel) {
+  return '' +
+    '<button type="button" class="attention-row" data-debt-id="' + debt.id + '">' +
+      '<span class="attention-row__name" title="' + escapeHtml(debt.description) + '">' + escapeHtml(debt.description) + '</span>' +
+      '<span class="attention-row__note">' + formatInvoiceAmount(debt.amount, debt.currency) + '</span>' +
+      '<span class="attention-row__context">' + contextLabel + '</span>' +
+      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+    '</button>';
+}
+
 function renderAttentionGroup(key, title, icon, tone, items, contextFn, rowFn, noun) {
   rowFn = rowFn || attentionRow;
   noun = noun || 'deal';
@@ -183,6 +215,10 @@ function renderAttention() {
     ['Follow-ups due soon', groups.followUpsDueSoon.length + groups.contactFollowUpsDueSoon.length, 'bi-bell', 'amber'],
     ['Invoices overdue', groups.invoicesOverdue.length, 'bi-receipt', 'danger'],
     ['Invoices due soon', groups.invoicesDueSoon.length, 'bi-cash-coin', 'amber'],
+    ['Tasks overdue', groups.todosOverdue.length, 'bi-list-check', 'danger'],
+    ['Tasks due soon', groups.todosDueSoon.length, 'bi-list-check', 'amber'],
+    ['Debts overdue', groups.debtsOverdue.length, 'bi-credit-card', 'danger'],
+    ['Debts due soon', groups.debtsDueSoon.length, 'bi-credit-card', 'amber'],
   ].map(([label, count, icon, tone]) =>
     '<div class="attention-stat attention-stat--' + tone + '">' +
       '<i class="bi ' + icon + '"></i>' +
@@ -219,6 +255,14 @@ function renderAttention() {
       entry => (Math.round(-entry.days) + 'd overdue'), invoiceAttentionRow, 'invoice'),
     renderAttentionGroup('invoicesDueSoon', 'Invoices due soon', 'bi-cash-coin', 'amber', groups.invoicesDueSoon,
       entry => ('due in ' + Math.max(0, Math.round(entry.days)) + 'd'), invoiceAttentionRow, 'invoice'),
+    renderAttentionGroup('todosOverdue', 'Tasks overdue', 'bi-list-check', 'danger', groups.todosOverdue,
+      t => (Math.round(-daysUntil(t.dueDate)) + 'd overdue'), todoAttentionRow, 'task'),
+    renderAttentionGroup('todosDueSoon', 'Tasks due soon', 'bi-list-check', 'amber', groups.todosDueSoon,
+      t => ('due in ' + Math.max(0, Math.round(daysUntil(t.dueDate))) + 'd'), todoAttentionRow, 'task'),
+    renderAttentionGroup('debtsOverdue', 'Debts overdue', 'bi-credit-card', 'danger', groups.debtsOverdue,
+      d => (Math.round(-daysUntil(d.dueDate)) + 'd overdue'), debtAttentionRow, 'debt'),
+    renderAttentionGroup('debtsDueSoon', 'Debts due soon', 'bi-credit-card', 'amber', groups.debtsDueSoon,
+      d => ('due in ' + Math.max(0, Math.round(daysUntil(d.dueDate))) + 'd'), debtAttentionRow, 'debt'),
   ].join('');
 }
 
@@ -227,6 +271,18 @@ attentionGroupsEl.addEventListener('click', (e) => {
   if (contactBtn) {
     switchView('contacts');
     openContactUpdateModal(contactBtn.dataset.contactKey, contactBtn.dataset.contactName);
+    return;
+  }
+  const todoBtn = e.target.closest('.attention-row[data-todo-id]');
+  if (todoBtn) {
+    switchView('todos');
+    openTodoModal(todoBtn.dataset.todoId);
+    return;
+  }
+  const debtBtn = e.target.closest('.attention-row[data-debt-id]');
+  if (debtBtn) {
+    switchView('debts');
+    openDebtModal(debtBtn.dataset.debtId);
     return;
   }
   const btn = e.target.closest('.attention-row[data-id]');

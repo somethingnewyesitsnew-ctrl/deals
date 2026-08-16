@@ -37,6 +37,12 @@
 .relationship-dot--bad{ background: var(--red); }
 .deal-name{ font-weight: 650; color: var(--text); font-size: 0.84rem; word-break: break-word; }
 .deal-notify{ display: inline-flex; align-items: center; color: var(--red); font-size: 0.82rem; flex-shrink: 0; }
+
+.linked-badge{ display: inline-flex; align-items: center; gap: 0.2rem; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text-dim); font-size: 0.68rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; flex-shrink: 0; }
+.linked-badge:hover{ border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.linked-badge i{ font-size: 0.66rem; }
+
+.linked-items__section-title{ font-family: var(--font-display); font-size: 0.82rem; font-weight: 700; color: var(--accent); margin: 0 0 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
 .deal-meta{ font-size: 0.7rem; color: var(--text-faint); margin-top: 0.2rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .type-word{ font-weight: 700; }
 .type-word--government{ color: var(--cyan); }

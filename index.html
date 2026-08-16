@@ -925,6 +925,35 @@
 <datalist id="specialInstructionsOptionsList"></datalist>
 <datalist id="personNameOptionsList"></datalist>
 
+<!-- Related Deals modal — a focused list, not the full Deals dashboard.
+     Opened from the "N deals" chip on Referrals/Contacts/Entities rows. -->
+<div class="modal fade" id="relatedItemsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="relatedItemsTitle">Related deals</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="relatedItemsBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Linked Items modal — every to-do, expense/income, and debt that links
+     to a specific deal/referral/contact/entity, opened from the small
+     paperclip badge on that row. Clicking an item opens its own editor. -->
+<div class="modal fade" id="linkedItemsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="linkedItemsTitle">Linked items</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="linkedItemsBody"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ DEAL DETAIL MODAL (read-only) ============ -->
 <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -1628,6 +1657,7 @@
 <script src="js/links.js"></script>
 <script src="js/todos.js"></script>
 <script src="js/debts.js"></script>
+<script src="js/related.js"></script>
 <script src="js/documentation.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/deals-shared.js"></script>

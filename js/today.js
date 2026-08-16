@@ -115,9 +115,13 @@ const ATTENTION_REASON_META = {
   'Overdue': { icon: 'bi-exclamation-triangle-fill', tone: 'danger' },
   'Follow-up overdue': { icon: 'bi-alarm-fill', tone: 'danger' },
   'Invoice overdue': { icon: 'bi-receipt', tone: 'danger' },
+  'Task overdue': { icon: 'bi-list-check', tone: 'danger' },
+  'Debt overdue': { icon: 'bi-credit-card', tone: 'danger' },
   'Closing soon': { icon: 'bi-hourglass-split', tone: 'amber' },
   'Follow-up due soon': { icon: 'bi-bell-fill', tone: 'amber' },
   'Invoice due soon': { icon: 'bi-cash-coin', tone: 'amber' },
+  'Task due soon': { icon: 'bi-list-check', tone: 'amber' },
+  'Debt due soon': { icon: 'bi-credit-card', tone: 'amber' },
   'Stalled': { icon: 'bi-moon-stars-fill', tone: 'slate' },
   'Never contacted': { icon: 'bi-person-x-fill', tone: 'cyan' },
 };
@@ -133,7 +137,7 @@ function buildDashboardAttentionItems(limit) {
       const deal = getDeal(entry);
       if (!deal || seenDealIds.has(deal.id)) return;
       seenDealIds.add(deal.id);
-      items.push({ deal, label });
+      items.push({ kind: 'deal', deal, label });
     });
   }
 
@@ -146,6 +150,28 @@ function buildDashboardAttentionItems(limit) {
   addDeals(g.stalled, 'Stalled', d => d);
   addDeals(g.neverContacted, 'Never contacted', d => d);
 
+  const seenTodoIds = new Set();
+  function addTodos(list, label) {
+    list.forEach(todo => {
+      if (seenTodoIds.has(todo.id)) return;
+      seenTodoIds.add(todo.id);
+      items.push({ kind: 'todo', todo, label });
+    });
+  }
+  addTodos(g.todosOverdue, 'Task overdue');
+  addTodos(g.todosDueSoon, 'Task due soon');
+
+  const seenDebtIds = new Set();
+  function addDebts(list, label) {
+    list.forEach(debt => {
+      if (seenDebtIds.has(debt.id)) return;
+      seenDebtIds.add(debt.id);
+      items.push({ kind: 'debt', debt, label });
+    });
+  }
+  addDebts(g.debtsOverdue, 'Debt overdue');
+  addDebts(g.debtsDueSoon, 'Debt due soon');
+
   return items.slice(0, limit || 7);
 }
 
@@ -154,10 +180,16 @@ function renderDashboardAttentionPanel() {
   dashAttentionListEl.innerHTML = items.length
     ? items.map(it => {
         const meta = ATTENTION_REASON_META[it.label] || { icon: 'bi-flag-fill', tone: 'slate' };
-        return '<button type="button" class="attention-row attention-row--icon" data-id="' + it.deal.id + '">' +
+        const name = it.kind === 'deal' ? (it.deal.entityName || 'Untitled entity')
+          : it.kind === 'todo' ? it.todo.title
+          : it.debt.description;
+        const idAttr = it.kind === 'deal' ? 'data-id="' + it.deal.id + '"'
+          : it.kind === 'todo' ? 'data-todo-id="' + it.todo.id + '"'
+          : 'data-debt-id="' + it.debt.id + '"';
+        return '<button type="button" class="attention-row attention-row--icon" ' + idAttr + '>' +
           '<span class="attention-row__icon-badge attention-row__icon-badge--' + meta.tone + '"><i class="bi ' + meta.icon + '"></i></span>' +
           '<span class="attention-row__stack">' +
-            '<span class="attention-row__name" title="' + escapeHtml(it.deal.entityName || 'Untitled entity') + '">' + escapeHtml(it.deal.entityName || 'Untitled entity') + '</span>' +
+            '<span class="attention-row__name" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>' +
             '<span class="attention-row__context attention-row__context--' + meta.tone + '">' + escapeHtml(it.label) + '</span>' +
           '</span>' +
           '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
@@ -267,6 +299,12 @@ function renderToday() {
 document.getElementById('todayView').addEventListener('click', (e) => {
   const jumpBtn = e.target.closest('[data-jump-view]');
   if (jumpBtn) { switchView(jumpBtn.dataset.jumpView); return; }
+
+  const todoRow = e.target.closest('.attention-row[data-todo-id]');
+  if (todoRow) { switchView('todos'); openTodoModal(todoRow.dataset.todoId); return; }
+
+  const debtRow = e.target.closest('.attention-row[data-debt-id]');
+  if (debtRow) { switchView('debts'); openDebtModal(debtRow.dataset.debtId); return; }
 
   const row = e.target.closest('.attention-row[data-id], .dash-mini-row[data-id]');
   if (!row) return;

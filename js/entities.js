@@ -54,9 +54,12 @@ function renderEntityRow(group) {
       '<td>' + (group.currentLocation ? escapeHtml(group.currentLocation) : '<span class="no-referral">—</span>') + '</td>' +
       '<td class="text-end deal-value">' + formatDualCurrency(totalValueUSD, 'USD') + '</td>' +
       '<td>' +
-        '<button type="button" class="referral-chip" data-jump="' + escapeHtml(group.name) + '">' +
+        '<div class="deal-badges">' +
+        '<button type="button" class="referral-chip" data-related-deals="' + escapeHtml(group.name) + '">' +
           '<i class="bi bi-journal-text me-1"></i>' + group.deals.length + (group.deals.length === 1 ? ' deal' : ' deals') +
         '</button>' +
+        linkedItemsBadgeHtml('entity', group.name.toLowerCase()) +
+        '</div>' +
       '</td>' +
     '</tr>';
 }
@@ -90,9 +93,11 @@ function renderEntities() {
 }
 
 entitiesTableBody.addEventListener('click', (e) => {
-  const chip = e.target.closest('[data-jump]');
+  const chip = e.target.closest('[data-related-deals]');
   if (!chip) return;
-  switchView('deals', { searchTerm: chip.dataset.jump });
+  const name = chip.dataset.relatedDeals;
+  const group = buildEntityGroups().find(g => g.name === name);
+  openRelatedDealsModal(name + ' — deals', group ? group.deals : []);
 });
 
 let entitySearchDebounce;
