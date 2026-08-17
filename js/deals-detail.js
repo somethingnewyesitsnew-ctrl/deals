@@ -175,6 +175,8 @@ function openDetailModal(dealId) {
 
     renderInvoiceSection(deal) +
 
+    renderDealProjectSection(deal) +
+
     renderDocumentsSection(deal) +
 
     '<div class="detail-grid">' +
@@ -208,6 +210,61 @@ detailEditBtn.addEventListener('click', () => {
 
 detailDeleteBtn.addEventListener('click', () => {
   if (currentDetailDealId) confirmDelete(currentDetailDealId);
+});
+
+// ---------- Project section (deal → project conversion + linked projects) ----------
+function renderDealProjectSection(deal) {
+  const linkedProjects = typeof getProjects === 'function' ? getProjects().filter(p => p.dealId === deal.id) : [];
+
+  if (linkedProjects.length === 0) {
+    return '' +
+      '<div class="detail-card">' +
+        '<div class="detail-card__head-row">' +
+          '<h4><i class="bi bi-kanban"></i> Project</h4>' +
+          '<button type="button" class="btn btn-sm btn-outline-secondary" id="detailConvertToProjectBtn" data-deal="' + deal.id + '"><i class="bi bi-arrow-right-circle"></i> Convert to project</button>' +
+        '</div>' +
+        '<p class="no-referral">No project started yet — convert this deal once work begins.</p>' +
+      '</div>';
+  }
+
+  return '' +
+    '<div class="detail-card">' +
+      '<h4><i class="bi bi-kanban"></i> Project</h4>' +
+      linkedProjects.map(p => {
+        const progress = projectPhaseProgress(p);
+        return '<button type="button" class="attention-row" data-open-deal-project="' + p.id + '">' +
+          '<span class="attention-row__name">' + escapeHtml(p.name) + '</span>' +
+          '<span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[p.status] + '">' + WORK_STATUS_LABELS[p.status] + '</span>' +
+          (progress.total ? '<span class="attention-row__note">' + progress.done + '/' + progress.total + ' phases</span>' : '') +
+          '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+        '</button>';
+      }).join('') +
+    '</div>';
+}
+
+document.getElementById('detailBody').addEventListener('click', (e) => {
+  const convertBtn = e.target.closest('#detailConvertToProjectBtn');
+  if (convertBtn) {
+    const deal = getDeals().find(d => d.id === convertBtn.dataset.deal);
+    if (!deal) return;
+    detailModal.hide();
+    openProjectModal(); // blank editor, prefilled below
+    document.getElementById('projectName').value = deal.entityName || '';
+    document.getElementById('projectDescription').value = deal.requirement ? ('Requirement: ' + deal.requirement) : '';
+    // Prefill via a hidden convert-source so the save handler attaches dealId.
+    projectConvertSourceDealId = deal.id;
+    document.getElementById('projectClientNameRow').classList.add('d-none');
+    document.getElementById('projectDealBadgeRow').classList.remove('d-none');
+    document.getElementById('projectDealBadgeRow').innerHTML = '<span class="link-chip"><i class="bi bi-journal-text"></i>' + escapeHtml(deal.entityName || 'Untitled entity') + '</span> <span class="dropdown-hint d-inline">will be linked once saved</span>';
+    showToast('Fill in the project type and phases, then save.');
+    return;
+  }
+  const openProjectBtn = e.target.closest('[data-open-deal-project]');
+  if (openProjectBtn) {
+    detailModal.hide();
+    switchView('projects');
+    openProjectModal(openProjectBtn.dataset.openDealProject);
+  }
 });
 
 // Delegated on detailBody (a stable container that never gets swapped out

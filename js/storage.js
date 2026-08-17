@@ -60,6 +60,7 @@ let _dealsCache = [];               // array of deal objects, same shape as befo
 let _expensesCache = [];            // array of expense objects, same shape as before
 let _todosCache = [];               // array of todo objects — standalone tasks, optionally linked to a deal
 let _debtsCache = [];               // array of debt objects — money owed, either direction
+let _projectsCache = [];            // array of project objects — post-won delivery work, or standalone/external
 let _contactUpdatesCache = {};      // { contactKey: [entry, entry, ...] }
 let _optionsCache = {};             // { relation: ['...','...'], channel: [...], ... }
 let _metricSnapshotsCache = [];     // [{ date, metrics }, ...]
@@ -174,18 +175,19 @@ async function initStorage() {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   try {
-    const [dealsRes, expensesRes, todosRes, debtsRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
+    const [dealsRes, expensesRes, todosRes, debtsRes, projectsRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes] = await Promise.all([
       supabaseClient.from('deals').select('*'),
       supabaseClient.from('expenses').select('*'),
       supabaseClient.from('todos').select('*'),
       supabaseClient.from('debts').select('*'),
+      supabaseClient.from('projects').select('*'),
       supabaseClient.from('contact_updates').select('*'),
       supabaseClient.from('options').select('*'),
       supabaseClient.from('settings').select('*'),
       supabaseClient.from('metric_snapshots').select('*'),
     ]);
 
-    [dealsRes, expensesRes, todosRes, debtsRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
+    [dealsRes, expensesRes, todosRes, debtsRes, projectsRes, contactUpdatesRes, optionsRes, settingsRes, snapshotsRes].forEach(res => {
       if (res.error) throw res.error;
     });
 
@@ -193,6 +195,7 @@ async function initStorage() {
     _expensesCache = (expensesRes.data || []).map(_rowToExpense);
     _todosCache = (todosRes.data || []).map(_rowToTodo);
     _debtsCache = (debtsRes.data || []).map(_rowToDebt);
+    _projectsCache = (projectsRes.data || []).map(_rowToProject);
 
     _contactUpdatesCache = {};
     (contactUpdatesRes.data || []).forEach(row => {
@@ -270,6 +273,18 @@ function _subscribeToRealtime() {
         if (error) { console.error('Realtime refresh failed (debts):', error); return; }
         _debtsCache = (data || []).map(_rowToDebt);
         if (typeof renderDebts === 'function') renderDebts();
+        if (typeof updateTabCounts === 'function') updateTabCounts();
+      });
+    })
+    .subscribe();
+
+  supabaseClient
+    .channel('projects-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
+      supabaseClient.from('projects').select('*').then(({ data, error }) => {
+        if (error) { console.error('Realtime refresh failed (projects):', error); return; }
+        _projectsCache = (data || []).map(_rowToProject);
+        if (typeof renderProjects === 'function') renderProjects();
         if (typeof updateTabCounts === 'function') updateTabCounts();
       });
     })
@@ -428,6 +443,44 @@ function _debtToRow(debt) {
     created_at: debt.createdAt,
     updated_at: debt.updatedAt,
     paid_at: debt.paidAt || null,
+  };
+}
+
+function _rowToProject(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type || 'web',
+    status: row.status || 'not_started',
+    dealId: row.deal_id,
+    clientName: row.client_name || '',
+    description: row.description || '',
+    startDate: row.start_date || '',
+    targetDate: row.target_date || '',
+    phases: row.phases || [],
+    documents: row.documents || [],
+    links: row.links || [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function _projectToRow(project) {
+  return {
+    id: project.id,
+    name: project.name || '',
+    type: project.type || 'web',
+    status: project.status || 'not_started',
+    deal_id: project.dealId || null,
+    client_name: project.clientName || '',
+    description: project.description || '',
+    start_date: project.startDate || null,
+    target_date: project.targetDate || null,
+    phases: project.phases || [],
+    documents: project.documents || [],
+    links: project.links || [],
+    created_at: project.createdAt,
+    updated_at: project.updatedAt,
   };
 }
 
@@ -697,6 +750,43 @@ function toggleDebtPaid(id) {
   if (debt.status === 'paid') saveDebt({ id, status: 'open', paidAt: null });
   else saveDebt({ id, status: 'paid', paidAt: Date.now() });
   return _debtsCache;
+}
+
+// ---------- Projects ----------
+// Delivery work — either converted from a Won deal (dealId set, client
+// details carried over) or standalone/external (dealId null, clientName
+// free-typed). Tasks belonging to a project are regular todos linked via
+// the universal `links` array (type='project'), not stored here.
+function getProjects() {
+  return _projectsCache.slice();
+}
+
+function saveProject(project) {
+  const idx = _projectsCache.findIndex(p => p.id === project.id);
+  let saved;
+  const now = Date.now();
+  if (idx >= 0) {
+    saved = Object.assign({}, _projectsCache[idx], project, { updatedAt: now });
+    _projectsCache[idx] = saved;
+  } else {
+    saved = Object.assign({
+      type: 'web', status: 'not_started', dealId: null, clientName: '', description: '',
+      startDate: '', targetDate: '', phases: [], documents: [], links: [],
+    }, project, { id: project.id || crypto.randomUUID(), createdAt: now, updatedAt: now });
+    _projectsCache.push(saved);
+  }
+  if (supabaseClient) {
+    _bgPersist(() => supabaseClient.from('projects').upsert(_projectToRow(saved), { onConflict: 'id' }), 'saveProject');
+  }
+  return _projectsCache;
+}
+
+function deleteProject(id) {
+  _projectsCache = _projectsCache.filter(p => p.id !== id);
+  if (supabaseClient) {
+    _bgPersist(() => supabaseClient.from('projects').delete().eq('id', id), 'deleteProject');
+  }
+  return _projectsCache;
 }
 
 // ---------- Contact-level updates ----------
@@ -991,6 +1081,7 @@ function exportAllDataAsJson() {
     expenses: _expensesCache,
     todos: _todosCache,
     debts: _debtsCache,
+    projects: _projectsCache,
     contactUpdates: _contactUpdatesCache,
     options: _optionsCache,
     settings: _settingsCache,

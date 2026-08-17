@@ -170,6 +170,12 @@
 #debtModal .modal-header, #debtModal .modal-footer{ border-color: var(--line); flex-shrink: 0; }
 #debtModal .modal-body{ overflow-y: auto; }
 #debtModal .modal-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; }
+
+#projectModal .modal-content{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); box-shadow: var(--shadow-lg); }
+#projectModal .modal-dialog{ max-height: 90vh; }
+#projectModal .modal-header, #projectModal .modal-footer{ border-color: var(--line); flex-shrink: 0; }
+#projectModal .modal-body{ overflow-y: auto; }
+#projectModal .modal-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; }
 #deleteModal .modal-footer{ border-top: none; }
 #settingsModal .modal-header, #settingsModal .modal-footer,
 #quickUpdateModal .modal-header, #quickUpdateModal .modal-footer,

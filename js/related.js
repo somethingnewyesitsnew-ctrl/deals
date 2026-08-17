@@ -59,12 +59,17 @@ function collectLinkedItems(type, id) {
   const todosLinked = getTodos().filter(t => (t.links || []).some(l => l.type === type && l.id === id));
   const expensesLinked = (typeof getExpenses === 'function' ? getExpenses() : []).filter(e => (e.links || []).some(l => l.type === type && l.id === id));
   const debtsLinked = (typeof getDebts === 'function' ? getDebts() : []).filter(d => (d.links || []).some(l => l.type === type && l.id === id));
-  return { todosLinked, expensesLinked, debtsLinked };
+  // A project converted from a deal is linked via project.dealId, not the
+  // generic `links` array — surface it here too so the deal's badge counts it.
+  const projectsLinked = type === 'deal' && typeof getProjects === 'function'
+    ? getProjects().filter(p => p.dealId === id)
+    : [];
+  return { todosLinked, expensesLinked, debtsLinked, projectsLinked };
 }
 
 function countLinksTo(type, id) {
-  const { todosLinked, expensesLinked, debtsLinked } = collectLinkedItems(type, id);
-  return todosLinked.length + expensesLinked.length + debtsLinked.length;
+  const { todosLinked, expensesLinked, debtsLinked, projectsLinked } = collectLinkedItems(type, id);
+  return todosLinked.length + expensesLinked.length + debtsLinked.length + projectsLinked.length;
 }
 
 function linkedItemsBadgeHtml(type, id) {
@@ -80,9 +85,20 @@ const linkedItemsBody = document.getElementById('linkedItemsBody');
 
 function openLinkedItemsModal(type, id, label) {
   linkedItemsTitle.textContent = 'Linked to ' + label;
-  const { todosLinked, expensesLinked, debtsLinked } = collectLinkedItems(type, id);
+  const { todosLinked, expensesLinked, debtsLinked, projectsLinked } = collectLinkedItems(type, id);
 
   const sections = [];
+
+  if (projectsLinked.length) {
+    sections.push('<h4 class="linked-items__section-title"><i class="bi bi-kanban"></i> Projects</h4><div class="attention-list mb-3">' +
+      projectsLinked.map(p => '' +
+        '<button type="button" class="attention-row" data-open-project="' + p.id + '">' +
+          '<span class="attention-row__name">' + escapeHtml(p.name) + '</span>' +
+          '<span class="status-badge status-badge--' + (p.status === 'delivered' || p.status === 'completed' ? 'done' : 'scheduled') + '">' + WORK_STATUS_LABELS[p.status] + '</span>' +
+          '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+        '</button>'
+      ).join('') + '</div>');
+  }
 
   if (todosLinked.length) {
     sections.push('<h4 class="linked-items__section-title"><i class="bi bi-list-check"></i> Tasks</h4><div class="attention-list mb-3">' +
@@ -124,6 +140,8 @@ function openLinkedItemsModal(type, id, label) {
 }
 
 linkedItemsBody.addEventListener('click', (e) => {
+  const projectBtn = e.target.closest('[data-open-project]');
+  if (projectBtn) { linkedItemsModal.hide(); switchView('projects'); openProjectModal(projectBtn.dataset.openProject); return; }
   const todoBtn = e.target.closest('[data-open-todo]');
   if (todoBtn) { linkedItemsModal.hide(); openTodoModal(todoBtn.dataset.openTodo); return; }
   const expenseBtn = e.target.closest('[data-open-expense]');

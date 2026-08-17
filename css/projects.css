@@ -1,0 +1,28 @@
+/* projects.css — Projects tab card grid. */
+
+.project-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-3); }
+
+.project-card{
+  display: flex; flex-direction: column; gap: 0.5rem; text-align: left;
+  background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 0.9rem 1rem; box-shadow: var(--shadow-sm); transition: box-shadow var(--motion-fast), border-color var(--motion-fast);
+}
+.project-card:hover{ border-color: var(--accent); box-shadow: var(--shadow-md); }
+
+.project-card__head{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.project-card__type{ display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; }
+.project-card__type i{ font-size: 0.82rem; color: var(--accent); }
+
+.project-card__name{ font-family: var(--font-display); font-weight: 700; font-size: 0.94rem; color: var(--text); line-height: 1.3; }
+
+.project-card__client{ display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--text-dim); }
+.project-card__client i{ color: var(--text-faint); font-size: 0.78rem; }
+
+.project-card__progress{ display: flex; align-items: center; gap: 0.5rem; }
+.project-card__progress-bar{ flex: 1; height: 6px; border-radius: 4px; background: var(--slate-soft); overflow: hidden; }
+.project-card__progress-bar span{ display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.project-card__progress-label{ font-size: 0.7rem; color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.project-card__foot{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.72rem; color: var(--text-faint); margin-top: 0.2rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
+.project-card__foot span{ display: inline-flex; align-items: center; gap: 0.3rem; }
+.project-card__foot i{ font-size: 0.74rem; }

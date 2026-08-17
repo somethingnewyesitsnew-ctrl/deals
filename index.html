@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="css/invoices.css">
 <link rel="stylesheet" href="css/charts-motion.css">
 <link rel="stylesheet" href="css/todos.css">
+<link rel="stylesheet" href="css/projects.css">
 <script>
   // Set the theme before first paint so there's no flash of the wrong mode.
   (function () {
@@ -84,6 +85,7 @@
 
       <span class="win-sidebar__section-label">Pipeline</span>
       <button class="view-tab" data-view="deals" title="Deals"><i class="bi bi-journal-text"></i><span>Deals</span><span class="chip-count" id="tabCountDeals">0</span></button>
+      <button class="view-tab" data-view="projects" title="Projects"><i class="bi bi-kanban"></i><span>Projects</span><span class="chip-count" id="tabCountProjects">0</span></button>
       <button class="view-tab" data-view="referrals" title="Referrals"><i class="bi bi-people"></i><span>Referrals</span><span class="chip-count" id="tabCountReferrals">0</span></button>
       <button class="view-tab" data-view="contacts" title="Contacts"><i class="bi bi-person-lines-fill"></i><span>Contacts</span><span class="chip-count" id="tabCountContacts">0</span></button>
       <button class="view-tab" data-view="entities" title="Entities"><i class="bi bi-building"></i><span>Entities</span><span class="chip-count" id="tabCountEntities">0</span></button>
@@ -272,6 +274,17 @@
 
     <div class="ledger-empty d-none" id="emptyState"><i class="bi bi-journal-text"></i><p>No entries yet. Click "New deal" to record your first one.</p></div>
     <div class="ledger-empty d-none" id="noResultsState"><i class="bi bi-search"></i><p>Nothing matches that search or filter.</p></div>
+  </section>
+
+  <!-- ============ PROJECTS ============ -->
+  <section class="ledger-view d-none" id="projectsView">
+    <div class="page-header"><h1 class="page-title">Projects</h1></div>
+
+    <div class="attention-summary" id="projectsSummary"></div>
+    <div class="todo-filter-bar" id="projectsFilterBar"></div>
+
+    <div class="project-grid" id="projectsList"></div>
+    <div class="ledger-empty d-none" id="projectsEmptyState"><i class="bi bi-kanban"></i><p>No projects yet — convert a Won deal into one, or start a new project from the + button.</p></div>
   </section>
 
   <!-- ============ ATTENTION ============ -->
@@ -1191,6 +1204,106 @@
   </div>
 </div>
 
+<!-- Project editor modal -->
+<div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="projectModalTitle">New project</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="projectForm">
+        <input type="hidden" id="projectId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="projectName" class="form-label">Project name</label>
+            <input type="text" class="form-control" id="projectName" placeholder="e.g. Al-Fanar — E-commerce Rebuild" required>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label for="projectType" class="form-label">Type</label>
+              <select class="form-select" id="projectType">
+                <option value="web">Web Development</option>
+                <option value="mobile">Mobile App</option>
+                <option value="systems">Systems / Custom Software</option>
+                <option value="consultation">Consultation</option>
+                <option value="idea">Idea</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="projectStatus" class="form-label">Status</label>
+              <select class="form-select" id="projectStatus">
+                <option value="not_started">Not started</option>
+                <option value="in_progress">In progress</option>
+                <option value="on_hold">On hold</option>
+                <option value="completed">Completed</option>
+                <option value="delivered">Delivered</option>
+              </select>
+            </div>
+            <div class="col-md-4" id="projectClientNameRow">
+              <label for="projectClientName" class="form-label">Client <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="text" class="form-control" id="projectClientName" placeholder="External client name">
+            </div>
+          </div>
+          <div class="mb-3 d-none" id="projectDealBadgeRow"></div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="projectStartDate" class="form-label">Start date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control" id="projectStartDate">
+            </div>
+            <div class="col-md-6">
+              <label for="projectTargetDate" class="form-label">Target date <span class="dropdown-hint d-inline">(optional)</span></label>
+              <input type="date" class="form-control" id="projectTargetDate">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="projectDescription" class="form-label">Description <span class="dropdown-hint d-inline">(optional)</span></label>
+            <textarea class="form-control" id="projectDescription" rows="2" placeholder="What this project covers…"></textarea>
+          </div>
+
+          <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — a contact, referral, entity, invoice, or type your own)</span></label>
+          <div class="link-picker">
+            <input type="text" class="form-control form-control-sm" id="projectLinkInput" placeholder="Type to search, or type anything and press Enter…" autocomplete="off">
+            <div class="link-picker__results d-none" id="projectLinkResults"></div>
+          </div>
+          <div class="link-chips mt-2 mb-3" id="projectLinkChips"></div>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0">Phases</label>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="projectPhaseTemplateBtn"><i class="bi bi-magic"></i> Use starting template</button>
+          </div>
+          <div class="subtask-add">
+            <input type="text" class="form-control form-control-sm" id="projectPhaseInput" placeholder="Add a phase and press Enter…">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="projectPhaseAddBtn"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <ul class="subtask-list mb-3" id="projectPhaseList"></ul>
+
+          <label class="form-label">Documents <span class="dropdown-hint d-inline">(optional — small file under 350KB, or a link)</span></label>
+          <div class="todo-doc-add">
+            <input type="file" class="form-control form-control-sm" id="projectDocFile">
+            <input type="url" class="form-control form-control-sm" id="projectDocUrl" placeholder="…or paste a link">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="projectDocAddBtn"><i class="bi bi-plus-lg"></i> Add</button>
+          </div>
+          <div class="document-list mb-3" id="projectDocList"></div>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0">Tasks</label>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="projectAddTaskBtn"><i class="bi bi-plus-lg"></i> Add task</button>
+          </div>
+          <div id="projectTasksList"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto d-none" id="projectDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-ink btn-sm"><i class="bi bi-check-lg me-1"></i>Save project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 
 <!-- Quick Update modal — the fast path for logging an update, from a table
      row or the detail view, without opening the full multi-step wizard. -->
@@ -1624,6 +1737,9 @@
     <button type="button" class="fab-speed-dial__item" id="fabAddTaskBtn">
       <span>New task</span><span class="fab-speed-dial__icon"><i class="bi bi-list-check"></i></span>
     </button>
+    <button type="button" class="fab-speed-dial__item" id="fabAddProjectBtn">
+      <span>New project</span><span class="fab-speed-dial__icon"><i class="bi bi-kanban"></i></span>
+    </button>
     <button type="button" class="fab-speed-dial__item" id="fabAddDealBtn">
       <span>New deal</span><span class="fab-speed-dial__icon"><i class="bi bi-journal-text"></i></span>
     </button>
@@ -1657,6 +1773,7 @@
 <script src="js/links.js"></script>
 <script src="js/todos.js"></script>
 <script src="js/debts.js"></script>
+<script src="js/projects.js"></script>
 <script src="js/related.js"></script>
 <script src="js/documentation.js"></script>
 <script src="js/charts.js"></script>

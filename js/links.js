@@ -18,6 +18,7 @@
 
 const LINK_TYPE_META = {
   deal: { icon: 'bi-journal-text', label: 'Deal' },
+  project: { icon: 'bi-kanban', label: 'Project' },
   contact: { icon: 'bi-person', label: 'Contact' },
   referral: { icon: 'bi-arrow-up-right-circle', label: 'Referral' },
   entity: { icon: 'bi-building', label: 'Entity' },
@@ -35,6 +36,14 @@ function searchLinkableItems(term) {
       results.push({ type: 'deal', id: d.id, label: d.entityName || 'Untitled entity' });
     }
   });
+
+  if (typeof getProjects === 'function') {
+    getProjects().forEach(p => {
+      if ((p.name || '').toLowerCase().includes(term)) {
+        results.push({ type: 'project', id: p.id, label: p.name });
+      }
+    });
+  }
 
   if (typeof buildContactGroups === 'function') {
     buildContactGroups().forEach(g => {
@@ -80,6 +89,10 @@ function openLinkDetails(link) {
     case 'deal':
       switchView('deals');
       if (typeof openDetailModal === 'function') openDetailModal(link.id);
+      return;
+    case 'project':
+      switchView('projects');
+      if (typeof openProjectModal === 'function') openProjectModal(link.id);
       return;
     case 'contact':
       switchView('contacts');

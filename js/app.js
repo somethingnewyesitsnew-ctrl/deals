@@ -13,9 +13,9 @@
    ============================================================ */
 
 const viewTabs = document.getElementById('viewTabs');
-const VIEWS = ['today', 'todos', 'documentation', 'deals', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'debts', 'overview'];
+const VIEWS = ['today', 'todos', 'documentation', 'deals', 'projects', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'debts', 'overview'];
 const VIEW_LABELS = {
-  today: 'Dashboard', todos: 'To-Do', documentation: 'Documentation', deals: 'Deals', attention: 'Attention', calendar: 'Calendar',
+  today: 'Dashboard', todos: 'To-Do', documentation: 'Documentation', deals: 'Deals', projects: 'Projects', attention: 'Attention', calendar: 'Calendar',
   referrals: 'Referrals', contacts: 'Contacts', entities: 'Entities', financial: 'Financial', debts: 'Debts', overview: 'Reports',
 };
 
@@ -42,6 +42,7 @@ const VIEW_RENDERERS = {
   todos: renderTodos,
   documentation: renderDocumentation,
   deals: renderDeals,
+  projects: renderProjects,
   attention: renderAttention,
   calendar: renderCalendar,
   referrals: renderReferrals,
@@ -106,6 +107,7 @@ viewTabs.addEventListener('click', (e) => {
 function updateTabCounts() {
   const deals = getDeals();
   document.getElementById('tabCountDeals').textContent = deals.length;
+  document.getElementById('tabCountProjects').textContent = getProjects().length;
   const todayCount = buildTodaySections().todayItems.length;
   const todayBadge = document.getElementById('tabCountToday');
   todayBadge.textContent = todayCount;
@@ -323,6 +325,9 @@ async function boot() {
 
   const fabAddDebtBtn = document.getElementById('fabAddDebtBtn');
   if (fabAddDebtBtn) fabAddDebtBtn.addEventListener('click', () => { closeFabSpeedDial(); openNewDebtModal(); });
+
+  const fabAddProjectBtn = document.getElementById('fabAddProjectBtn');
+  if (fabAddProjectBtn) fabAddProjectBtn.addEventListener('click', () => { closeFabSpeedDial(); openNewProjectModal(); });
 
   const exportDataBtn = document.getElementById('exportDataBtn');
   if (exportDataBtn) {
