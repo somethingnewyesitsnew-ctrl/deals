@@ -68,7 +68,7 @@
 .last-activity{ font-size: 0.74rem; color: var(--text-faint); }
 
 .row-actions-menu{ display: flex; justify-content: flex-end; }
-.actions-btn{ border: none; background: transparent; color: var(--text-faint); padding: 0.35rem 0.5rem; border-radius: var(--r-sm); font-size: 1rem; line-height: 1; opacity: 0; transition: opacity var(--motion-fast); }
+.actions-btn{ border: none; background: transparent; color: var(--text-faint); padding: 0.35rem 0.5rem; border-radius: var(--r-sm); font-size: 1rem; line-height: 1; opacity: 0.55; transition: opacity var(--motion-fast); }
 .ledger-table tbody tr:hover .actions-btn,
 .ledger-table tbody tr:focus-within .actions-btn,
 .actions-btn[aria-expanded="true"]{ opacity: 1; }

@@ -242,23 +242,28 @@ function renderDealProjectSection(deal) {
     '</div>';
 }
 
+// Shared entry point — the deal detail drawer's 'Convert to project' button
+// and the Deals table row menu's 'Convert to project' item both call this,
+// so there's exactly one place that knows how to prefill a new project
+// from a deal.
+function convertDealToProject(dealId) {
+  const deal = getDeals().find(d => d.id === dealId);
+  if (!deal) return;
+  if (detailModalEl.classList.contains('show')) detailModal.hide();
+  openProjectModal(); // blank editor, prefilled below
+  document.getElementById('projectName').value = deal.entityName || '';
+  document.getElementById('projectDescription').value = deal.requirement ? ('Requirement: ' + deal.requirement) : '';
+  // Prefill via a hidden convert-source so the save handler attaches dealId.
+  projectConvertSourceDealId = deal.id;
+  document.getElementById('projectClientNameRow').classList.add('d-none');
+  document.getElementById('projectDealBadgeRow').classList.remove('d-none');
+  document.getElementById('projectDealBadgeRow').innerHTML = '<span class="link-chip"><i class="bi bi-journal-text"></i>' + escapeHtml(deal.entityName || 'Untitled entity') + '</span> <span class="dropdown-hint d-inline">will be linked once saved</span>';
+  showToast('Fill in the project type and phases, then save.');
+}
+
 document.getElementById('detailBody').addEventListener('click', (e) => {
   const convertBtn = e.target.closest('#detailConvertToProjectBtn');
-  if (convertBtn) {
-    const deal = getDeals().find(d => d.id === convertBtn.dataset.deal);
-    if (!deal) return;
-    detailModal.hide();
-    openProjectModal(); // blank editor, prefilled below
-    document.getElementById('projectName').value = deal.entityName || '';
-    document.getElementById('projectDescription').value = deal.requirement ? ('Requirement: ' + deal.requirement) : '';
-    // Prefill via a hidden convert-source so the save handler attaches dealId.
-    projectConvertSourceDealId = deal.id;
-    document.getElementById('projectClientNameRow').classList.add('d-none');
-    document.getElementById('projectDealBadgeRow').classList.remove('d-none');
-    document.getElementById('projectDealBadgeRow').innerHTML = '<span class="link-chip"><i class="bi bi-journal-text"></i>' + escapeHtml(deal.entityName || 'Untitled entity') + '</span> <span class="dropdown-hint d-inline">will be linked once saved</span>';
-    showToast('Fill in the project type and phases, then save.');
-    return;
-  }
+  if (convertBtn) { convertDealToProject(convertBtn.dataset.deal); return; }
   const openProjectBtn = e.target.closest('[data-open-deal-project]');
   if (openProjectBtn) {
     detailModal.hide();

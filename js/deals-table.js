@@ -397,6 +397,7 @@ function renderDealRow(deal) {
   const lastActive = timeAgo(lastActivityTimestamp(deal));
 
   const invoiceCount = (deal.invoices || []).length;
+  const linkedProject = (typeof getProjects === 'function' ? getProjects() : []).find(p => p.dealId === deal.id);
 
   return '' +
     '<tr class="row-new row-clickable" data-id="' + deal.id + '">' +
@@ -437,6 +438,10 @@ function renderDealRow(deal) {
             '<li><hr class="dropdown-divider"></li>' +
             '<li><button type="button" class="dropdown-item" data-action="new-invoice"><i class="bi bi-receipt"></i>Create invoice</button></li>' +
             (invoiceCount ? '<li><button type="button" class="dropdown-item" data-action="view-invoices"><i class="bi bi-receipt-cutoff"></i>View invoices (' + invoiceCount + ')</button></li>' : '') +
+            '<li><hr class="dropdown-divider"></li>' +
+            (linkedProject
+              ? '<li><button type="button" class="dropdown-item" data-action="open-project"><i class="bi bi-kanban"></i>Open project</button></li>'
+              : '<li><button type="button" class="dropdown-item" data-action="convert-project"><i class="bi bi-arrow-right-circle"></i>Convert to project</button></li>') +
             '<li><hr class="dropdown-divider"></li>' +
             '<li><button type="button" class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash3"></i>Delete deal</button></li>' +
           '</ul>' +
@@ -506,6 +511,11 @@ dealsTableBody.addEventListener('click', (e) => {
     else if (action === 'edit') openWizard(id);
     else if (action === 'update') openQuickUpdateModal(id);
     else if (action === 'new-invoice') openInvoiceEditor(id);
+    else if (action === 'convert-project') convertDealToProject(id);
+    else if (action === 'open-project') {
+      const project = (typeof getProjects === 'function' ? getProjects() : []).find(p => p.dealId === id);
+      if (project) { switchView('projects'); openProjectModal(project.id); }
+    }
     else if (action === 'delete') confirmDelete(id);
     return;
   }
