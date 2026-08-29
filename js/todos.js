@@ -243,8 +243,7 @@ let todoEditDocuments = [];
 
 // ---------- Universal link picker (shared component — see links.js) ----------
 const todoLinkPicker = createLinkPicker({
-  inputEl: document.getElementById('todoLinkInput'),
-  resultsEl: document.getElementById('todoLinkResults'),
+  container: document.getElementById('todoLinkPickerContainer'),
   chipsEl: document.getElementById('todoLinkChips'),
 });
 

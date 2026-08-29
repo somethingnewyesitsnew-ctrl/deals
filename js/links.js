@@ -13,7 +13,7 @@
      - LINK_TYPE_META
      - searchLinkableItems(term)
      - openLinkDetails(link)   — click a chip, see its details
-     - createLinkPicker({ inputEl, resultsEl, chipsEl })
+     - createLinkPicker({ container, chipsEl })
    ============================================================ */
 
 const LINK_TYPE_META = {
@@ -112,25 +112,52 @@ function openLinkDetails(link) {
   }
 }
 
-// Close every open link-picker dropdown when clicking outside a picker.
-document.addEventListener('click', (e) => {
-  if (e.target.closest('.link-picker')) return;
-  document.querySelectorAll('.link-picker__results:not(.d-none)').forEach(el => el.classList.add('d-none'));
-});
+// The types offered as their own inline dropdown, in display order.
+const LINK_PICKER_TYPES = ['deal', 'project', 'contact', 'referral', 'entity', 'invoice'];
+
+// One flat list of { id, label, dealId? } for a given link type — same
+// underlying data searchLinkableItems() draws from, just not filtered by
+// a search term since every item is offered directly in its own <select>.
+function linkableItemsForType(type) {
+  if (type === 'deal') {
+    return getDeals().map(d => ({ id: d.id, label: d.entityName || 'Untitled entity' }));
+  }
+  if (type === 'project') {
+    return (typeof getProjects === 'function' ? getProjects() : []).map(p => ({ id: p.id, label: p.name || 'Untitled project' }));
+  }
+  if (type === 'contact') {
+    return (typeof buildContactGroups === 'function' ? buildContactGroups() : []).map(g => ({ id: contactKeyOf(g.name, g.number), label: g.name }));
+  }
+  if (type === 'referral') {
+    return (typeof buildReferralGroups === 'function' ? buildReferralGroups() : []).map(g => ({ id: g.name.toLowerCase(), label: g.name }));
+  }
+  if (type === 'entity') {
+    return (typeof buildEntityGroups === 'function' ? buildEntityGroups() : []).map(g => ({ id: g.name.toLowerCase(), label: g.name }));
+  }
+  if (type === 'invoice') {
+    return (typeof getAllInvoicesFlat === 'function' ? getAllInvoicesFlat() : []).map(({ deal, invoice }) =>
+      ({ id: invoice.id, dealId: deal.id, label: invoice.number + ' · ' + (deal.entityName || 'Untitled entity') })
+    );
+  }
+  return [];
+}
 
 /* ============================================================
-   createLinkPicker — wires one input+results+chips trio into a
-   full checkbox-style multi-select picker. Checking an item adds
-   it; unchecking removes it; the dropdown stays open so multiple
-   items can be picked in one go. Enter with no match adds
-   whatever was typed as a free-form 'custom' link. Clicking a
-   chip's label (not its remove button) opens that item's details.
+   createLinkPicker({ container, chipsEl }) — builds one inline
+   native <select> dropdown per linkable type (Deal / Project /
+   Contact / Referral / Entity / Invoice) plus a free-text field
+   for custom tags, all laid out inline inside `container`.
+   Picking an option from a dropdown adds that link immediately
+   and resets the dropdown to its placeholder — no search step,
+   no checkbox panel. Clicking a chip's label (not its remove
+   button) opens that item's details.
    ============================================================ */
 function createLinkPicker(opts) {
-  const inputEl = opts.inputEl;
-  const resultsEl = opts.resultsEl;
+  const container = opts.container;
   const chipsEl = opts.chipsEl;
   let links = [];
+  const selects = {};
+  let customInput = null;
 
   function isSelected(item) {
     return links.some(l => l.type === item.type && l.id === item.id);
@@ -150,66 +177,80 @@ function createLinkPicker(opts) {
     }).join('');
   }
 
-  function renderResults() {
-    const matches = searchLinkableItems(inputEl.value);
-    if (matches.length === 0) {
-      resultsEl.classList.add('d-none');
-      return;
-    }
-    resultsEl.innerHTML = matches.map((m, i) => {
-      const meta = LINK_TYPE_META[m.type] || LINK_TYPE_META.custom;
-      const checked = isSelected(m);
-      return '<button type="button" class="link-picker__item' + (checked ? ' is-checked' : '') + '" data-result-index="' + i + '">' +
-        '<i class="bi ' + (checked ? 'bi-check-square-fill' : 'bi-square') + ' link-picker__checkbox"></i>' +
-        '<i class="bi ' + meta.icon + '"></i>' +
-        '<span>' + escapeHtml(m.label) + '</span>' +
-        '<span class="link-picker__type">' + meta.label + '</span>' +
-      '</button>';
-    }).join('');
-    resultsEl._matches = matches;
-    resultsEl.classList.remove('d-none');
-  }
-
-  function toggle(item) {
-    if (isSelected(item)) links = links.filter(l => !(l.type === item.type && l.id === item.id));
-    else links.push(item);
+  function addLink(item) {
+    if (isSelected(item)) return; // already linked — picking it again from the dropdown is a no-op
+    links.push(item);
     renderChips();
-    renderResults();
   }
 
-  inputEl.addEventListener('input', renderResults);
-  inputEl.addEventListener('focus', renderResults);
+  // Rebuilds one <select>'s <option> list from the current data (deals,
+  // contacts, etc. change over time), preserving the placeholder as the
+  // selected value so re-populating never leaves a stale item "chosen".
+  function refreshSelect(type) {
+    const sel = selects[type];
+    if (!sel) return;
+    const meta = LINK_TYPE_META[type];
+    const items = linkableItemsForType(type);
+    sel.innerHTML = '<option value="">+ ' + meta.label + '…</option>' +
+      items.map(it => '<option value="' + escapeHtml(String(it.id)) + '">' + escapeHtml(it.label) + '</option>').join('');
+    sel._items = items;
+    sel.value = '';
+  }
 
-  inputEl.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const matches = resultsEl._matches || [];
-    if (matches.length > 0 && !resultsEl.classList.contains('d-none')) {
-      toggle(matches[0]);
-    } else {
-      const text = inputEl.value.trim();
+  function refreshAllSelects() {
+    LINK_PICKER_TYPES.forEach(refreshSelect);
+  }
+
+  function buildDom() {
+    container.innerHTML =
+      '<div class="link-picker-dropdowns">' +
+        LINK_PICKER_TYPES.map(type => {
+          const meta = LINK_TYPE_META[type];
+          return '<select class="form-select form-select-sm link-picker-select" data-link-type="' + type + '" title="' + meta.label + '"></select>';
+        }).join('') +
+        '<div class="link-picker-custom">' +
+          '<input type="text" class="form-control form-control-sm" placeholder="Custom tag…">' +
+          '<button type="button" class="btn btn-sm btn-outline-secondary" title="Add custom tag"><i class="bi bi-plus-lg"></i></button>' +
+        '</div>' +
+      '</div>';
+
+    LINK_PICKER_TYPES.forEach(type => {
+      const sel = container.querySelector('[data-link-type="' + type + '"]');
+      selects[type] = sel;
+      sel.addEventListener('change', () => {
+        if (!sel.value) return;
+        const item = (sel._items || []).find(it => String(it.id) === sel.value);
+        if (item) {
+          const link = { type, id: item.id, label: item.label };
+          if (type === 'invoice' && item.dealId) link.dealId = item.dealId;
+          addLink(link);
+        }
+        sel.value = '';
+      });
+    });
+    refreshAllSelects();
+
+    customInput = container.querySelector('.link-picker-custom input');
+    const customAddBtn = container.querySelector('.link-picker-custom button');
+    function addCustomTag() {
+      const text = customInput.value.trim();
       if (!text) return;
-      toggle({ type: 'custom', id: 'custom-' + Date.now(), label: text });
-      inputEl.value = '';
-      resultsEl.classList.add('d-none');
+      addLink({ type: 'custom', id: 'custom-' + Date.now(), label: text });
+      customInput.value = '';
     }
-  });
+    customAddBtn.addEventListener('click', addCustomTag);
+    customInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addCustomTag(); }
+    });
+  }
 
-  resultsEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-result-index]');
-    if (!btn) return;
-    const matches = resultsEl._matches || [];
-    const item = matches[Number(btn.dataset.resultIndex)];
-    if (item) toggle(item);
-    inputEl.focus(); // keep the dropdown open for picking more than one
-  });
+  buildDom();
 
   chipsEl.addEventListener('click', (e) => {
     const removeBtn = e.target.closest('[data-remove-link]');
     if (removeBtn) {
       links.splice(Number(removeBtn.dataset.removeLink), 1);
       renderChips();
-      renderResults();
       return;
     }
     const openBtn = e.target.closest('[data-open-link]');
@@ -219,6 +260,6 @@ function createLinkPicker(opts) {
   return {
     getLinks: () => links.slice(),
     setLinks: (arr) => { links = (arr || []).slice(); renderChips(); },
-    reset: () => { links = []; inputEl.value = ''; renderChips(); resultsEl.classList.add('d-none'); },
+    reset: () => { links = []; if (customInput) customInput.value = ''; renderChips(); refreshAllSelects(); },
   };
 }

@@ -190,8 +190,7 @@ const debtDeleteBtn = document.getElementById('debtDeleteBtn');
 const debtForm = document.getElementById('debtForm');
 
 const debtLinkPicker = createLinkPicker({
-  inputEl: document.getElementById('debtLinkInput'),
-  resultsEl: document.getElementById('debtLinkResults'),
+  container: document.getElementById('debtLinkPickerContainer'),
   chipsEl: document.getElementById('debtLinkChips'),
 });
 

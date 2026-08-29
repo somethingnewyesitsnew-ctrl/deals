@@ -1072,10 +1072,7 @@
           <!-- Universal link picker — deals, contacts, referrals, entities,
                invoices, or a free-typed custom tag. -->
           <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — link to anything: a deal, contact, referral, entity, invoice, or type your own)</span></label>
-          <div class="link-picker">
-            <input type="text" class="form-control form-control-sm" id="todoLinkInput" placeholder="Type to search, or type anything and press Enter…" autocomplete="off">
-            <div class="link-picker__results d-none" id="todoLinkResults"></div>
-          </div>
+          <div class="link-picker-inline" id="todoLinkPickerContainer"></div>
           <div class="link-chips mt-2 mb-3" id="todoLinkChips"></div>
 
           <!-- Subtasks -->
@@ -1183,10 +1180,7 @@
           </div>
 
           <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — a deal, contact, referral, entity, invoice, or type your own)</span></label>
-          <div class="link-picker">
-            <input type="text" class="form-control form-control-sm" id="debtLinkInput" placeholder="Type to search, or type anything and press Enter…" autocomplete="off">
-            <div class="link-picker__results d-none" id="debtLinkResults"></div>
-          </div>
+          <div class="link-picker-inline" id="debtLinkPickerContainer"></div>
           <div class="link-chips mt-2 mb-3" id="debtLinkChips"></div>
 
           <div class="mb-1">
@@ -1264,10 +1258,7 @@
           </div>
 
           <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — a contact, referral, entity, invoice, or type your own)</span></label>
-          <div class="link-picker">
-            <input type="text" class="form-control form-control-sm" id="projectLinkInput" placeholder="Type to search, or type anything and press Enter…" autocomplete="off">
-            <div class="link-picker__results d-none" id="projectLinkResults"></div>
-          </div>
+          <div class="link-picker-inline" id="projectLinkPickerContainer"></div>
           <div class="link-chips mt-2 mb-3" id="projectLinkChips"></div>
 
           <div class="d-flex justify-content-between align-items-center mb-2">
@@ -1690,10 +1681,7 @@
         </div>
 
         <label class="form-label">Linked to <span class="dropdown-hint d-inline">(optional — a deal, contact, referral, entity, invoice, or an external project you type yourself)</span></label>
-        <div class="link-picker">
-          <input type="text" class="form-control form-control-sm" id="expenseLinkInput" placeholder="Type to search, or type an external project name and press Enter…" autocomplete="off">
-          <div class="link-picker__results d-none" id="expenseLinkResults"></div>
-        </div>
+        <div class="link-picker-inline" id="expenseLinkPickerContainer"></div>
         <div class="link-chips mt-2" id="expenseLinkChips"></div>
       </div>
       <div class="modal-footer">

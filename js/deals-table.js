@@ -488,10 +488,21 @@ function renderDeals() {
 // positions the menu relative to the viewport instead of either ancestor,
 // which is the standard fix (not a z-index problem — z-index can't win
 // against an ancestor's overflow clipping).
+//
+// IMPORTANT: popperConfig must be passed as a FUNCTION, not a plain object.
+// Bootstrap's dropdown replaces its entire default Popper config (offset,
+// flip, preventOverflow modifiers and all) with whatever you pass as an
+// object — leaving nothing but strategy:'fixed' strips out the modifiers
+// that actually position/size the menu, so it renders in the wrong spot
+// (often directly under the pointer or off-element) and clicks on it never
+// land on a menu item. The function form receives Bootstrap's own default
+// config so it can be merged instead of clobbered.
 function initRowActionDropdowns() {
   dealsTableBody.querySelectorAll('.actions-btn').forEach(btn => {
     if (!bootstrap.Dropdown.getInstance(btn)) {
-      new bootstrap.Dropdown(btn, { popperConfig: { strategy: 'fixed' } });
+      new bootstrap.Dropdown(btn, {
+        popperConfig: (defaultBsPopperConfig) => Object.assign({}, defaultBsPopperConfig, { strategy: 'fixed' }),
+      });
     }
   });
 }

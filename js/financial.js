@@ -202,8 +202,7 @@ const saveExpenseBtn = document.getElementById('saveExpenseBtn');
 const expenseDeleteBtn = document.getElementById('expenseDeleteBtn');
 
 const expenseLinkPicker = createLinkPicker({
-  inputEl: document.getElementById('expenseLinkInput'),
-  resultsEl: document.getElementById('expenseLinkResults'),
+  container: document.getElementById('expenseLinkPickerContainer'),
   chipsEl: document.getElementById('expenseLinkChips'),
 });
 

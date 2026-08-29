@@ -176,6 +176,24 @@
 #projectModal .modal-header, #projectModal .modal-footer{ border-color: var(--line); flex-shrink: 0; }
 #projectModal .modal-body{ overflow-y: auto; }
 #projectModal .modal-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; }
+
+/* #todoModal/#debtModal/#projectModal each wrap BOTH .modal-body and
+   .modal-footer inside a <form>. Bootstrap's .modal-dialog-scrollable
+   sizing relies on .modal-content being display:flex and .modal-body
+   being a DIRECT flex child (so its built-in `flex: 1 1 auto` can claim
+   the remaining space and `overflow-y: auto` has an actual bounded box
+   to scroll within). With the <form> in between, .modal-body is no
+   longer a direct flex child, so it never gets a bounded height — the
+   form just grows to fit all its content, pushing the Save button off
+   the bottom of the screen with nothing to scroll. Making the <form>
+   itself a flex column (and letting it grow to fill the space under the
+   header) restores that chain, same fix already applied to the deal
+   wizard's own form via .wizard-main form. */
+#todoModal .modal-content > form,
+#debtModal .modal-content > form,
+#projectModal .modal-content > form{
+  display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden;
+}
 #deleteModal .modal-footer{ border-top: none; }
 #settingsModal .modal-header, #settingsModal .modal-footer,
 #quickUpdateModal .modal-header, #quickUpdateModal .modal-footer,

@@ -80,6 +80,13 @@
 .todo-row__subtask-bar{ width: 60px; height: 4px; border-radius: 4px; background: var(--slate-soft); overflow: hidden; flex-shrink: 0; }
 .todo-row__subtask-bar span{ display: block; height: 100%; background: var(--accent); border-radius: 4px; }
 
+/* ---- Universal link picker: inline per-type dropdowns + custom tag field ---- */
+.link-picker-inline{ margin-bottom: 0.3rem; }
+.link-picker-dropdowns{ display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.link-picker-select{ flex: 1 1 130px; min-width: 110px; max-width: 220px; }
+.link-picker-custom{ display: flex; gap: 0.4rem; flex: 1 1 220px; min-width: 200px; }
+.link-picker-custom input{ flex: 1; }
+
 /* ---- Universal link picker (To-Do modal) ---- */
 .link-picker{ position: relative; }
 .link-picker__results{

@@ -169,8 +169,7 @@ let projectEditDocuments = [];
 let projectConvertSourceDealId = null; // set by deals-detail.js's 'Convert to project' action
 
 const projectLinkPicker = createLinkPicker({
-  inputEl: document.getElementById('projectLinkInput'),
-  resultsEl: document.getElementById('projectLinkResults'),
+  container: document.getElementById('projectLinkPickerContainer'),
   chipsEl: document.getElementById('projectLinkChips'),
 });
 
