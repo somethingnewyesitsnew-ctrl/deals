@@ -115,7 +115,11 @@ function buildAttentionGroups() {
 // One flat list, every category folded in, sorted so the single most
 // urgent thing in the whole business is always item [0] — regardless of
 // whether it's a deal, an invoice, a task, a debt, or a follow-up.
-//   tier 0 = overdue (sorted most-overdue first)
+//   tier 0 = overdue (sorted so items that JUST tipped into overdue come
+//            first, and ones that have been overdue longest sink toward
+//            the bottom of the tier — those are the ones still catchable
+//            before they get worse; something overdue for a month has
+//            already had every earlier chance to be caught)
 //   tier 1 = due within CLOSING_SOON_DAYS (sorted soonest-first)
 //   tier 2 = no date, but stale/never-contacted (sorted stalest first)
 function followUpDays(entry) {
