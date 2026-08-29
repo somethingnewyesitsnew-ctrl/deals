@@ -71,8 +71,15 @@
 .day-group-label{ font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin: 0.5rem 0 0.3rem; }
 .day-group-label:first-child{ margin-top: 0; }
 
-.attention-groups{ display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
-@media (max-width: 820px){ .attention-groups{ grid-template-columns: 1fr; } }
+.attention-groups{ display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* One tier ("Overdue" / "Due soon" / "Needs a look") of the unified,
+   cross-type ranked list — replaces what used to be up to a dozen small
+   same-shaped cards, one per category, with items sorted only by which
+   bucket produced them rather than by actual urgency. */
+.attention-tier__title{ display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-display); font-size: 0.86rem; font-weight: 700; color: var(--text); margin: 0 0 0.5rem; }
+.attention-tier__title i{ font-size: 0.85rem; color: var(--text-faint); }
+.attention-tier .attention-list{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.35rem; }
 
 .attention-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.7rem; box-shadow: var(--shadow-md); }
 .attention-card__head{ display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.6rem; }

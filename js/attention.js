@@ -1,24 +1,42 @@
 /* ============================================================
    attention.js
    ------------------------------------------------------------
-   The "Needs attention" tab. Nothing here is separately stored —
-   every bucket is computed from fields already on each deal
-   (stage, closeDate, commLog, updatedAt), the same way Referrals/
-   Contacts/Entities are computed in directory.js. A deal can land
-   in more than one bucket; that's intentional, each bucket answers
-   a different question.
+   The "Needs attention" tab, and the data layer behind the
+   Dashboard's own "Needs attention" panel (see today.js).
 
-   Buckets:
-     - Overdue        — expected close date has passed, still open
-     - Closing soon    — expected close within the next 7 days
-     - Stalled         — no logged activity in 14+ days, still open
-     - Never contacted — stage is "New" and no comm log entries yet
+   This used to be 12 separate category cards (Overdue, Closing
+   soon, Follow-ups overdue, Follow-ups due soon, Contact follow-
+   ups x2, Invoices x2, Tasks x2, Debts x2, Stalled, Never
+   contacted) — every one a different flavor of "something needs
+   a look," split apart mostly by which code path produced it
+   rather than by how urgent it actually is. That meant the single
+   most overdue thing in the business could be buried on card 9
+   while card 1 showed something merely "closing soon."
+
+   Now there's ONE ranked list: buildUnifiedAttentionItems() flattens
+   every category into a common shape and sorts everything together
+   by real urgency — overdue items first (most overdue first),
+   then due-soon items (soonest first), then no-date-but-stale
+   items last. Nothing here is separately stored — every item is
+   computed from fields already on each deal/todo/debt/contact
+   update, the same way Referrals/Contacts/Entities are computed
+   in their own files. A deal (or contact) can still produce more
+   than one row (e.g. overdue AND has an overdue invoice) — that's
+   real information, not a bug — it just now sits wherever it
+   ranks in the single list instead of being split into two cards.
+
+   buildAttentionGroups() (the raw category buckets) is kept as the
+   data layer underneath buildUnifiedAttentionItems() — nothing
+   else in the app reads the individual buckets directly anymore.
 
    Depends on: storage.js (getDeals, timeAgo, lastActivityTimestamp),
-   deals.js (isOverdue, openDetailModal, formatDualCurrency helpers
-   available globally), app.js (switchView).
+   deals-shared.js (isOverdue), updates.js (followUpState,
+   collectDealFollowUps, collectContactFollowUps), todos.js
+   (getTodos), debts.js (getDebts), deals-detail.js (openDetailModal),
+   app.js (switchView).
 
-   Exposes: renderAttention(), getAttentionCounts()
+   Exposes: renderAttention(), getAttentionCounts(),
+            buildUnifiedAttentionItems(), unifiedAttentionRow(item)
    ============================================================ */
 
 const STALE_DAYS = 14;
@@ -92,180 +110,151 @@ function buildAttentionGroups() {
   };
 }
 
-function getAttentionCounts() {
-  const g = buildAttentionGroups();
-  // A deal can appear in multiple buckets, but the tab badge should read
-  // as "N deals need a look", not double-count the same deal twice.
-  const uniqueIds = new Set();
-  [g.overdue, g.closingSoon, g.stalled, g.neverContacted].forEach(list =>
-    list.forEach(d => uniqueIds.add(d.id))
-  );
-  [g.invoicesOverdue, g.invoicesDueSoon].forEach(list =>
-    list.forEach(item => uniqueIds.add(item.deal.id))
-  );
-  [g.followUpsOverdue, g.followUpsDueSoon].forEach(list =>
-    list.forEach(item => uniqueIds.add(item.deal.id))
-  );
-  // Contact follow-ups aren't tied to a deal id, so they get their own
-  // count added on top rather than folded into the dedup set above.
-  const contactCount = new Set([...g.contactFollowUpsOverdue, ...g.contactFollowUpsDueSoon].map(f => f.contactKey)).size;
-  const todoCount = new Set([...g.todosOverdue, ...g.todosDueSoon].map(t => t.id)).size;
-  const debtCount = new Set([...g.debtsOverdue, ...g.debtsDueSoon].map(d => d.id)).size;
-  return uniqueIds.size + contactCount + todoCount + debtCount;
-}
 
-function attentionRow(deal, contextLabel) {
-  return '' +
-    '<button type="button" class="attention-row" data-id="' + deal.id + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(deal.entityName || 'Untitled entity') + '">' + escapeHtml(deal.entityName || 'Untitled entity') + '</span>' +
-      '<span class="attention-row__stage stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span>' +
-      '<span class="attention-row__context">' + contextLabel + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function invoiceAttentionRow(entry, contextLabel) {
-  const total = invoiceTotal(entry.invoice.items);
-  return '' +
-    '<button type="button" class="attention-row" data-id="' + entry.deal.id + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(entry.deal.entityName || 'Untitled entity') + '">' + escapeHtml(entry.deal.entityName || 'Untitled entity') + '</span>' +
-      '<span class="attention-row__note">' + escapeHtml(entry.invoice.number) + ' · ' + formatInvoiceAmount(total, entry.invoice.currency) + '</span>' +
-      '<span class="attention-row__context">' + contextLabel + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function followUpAttentionRow(entry, contextLabel) {
-  const note = entry.entry.nextStep || entry.entry.note || 'Follow up';
-  return '' +
-    '<button type="button" class="attention-row" data-id="' + entry.deal.id + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(entry.deal.entityName || 'Untitled entity') + '">' + escapeHtml(entry.deal.entityName || 'Untitled entity') + '</span>' +
-      '<span class="attention-row__note">' + escapeHtml(note) + '</span>' +
-      '<span class="attention-row__context">' + contextLabel + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function contactFollowUpAttentionRow(entry, contextLabel) {
-  const note = entry.entry.nextStep || entry.entry.note || 'Follow up';
-  return '' +
-    '<button type="button" class="attention-row" data-contact-key="' + escapeHtml(entry.contactKey) + '" data-contact-name="' + escapeHtml(entry.contactName) + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(entry.contactName) + '">' + escapeHtml(entry.contactName) + '</span>' +
-      '<span class="attention-row__note">' + escapeHtml(note) + '</span>' +
-      '<span class="attention-row__context">' + contextLabel + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function todoAttentionRow(todo, contextLabel) {
-  return '' +
-    '<button type="button" class="attention-row" data-todo-id="' + todo.id + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(todo.title) + '">' + escapeHtml(todo.title) + '</span>' +
-      '<span class="attention-row__context">' + contextLabel + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function debtAttentionRow(debt, contextLabel) {
-  return '' +
-    '<button type="button" class="attention-row" data-debt-id="' + debt.id + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(debt.description) + '">' + escapeHtml(debt.description) + '</span>' +
-      '<span class="attention-row__note">' + formatInvoiceAmount(debt.amount, debt.currency) + '</span>' +
-      '<span class="attention-row__context">' + contextLabel + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function renderAttentionGroup(key, title, icon, tone, items, contextFn, rowFn, noun) {
-  rowFn = rowFn || attentionRow;
-  noun = noun || 'deal';
-  const rows = items.slice(0, 8).map(it => rowFn(it, contextFn(it))).join('');
-  const overflow = items.length > 8 ? '<div class="attention-overflow">+ ' + (items.length - 8) + ' more</div>' : '';
-
-  return '' +
-    '<div class="attention-card attention-card--' + tone + '">' +
-      '<div class="attention-card__head">' +
-        '<span class="attention-card__icon"><i class="bi ' + icon + '"></i></span>' +
-        '<div>' +
-          '<h3>' + title + '</h3>' +
-          '<p>' + items.length + ' ' + noun + (items.length === 1 ? '' : 's') + '</p>' +
-        '</div>' +
-      '</div>' +
-      (items.length
-        ? '<div class="attention-list">' + rows + overflow + '</div>'
-        : '<p class="attention-clear"><i class="bi bi-check-lg"></i>None right now</p>') +
-    '</div>';
-}
-
+// ---------- Unified ranking ----------
+// One flat list, every category folded in, sorted so the single most
+// urgent thing in the whole business is always item [0] — regardless of
+// whether it's a deal, an invoice, a task, a debt, or a follow-up.
+//   tier 0 = overdue (sorted most-overdue first)
+//   tier 1 = due within CLOSING_SOON_DAYS (sorted soonest-first)
+//   tier 2 = no date, but stale/never-contacted (sorted stalest first)
 function followUpDays(entry) {
   const dayMs = 24 * 60 * 60 * 1000;
   return (new Date(entry.nextStepDate + 'T00:00:00') - new Date(new Date().toDateString())) / dayMs;
 }
 
-function renderAttention() {
-  const groups = buildAttentionGroups();
-  const total = getAttentionCounts();
+function buildUnifiedAttentionItems() {
+  const g = buildAttentionGroups();
+  const items = [];
 
-  attentionSummaryEl.innerHTML = [
-    ['Overdue', groups.overdue.length, 'bi-exclamation-circle', 'danger'],
-    ['Closing soon', groups.closingSoon.length, 'bi-hourglass-split', 'amber'],
-    ['Stalled', groups.stalled.length, 'bi-moon-stars', 'slate'],
-    ['Never contacted', groups.neverContacted.length, 'bi-person-x', 'cyan'],
-    ['Follow-ups overdue', groups.followUpsOverdue.length + groups.contactFollowUpsOverdue.length, 'bi-alarm', 'danger'],
-    ['Follow-ups due soon', groups.followUpsDueSoon.length + groups.contactFollowUpsDueSoon.length, 'bi-bell', 'amber'],
-    ['Invoices overdue', groups.invoicesOverdue.length, 'bi-receipt', 'danger'],
-    ['Invoices due soon', groups.invoicesDueSoon.length, 'bi-cash-coin', 'amber'],
-    ['Tasks overdue', groups.todosOverdue.length, 'bi-list-check', 'danger'],
-    ['Tasks due soon', groups.todosDueSoon.length, 'bi-list-check', 'amber'],
-    ['Debts overdue', groups.debtsOverdue.length, 'bi-credit-card', 'danger'],
-    ['Debts due soon', groups.debtsDueSoon.length, 'bi-credit-card', 'amber'],
-  ].map(([label, count, icon, tone]) =>
-    '<div class="attention-stat attention-stat--' + tone + '">' +
-      '<i class="bi ' + icon + '"></i>' +
-      '<span class="attention-stat__figure">' + count + '</span>' +
-      '<span class="attention-stat__label">' + label + '</span>' +
+  function overdueItem(fields) { items.push(Object.assign({ tier: 0, tone: 'danger' }, fields)); }
+  function soonItem(fields) { items.push(Object.assign({ tier: 1, tone: 'amber' }, fields)); }
+  function staleItem(fields) { items.push(Object.assign({ tier: 2 }, fields)); }
+
+  g.overdue.forEach(d => overdueItem({
+    metric: -daysUntil(d.closeDate), kind: 'deal', id: d.id, name: d.entityName || 'Untitled entity',
+    reason: 'Deal overdue', detail: Math.round(-daysUntil(d.closeDate)) + 'd overdue', icon: 'bi-exclamation-triangle-fill',
+  }));
+  g.followUpsOverdue.forEach(f => overdueItem({
+    metric: -followUpDays(f.entry), kind: 'deal', id: f.deal.id, name: f.deal.entityName || 'Untitled entity',
+    reason: 'Follow-up overdue', detail: Math.round(-followUpDays(f.entry)) + 'd overdue', icon: 'bi-alarm-fill',
+  }));
+  g.contactFollowUpsOverdue.forEach(f => overdueItem({
+    metric: -followUpDays(f.entry), kind: 'contact', contactKey: f.contactKey, contactName: f.contactName, name: f.contactName,
+    reason: 'Contact follow-up overdue', detail: Math.round(-followUpDays(f.entry)) + 'd overdue', icon: 'bi-person-exclamation',
+  }));
+  g.invoicesOverdue.forEach(entry => overdueItem({
+    metric: -entry.days, kind: 'deal', id: entry.deal.id, name: entry.deal.entityName || 'Untitled entity',
+    reason: 'Invoice overdue', detail: entry.invoice.number + ' · ' + Math.round(-entry.days) + 'd overdue', icon: 'bi-receipt',
+  }));
+  g.todosOverdue.forEach(t => overdueItem({
+    metric: -daysUntil(t.dueDate), kind: 'todo', id: t.id, name: t.title,
+    reason: 'Task overdue', detail: Math.round(-daysUntil(t.dueDate)) + 'd overdue', icon: 'bi-list-check',
+  }));
+  g.debtsOverdue.forEach(d => overdueItem({
+    metric: -daysUntil(d.dueDate), kind: 'debt', id: d.id, name: d.description,
+    reason: 'Debt overdue', detail: Math.round(-daysUntil(d.dueDate)) + 'd overdue', icon: 'bi-credit-card',
+  }));
+
+  g.closingSoon.forEach(d => soonItem({
+    metric: daysUntil(d.closeDate), kind: 'deal', id: d.id, name: d.entityName || 'Untitled entity',
+    reason: 'Closing soon', detail: 'closes in ' + Math.max(0, Math.round(daysUntil(d.closeDate))) + 'd', icon: 'bi-hourglass-split',
+  }));
+  g.followUpsDueSoon.forEach(f => soonItem({
+    metric: followUpDays(f.entry), kind: 'deal', id: f.deal.id, name: f.deal.entityName || 'Untitled entity',
+    reason: 'Follow-up due soon', detail: 'due in ' + Math.max(0, Math.round(followUpDays(f.entry))) + 'd', icon: 'bi-bell-fill',
+  }));
+  g.contactFollowUpsDueSoon.forEach(f => soonItem({
+    metric: followUpDays(f.entry), kind: 'contact', contactKey: f.contactKey, contactName: f.contactName, name: f.contactName,
+    reason: 'Contact follow-up due soon', detail: 'due in ' + Math.max(0, Math.round(followUpDays(f.entry))) + 'd', icon: 'bi-person-check',
+  }));
+  g.invoicesDueSoon.forEach(entry => soonItem({
+    metric: entry.days, kind: 'deal', id: entry.deal.id, name: entry.deal.entityName || 'Untitled entity',
+    reason: 'Invoice due soon', detail: entry.invoice.number + ' · due in ' + Math.max(0, Math.round(entry.days)) + 'd', icon: 'bi-cash-coin',
+  }));
+  g.todosDueSoon.forEach(t => soonItem({
+    metric: daysUntil(t.dueDate), kind: 'todo', id: t.id, name: t.title,
+    reason: 'Task due soon', detail: 'due in ' + Math.max(0, Math.round(daysUntil(t.dueDate))) + 'd', icon: 'bi-list-check',
+  }));
+  g.debtsDueSoon.forEach(d => soonItem({
+    metric: daysUntil(d.dueDate), kind: 'debt', id: d.id, name: d.description,
+    reason: 'Debt due soon', detail: 'due in ' + Math.max(0, Math.round(daysUntil(d.dueDate))) + 'd', icon: 'bi-credit-card',
+  }));
+
+  g.stalled.forEach(d => staleItem({
+    metric: -daysSince(lastActivityTimestamp(d)), tone: 'slate', kind: 'deal', id: d.id, name: d.entityName || 'Untitled entity',
+    reason: 'Stalled', detail: timeAgo(lastActivityTimestamp(d)) || 'no activity logged', icon: 'bi-moon-stars-fill',
+  }));
+  g.neverContacted.forEach(d => staleItem({
+    metric: -daysSince(d.createdAt), tone: 'cyan', kind: 'deal', id: d.id, name: d.entityName || 'Untitled entity',
+    reason: 'Never contacted', detail: 'added ' + (timeAgo(d.createdAt) || 'recently'), icon: 'bi-person-x-fill',
+  }));
+
+  items.sort((a, b) => a.tier - b.tier || a.metric - b.metric);
+  return items;
+}
+
+// A deal id can legitimately show up more than once (e.g. overdue AND has
+// an overdue invoice) — the tab badge/KPI counts every reason, matching
+// exactly how many rows the person will actually see in the ranked list.
+function getAttentionCounts() {
+  return buildUnifiedAttentionItems().length;
+}
+
+function unifiedAttentionRow(item) {
+  const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
+    : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
+    : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
+    : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
+  return '' +
+    '<button type="button" class="attention-row attention-row--icon" ' + idAttr + '>' +
+      '<span class="attention-row__icon-badge attention-row__icon-badge--' + item.tone + '"><i class="bi ' + item.icon + '"></i></span>' +
+      '<span class="attention-row__stack">' +
+        '<span class="attention-row__name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+        '<span class="attention-row__context attention-row__context--' + item.tone + '">' + escapeHtml(item.reason) + ' · ' + escapeHtml(item.detail) + '</span>' +
+      '</span>' +
+      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+    '</button>';
+}
+
+const ATTENTION_TIER_META = [
+  { label: 'Overdue', icon: 'bi-exclamation-circle', tone: 'danger' },
+  { label: 'Due soon', icon: 'bi-hourglass-split', tone: 'amber' },
+  { label: 'Needs a look', icon: 'bi-moon-stars', tone: 'slate' },
+];
+
+function renderAttention() {
+  const items = buildUnifiedAttentionItems();
+  const byTier = [0, 1, 2].map(tier => items.filter(i => i.tier === tier));
+
+  attentionSummaryEl.innerHTML = ATTENTION_TIER_META.map((meta, tier) =>
+    '<div class="attention-stat attention-stat--' + meta.tone + '">' +
+      '<i class="bi ' + meta.icon + '"></i>' +
+      '<span class="attention-stat__figure">' + byTier[tier].length + '</span>' +
+      '<span class="attention-stat__label">' + meta.label + '</span>' +
     '</div>'
   ).join('');
 
-  if (total === 0) {
+  if (items.length === 0) {
     attentionGroupsEl.innerHTML = '';
     attentionAllClearEl.classList.remove('d-none');
     return;
   }
   attentionAllClearEl.classList.add('d-none');
 
-  attentionGroupsEl.innerHTML = [
-    renderAttentionGroup('overdue', 'Overdue', 'bi-exclamation-circle', 'danger', groups.overdue,
-      d => (Math.round(-daysUntil(d.closeDate)) + 'd overdue')),
-    renderAttentionGroup('closingSoon', 'Closing soon', 'bi-hourglass-split', 'amber', groups.closingSoon,
-      d => ('closes in ' + Math.max(0, Math.round(daysUntil(d.closeDate))) + 'd')),
-    renderAttentionGroup('followUpsOverdue', 'Follow-ups overdue', 'bi-alarm', 'danger', groups.followUpsOverdue,
-      f => (Math.round(-followUpDays(f.entry)) + 'd overdue'), followUpAttentionRow, 'follow-up'),
-    renderAttentionGroup('followUpsDueSoon', 'Follow-ups due soon', 'bi-bell', 'amber', groups.followUpsDueSoon,
-      f => ('due in ' + Math.max(0, Math.round(followUpDays(f.entry))) + 'd'), followUpAttentionRow, 'follow-up'),
-    renderAttentionGroup('contactFollowUpsOverdue', 'Contact follow-ups overdue', 'bi-person-exclamation', 'danger', groups.contactFollowUpsOverdue,
-      f => (Math.round(-followUpDays(f.entry)) + 'd overdue'), contactFollowUpAttentionRow, 'contact'),
-    renderAttentionGroup('contactFollowUpsDueSoon', 'Contact follow-ups due soon', 'bi-person-check', 'amber', groups.contactFollowUpsDueSoon,
-      f => ('due in ' + Math.max(0, Math.round(followUpDays(f.entry))) + 'd'), contactFollowUpAttentionRow, 'contact'),
-    renderAttentionGroup('stalled', 'Stalled', 'bi-moon-stars', 'slate', groups.stalled,
-      d => (timeAgo(lastActivityTimestamp(d)) || 'no activity logged')),
-    renderAttentionGroup('neverContacted', 'Never contacted', 'bi-person-x', 'cyan', groups.neverContacted,
-      d => ('added ' + (timeAgo(d.createdAt) || 'recently'))),
-    renderAttentionGroup('invoicesOverdue', 'Invoices overdue', 'bi-receipt', 'danger', groups.invoicesOverdue,
-      entry => (Math.round(-entry.days) + 'd overdue'), invoiceAttentionRow, 'invoice'),
-    renderAttentionGroup('invoicesDueSoon', 'Invoices due soon', 'bi-cash-coin', 'amber', groups.invoicesDueSoon,
-      entry => ('due in ' + Math.max(0, Math.round(entry.days)) + 'd'), invoiceAttentionRow, 'invoice'),
-    renderAttentionGroup('todosOverdue', 'Tasks overdue', 'bi-list-check', 'danger', groups.todosOverdue,
-      t => (Math.round(-daysUntil(t.dueDate)) + 'd overdue'), todoAttentionRow, 'task'),
-    renderAttentionGroup('todosDueSoon', 'Tasks due soon', 'bi-list-check', 'amber', groups.todosDueSoon,
-      t => ('due in ' + Math.max(0, Math.round(daysUntil(t.dueDate))) + 'd'), todoAttentionRow, 'task'),
-    renderAttentionGroup('debtsOverdue', 'Debts overdue', 'bi-credit-card', 'danger', groups.debtsOverdue,
-      d => (Math.round(-daysUntil(d.dueDate)) + 'd overdue'), debtAttentionRow, 'debt'),
-    renderAttentionGroup('debtsDueSoon', 'Debts due soon', 'bi-credit-card', 'amber', groups.debtsDueSoon,
-      d => ('due in ' + Math.max(0, Math.round(daysUntil(d.dueDate))) + 'd'), debtAttentionRow, 'debt'),
-  ].join('');
+  attentionGroupsEl.innerHTML = ATTENTION_TIER_META.map((meta, tier) => {
+    const tierItems = byTier[tier];
+    if (!tierItems.length) return '';
+    return '' +
+      '<div class="attention-tier">' +
+        '<h3 class="attention-tier__title"><i class="bi ' + meta.icon + '"></i>' + meta.label + '<span class="chip-count">' + tierItems.length + '</span></h3>' +
+        '<div class="attention-list">' + tierItems.map(unifiedAttentionRow).join('') + '</div>' +
+      '</div>';
+  }).join('');
 }
 
+// Handles every row kind the unified list can produce — deal, contact,
+// task, or debt — dispatching to that thing's own editor/detail view.
 attentionGroupsEl.addEventListener('click', (e) => {
   const contactBtn = e.target.closest('.attention-row[data-contact-key]');
   if (contactBtn) {
