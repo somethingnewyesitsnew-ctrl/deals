@@ -94,13 +94,20 @@ function renderDashboardStats() {
   const { todayItems } = buildTodaySections();
   const attentionCount = typeof getAttentionCounts === 'function' ? getAttentionCounts() : 0;
 
+  // Deliberately restrained palette: gray by default, green only for
+  // money you've actually earned, red only for the one tile that's
+  // genuinely urgent (and only when there's something in it). Every
+  // tile having its own color turned this into a rainbow strip that
+  // fought for attention instead of directing it — a KPI row should
+  // make the ONE thing that needs a look obvious, not compete with five
+  // others that don't.
   todayStatsEl.innerHTML = [
     { label: 'Deals', figure: deals.length, icon: 'bi-collection', tone: 'slate', view: 'deals' },
     { label: 'Open pipeline', figure: formatUSD(openValueUSD), icon: 'bi-graph-up', tone: 'cyan', view: 'deals' },
     { label: 'Won', figure: formatUSD(wonUSD), icon: 'bi-trophy', tone: 'green', view: 'deals' },
     { label: 'Collected', figure: formatUSD(collectedUSD), icon: 'bi-cash-stack', tone: 'green', view: 'deals' },
     { label: 'Needs attention', figure: attentionCount, icon: 'bi-bell', tone: attentionCount > 0 ? 'danger' : 'slate', view: 'attention', highlight: attentionCount > 0 },
-    { label: 'Scheduled today', figure: todayItems.length, icon: 'bi-sun', tone: 'amber', view: 'calendar' },
+    { label: 'Scheduled today', figure: todayItems.length, icon: 'bi-sun', tone: 'slate', view: 'calendar' },
   ].map(s =>
     '<button type="button" class="attention-stat attention-stat--' + s.tone + (s.highlight ? ' attention-stat--highlight' : '') + ' attention-stat--clickable" data-jump-view="' + s.view + '">' +
       '<i class="bi ' + s.icon + '"></i>' +
