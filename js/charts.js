@@ -248,17 +248,20 @@ function renderCollectedChart(deals) {
   if (!el) return;
 
   const wonUSD = deals.filter(d => d.stage === 'won').reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  let collectedUSD = 0;
-  deals.forEach(d => (d.invoices || []).forEach(inv => {
-    if (inv.status === 'paid') collectedUSD += toUSD(invoiceTotal(inv.items), inv.currency);
-  }));
-  const outstandingUSD = Math.max(0, wonUSD - collectedUSD);
+  const collectedUSD = getTotalCollectedUSD();
+  // "Not yet collected" deliberately spans BOTH invoiced-but-unpaid AND
+  // won-but-not-yet-invoiced — a broader, sales-side view than the
+  // Financial tab's "Outstanding" (which is strictly invoiced-unpaid,
+  // i.e. accounts receivable). Labeled differently on purpose so the two
+  // numbers are never mistaken for the same thing when they legitimately
+  // don't match — see js/financial.js's computeFinancialStats().
+  const uncollectedUSD = Math.max(0, wonUSD - collectedUSD);
   const base = chartBase();
   const dark = isDarkTheme();
 
   const options = {
-    series: [collectedUSD, outstandingUSD],
-    labels: ['Collected', 'Outstanding'],
+    series: [collectedUSD, uncollectedUSD],
+    labels: ['Collected', 'Not yet collected'],
     chart: Object.assign({}, base.chart, { type: 'donut', height: 200 }),
     colors: ['#0F7B0F', '#C42B1C'],
     legend: { position: 'bottom', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
@@ -333,10 +336,17 @@ function computeOverviewStats(deals) {
   const followUpsDue = followUps.filter(f => f.state === 'overdue' || f.state === 'soon').length;
 
   const wonUSD = won.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  let collectedUSD = 0;
-  deals.forEach(d => (d.invoices || []).forEach(inv => {
-    if (inv.status === 'paid') collectedUSD += toUSD(invoiceTotal(inv.items), inv.currency);
-  }));
+  const collectedUSD = getTotalCollectedUSD();
+  // NOTE on the name: outstandingUSD here means "won value not yet
+  // collected," which INCLUDES deals that haven't even been invoiced yet
+  // — a broader, sales-side number on purpose (it's what powers the
+  // Suggestions panel's "you forgot to invoice this" nudge below). The
+  // Financial tab's own "Outstanding" is narrower — invoiced-but-unpaid
+  // only (accounts receivable) — so the two figures can legitimately
+  // differ; the property name is kept as outstandingUSD for continuity
+  // with existing metric_snapshots history, but the KPI card below is
+  // labeled "Uncollected" specifically so it's never mistaken for the
+  // same number as Financial's "Outstanding."
   const outstandingUSD = Math.max(0, wonUSD - collectedUSD);
 
   return {
@@ -400,7 +410,7 @@ function renderOverviewStats(deals) {
     { cat: 'Operations', label: 'Relationship health', value: Math.round(s.relationshipShare) + '%', raw: s.relationshipShare, deltaKey: 'relationshipShare', goodDirection: 'up', icon: 'bi-heart', tone: 'green' },
     { cat: 'Operations', label: 'Follow-ups due', value: s.followUpsDue, raw: s.followUpsDue, deltaKey: 'followUpsDue', goodDirection: 'down', icon: 'bi-bell', tone: s.followUpsDue > 0 ? 'danger' : 'slate' },
     { cat: 'Financial', label: 'Collected', value: formatUSD(s.collectedUSD), raw: s.collectedUSD, deltaKey: 'collectedUSD', goodDirection: 'up', icon: 'bi-cash-stack', tone: 'green' },
-    { cat: 'Financial', label: 'Outstanding', value: formatUSD(s.outstandingUSD), raw: s.outstandingUSD, deltaKey: 'outstandingUSD', goodDirection: 'down', icon: 'bi-exclamation-diamond', tone: s.outstandingUSD > 0.01 ? 'amber' : 'slate' },
+    { cat: 'Financial', label: 'Uncollected', value: formatUSD(s.outstandingUSD), raw: s.outstandingUSD, deltaKey: 'outstandingUSD', goodDirection: 'down', icon: 'bi-exclamation-diamond', tone: s.outstandingUSD > 0.01 ? 'amber' : 'slate' },
   ];
 
   el.innerHTML = cards.map(c => {
@@ -426,11 +436,7 @@ function renderGoalTracker() {
   const el = document.getElementById('goalTracker');
   if (!el) return;
   const goal = getRevenueGoal();
-  const deals = getDeals();
-  let collectedUSD = 0;
-  deals.forEach(d => (d.invoices || []).forEach(inv => {
-    if (inv.status === 'paid') collectedUSD += toUSD(invoiceTotal(inv.items), inv.currency);
-  }));
+  const collectedUSD = getTotalCollectedUSD();
 
   if (goal <= 0) {
     el.innerHTML =

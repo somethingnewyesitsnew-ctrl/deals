@@ -86,10 +86,7 @@ function renderDashboardStats() {
   const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
   const openValueUSD = openDeals.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
   const wonUSD = deals.filter(d => d.stage === 'won').reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  let collectedUSD = 0;
-  deals.forEach(d => (d.invoices || []).forEach(inv => {
-    if (inv.status === 'paid') collectedUSD += toUSD(invoiceTotal(inv.items), inv.currency);
-  }));
+  const collectedUSD = getTotalCollectedUSD();
 
   const { todayItems } = buildTodaySections();
   const attentionCount = typeof getAttentionCounts === 'function' ? getAttentionCounts() : 0;

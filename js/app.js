@@ -15,7 +15,7 @@
 const viewTabs = document.getElementById('viewTabs');
 const VIEWS = ['today', 'todos', 'documentation', 'deals', 'projects', 'attention', 'calendar', 'referrals', 'contacts', 'entities', 'financial', 'debts', 'overview'];
 const VIEW_LABELS = {
-  today: 'Dashboard', todos: 'To-Do', documentation: 'Documentation', deals: 'Deals', projects: 'Projects', attention: 'Attention', calendar: 'Calendar',
+  today: 'Dashboard', todos: 'To-Do', documentation: 'Archive', deals: 'Deals', projects: 'Projects', attention: 'Attention', calendar: 'Calendar',
   referrals: 'Referrals', contacts: 'Contacts', entities: 'Entities', financial: 'Financial', debts: 'Debts', overview: 'Reports',
 };
 

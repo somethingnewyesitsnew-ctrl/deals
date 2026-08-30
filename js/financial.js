@@ -40,12 +40,9 @@ function getAllInvoicesFlat() {
 
 function computeFinancialStats() {
   const flat = getAllInvoicesFlat();
-  let invoicedUSD = 0, collectedUSD = 0;
-  flat.forEach(({ invoice }) => {
-    const amt = toUSD(invoiceTotal(invoice.items), invoice.currency);
-    invoicedUSD += amt;
-    if (invoice.status === 'paid') collectedUSD += amt;
-  });
+  let invoicedUSD = 0;
+  flat.forEach(({ invoice }) => { invoicedUSD += toUSD(invoiceTotal(invoice.items), invoice.currency); });
+  const collectedUSD = getTotalCollectedUSD();
   const outstandingUSD = Math.max(0, invoicedUSD - collectedUSD);
   const expensesUSD = getExpenses().filter(e => e.kind !== 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
   const otherIncomeUSD = getExpenses().filter(e => e.kind === 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);

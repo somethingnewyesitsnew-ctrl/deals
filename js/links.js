@@ -113,7 +113,14 @@ function openLinkDetails(link) {
 }
 
 // The types offered as their own inline dropdown, in display order.
-const LINK_PICKER_TYPES = ['deal', 'project', 'contact', 'referral', 'entity', 'invoice'];
+// 'deal' is the overwhelmingly common case (in practice, nearly every
+// link on a to-do/expense/debt/project IS "which deal is this for") so
+// it gets its own prominent dropdown; the other five sit behind a
+// "Link to something else" toggle instead of six selects competing for
+// attention every time, most of them empty.
+const LINK_PICKER_PRIMARY_TYPE = 'deal';
+const LINK_PICKER_SECONDARY_TYPES = ['project', 'contact', 'referral', 'entity', 'invoice'];
+const LINK_PICKER_TYPES = [LINK_PICKER_PRIMARY_TYPE].concat(LINK_PICKER_SECONDARY_TYPES);
 
 // One flat list of { id, label, dealId? } for a given link type — same
 // underlying data searchLinkableItems() draws from, just not filtered by
@@ -143,14 +150,14 @@ function linkableItemsForType(type) {
 }
 
 /* ============================================================
-   createLinkPicker({ container, chipsEl }) — builds one inline
-   native <select> dropdown per linkable type (Deal / Project /
-   Contact / Referral / Entity / Invoice) plus a free-text field
-   for custom tags, all laid out inline inside `container`.
-   Picking an option from a dropdown adds that link immediately
-   and resets the dropdown to its placeholder — no search step,
-   no checkbox panel. Clicking a chip's label (not its remove
-   button) opens that item's details.
+   createLinkPicker({ container, chipsEl }) — a prominent "Deal"
+   dropdown (the common case) plus a "Link to something else"
+   toggle that reveals the other five types (Project/Contact/
+   Referral/Entity/Invoice) as their own inline <select> dropdowns,
+   plus a free-text field for custom tags. Picking an option from
+   any dropdown adds that link immediately and resets the dropdown
+   to its placeholder — no search step, no checkbox panel. Clicking
+   a chip's label (not its remove button) opens that item's details.
    ============================================================ */
 function createLinkPicker(opts) {
   const container = opts.container;
@@ -158,6 +165,8 @@ function createLinkPicker(opts) {
   let links = [];
   const selects = {};
   let customInput = null;
+  let morePanel = null;
+  let moreToggle = null;
 
   function isSelected(item) {
     return links.some(l => l.type === item.type && l.id === item.id);
@@ -183,6 +192,15 @@ function createLinkPicker(opts) {
     renderChips();
   }
 
+  function setMorePanelOpen(open) {
+    if (!morePanel || !moreToggle) return;
+    morePanel.classList.toggle('d-none', !open);
+    moreToggle.classList.toggle('is-open', open);
+    moreToggle.innerHTML = open
+      ? '<i class="bi bi-dash-lg"></i> Hide other link types'
+      : '<i class="bi bi-plus-lg"></i> Link to something else';
+  }
+
   // Rebuilds one <select>'s <option> list from the current data (deals,
   // contacts, etc. change over time), preserving the placeholder as the
   // selected value so re-populating never leaves a stale item "chosen".
@@ -191,7 +209,7 @@ function createLinkPicker(opts) {
     if (!sel) return;
     const meta = LINK_TYPE_META[type];
     const items = linkableItemsForType(type);
-    sel.innerHTML = '<option value="">+ ' + meta.label + '…</option>' +
+    sel.innerHTML = '<option value="">' + (type === LINK_PICKER_PRIMARY_TYPE ? '+ Link a deal…' : '+ ' + meta.label + '…') + '</option>' +
       items.map(it => '<option value="' + escapeHtml(String(it.id)) + '">' + escapeHtml(it.label) + '</option>').join('');
     sel._items = items;
     sel.value = '';
@@ -203,8 +221,12 @@ function createLinkPicker(opts) {
 
   function buildDom() {
     container.innerHTML =
-      '<div class="link-picker-dropdowns">' +
-        LINK_PICKER_TYPES.map(type => {
+      '<div class="link-picker-primary">' +
+        '<select class="form-select form-select-sm link-picker-select link-picker-select--primary" data-link-type="' + LINK_PICKER_PRIMARY_TYPE + '"></select>' +
+        '<button type="button" class="link-picker-more-toggle" data-more-toggle><i class="bi bi-plus-lg"></i> Link to something else</button>' +
+      '</div>' +
+      '<div class="link-picker-dropdowns d-none" data-more-panel>' +
+        LINK_PICKER_SECONDARY_TYPES.map(type => {
           const meta = LINK_TYPE_META[type];
           return '<select class="form-select form-select-sm link-picker-select" data-link-type="' + type + '" title="' + meta.label + '"></select>';
         }).join('') +
@@ -229,6 +251,10 @@ function createLinkPicker(opts) {
       });
     });
     refreshAllSelects();
+
+    morePanel = container.querySelector('[data-more-panel]');
+    moreToggle = container.querySelector('[data-more-toggle]');
+    moreToggle.addEventListener('click', () => setMorePanelOpen(morePanel.classList.contains('d-none')));
 
     customInput = container.querySelector('.link-picker-custom input');
     const customAddBtn = container.querySelector('.link-picker-custom button');
@@ -259,7 +285,15 @@ function createLinkPicker(opts) {
 
   return {
     getLinks: () => links.slice(),
-    setLinks: (arr) => { links = (arr || []).slice(); renderChips(); },
-    reset: () => { links = []; if (customInput) customInput.value = ''; renderChips(); refreshAllSelects(); },
+    // Editing an item that already has a non-deal link (a contact, an
+    // invoice, ...) shouldn't hide that from view behind a collapsed
+    // toggle — auto-expand the "something else" panel whenever the
+    // links being loaded in actually need it.
+    setLinks: (arr) => {
+      links = (arr || []).slice();
+      renderChips();
+      setMorePanelOpen(links.some(l => l.type !== LINK_PICKER_PRIMARY_TYPE));
+    },
+    reset: () => { links = []; if (customInput) customInput.value = ''; renderChips(); refreshAllSelects(); setMorePanelOpen(false); },
   };
 }

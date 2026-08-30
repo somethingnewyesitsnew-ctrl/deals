@@ -82,7 +82,19 @@
 
 /* ---- Universal link picker: inline per-type dropdowns + custom tag field ---- */
 .link-picker-inline{ margin-bottom: 0.3rem; }
-.link-picker-dropdowns{ display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+/* The primary row: a full-width "Deal" dropdown (the overwhelmingly
+   common link) plus the toggle that reveals everything else — this is
+   what's visible by default, instead of six dropdowns every time. */
+.link-picker-primary{ display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
+.link-picker-select--primary{ flex: 1 1 auto; }
+.link-picker-more-toggle{
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem;
+  border: 1px dashed var(--line-strong); background: transparent; color: var(--text-dim);
+  font-size: 0.76rem; font-weight: 600; padding: 0.32rem 0.6rem; border-radius: var(--r-sm); white-space: nowrap;
+}
+.link-picker-more-toggle:hover{ border-color: var(--accent); color: var(--accent); }
+.link-picker-more-toggle.is-open{ border-style: solid; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.link-picker-dropdowns{ display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; padding: 0.55rem; margin-bottom: 0.4rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
 .link-picker-select{ flex: 1 1 130px; min-width: 110px; max-width: 220px; }
 .link-picker-custom{ display: flex; gap: 0.4rem; flex: 1 1 220px; min-width: 200px; }
 .link-picker-custom input{ flex: 1; }

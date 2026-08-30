@@ -67,6 +67,19 @@ function invoiceTotal(items) {
   return (items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
 }
 
+// "Money actually collected" — every paid invoice, across every deal,
+// converted to USD. This exact loop used to be copy-pasted independently
+// in SEVEN places (deals-table.js, financial.js, charts.js x3, today.js)
+// — all computing the same number, all one accidental edit away from
+// quietly disagreeing with each other. One definition, read everywhere.
+function getTotalCollectedUSD() {
+  let total = 0;
+  getDeals().forEach(d => (d.invoices || []).forEach(inv => {
+    if (inv.status === 'paid') total += toUSD(invoiceTotal(inv.items), inv.currency);
+  }));
+  return total;
+}
+
 // The deal's value, converted into whatever currency the invoice is in —
 // what "%" is calculated against. Set whenever the editor opens.
 let invoiceEditorDealValue = 0;

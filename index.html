@@ -81,7 +81,7 @@
       <button class="view-tab" data-view="attention" title="Attention"><i class="bi bi-bell"></i><span>Attention</span><span class="chip-count chip-count--alert" id="tabCountAttention">0</span></button>
       <button class="view-tab" data-view="todos" title="To-Do"><i class="bi bi-list-check"></i><span>To-Do</span><span class="chip-count chip-count--alert" id="tabCountTodos">0</span></button>
       <button class="view-tab" data-view="calendar" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></button>
-      <button class="view-tab" data-view="documentation" title="Documentation"><i class="bi bi-archive"></i><span>Documentation</span><span class="chip-count" id="tabCountDocumentation">0</span></button>
+      <button class="view-tab" data-view="documentation" title="Archive"><i class="bi bi-archive"></i><span>Archive</span><span class="chip-count" id="tabCountDocumentation">0</span></button>
 
       <span class="win-sidebar__section-label">Pipeline</span>
       <button class="view-tab" data-view="deals" title="Deals"><i class="bi bi-journal-text"></i><span>Deals</span><span class="chip-count" id="tabCountDeals">0</span></button>
@@ -427,9 +427,9 @@
     <div class="ledger-empty d-none" id="debtsEmptyState"><i class="bi bi-credit-card"></i><p>No debts recorded — use the + button to add money you owe or are owed.</p></div>
   </section>
 
-  <!-- ============ DOCUMENTATION ============ -->
+  <!-- ============ ARCHIVE (internally still "documentation" — see js/documentation.js) ============ -->
   <section class="ledger-view d-none" id="documentationView">
-    <div class="page-header"><h1 class="page-title">Documentation</h1></div>
+    <div class="page-header"><h1 class="page-title">Archive</h1></div>
     <p class="today-greeting mb-3">Every completed task lands here automatically — a searchable archive of what's been done.</p>
 
     <div class="ledger-toolbar">

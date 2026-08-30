@@ -300,10 +300,7 @@ function renderCollectionEfficiencyChart(allDeals) {
   el.innerHTML = '';
 
   const wonUSD = allDeals.filter(d => d.stage === 'won').reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  let collectedUSD = 0;
-  allDeals.forEach(d => (d.invoices || []).forEach(inv => {
-    if (inv.status === 'paid') collectedUSD += toUSD(invoiceTotal(inv.items), inv.currency);
-  }));
+  const collectedUSD = getTotalCollectedUSD();
   const pct = wonUSD > 0 ? Math.min(100, Math.round((collectedUSD / wonUSD) * 100)) : 0;
   const dark = isDarkTheme();
   const base = chartBase();
