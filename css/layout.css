@@ -67,7 +67,7 @@
 .win-content{ flex: 1; min-width: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-5) var(--sp-6); }
 
 .page-header{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-3); }
-.page-title{ font-family: var(--font-display); font-weight: 600; font-size: 1.28rem; margin: 0; line-height: 1.15; color: var(--text); letter-spacing: -0.01em; }
+.page-title{ font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; margin: 0; line-height: 1.2; color: var(--text); letter-spacing: -0.015em; }
 
 .fx-pill{ display: inline-flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line-strong); background: var(--bg-raise); color: var(--text-dim); font-size: 0.76rem; font-weight: 500; padding: 0.36rem 0.7rem; border-radius: var(--r-sm); white-space: nowrap; }
 .fx-pill:hover{ border-color: var(--accent); color: var(--accent); }

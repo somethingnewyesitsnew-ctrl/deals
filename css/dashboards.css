@@ -55,29 +55,54 @@
 /* ===== Attention dashboard ===== */
 .attention-summary{ display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 0.55rem; margin-bottom: var(--sp-3); }
 
-.attention-stat{ background: var(--bg-raise); border: 1px solid var(--line); border-left: 3px solid transparent; border-radius: var(--r-md); padding: 0.6rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 0.22rem; }
-.attention-stat--danger{ border-left-color: var(--red); }
-.attention-stat--amber{ border-left-color: var(--amber); }
-.attention-stat--slate{ border-left-color: var(--line-strong); }
-.attention-stat--cyan{ border-left-color: var(--cyan); }
-.attention-stat--green{ border-left-color: var(--green); }
+/* KPI "bento" card — ported from the mockup's KPI tiles: label-caps at
+   top-left, icon faded top-right, a large mono figure below, a soft
+   decorative circle bottom-right for visual texture. Achieved without
+   touching the ~5 JS files that render this markup (today.js,
+   attention.js, todos.js, debts.js, financial.js all build the same
+   icon+figure+label shape) — the icon is pulled out of flow and pinned
+   top-right, and flex `order` reshuffles the label to the top instead
+   of requiring the DOM order (icon, figure, label) to change. */
+.attention-stat{
+  position: relative; overflow: hidden;
+  background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 0.75rem 0.85rem; box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 0.2rem;
+  min-height: 6.2rem; transition: background-color var(--motion-fast);
+}
+.attention-stat:hover{ background: var(--surface); }
+.attention-stat--clickable{ cursor: pointer; text-align: left; }
+.attention-stat--clickable:hover{ border-color: var(--accent); }
+.attention-stat--danger{ border-left: 3px solid var(--red); }
+.attention-stat--amber{ border-left: 3px solid var(--amber); }
+.attention-stat--slate{ border-left: 3px solid var(--line-strong); }
+.attention-stat--cyan{ border-left: 3px solid var(--cyan); }
+.attention-stat--green{ border-left: 3px solid var(--green); }
 .attention-stat--highlight.attention-stat--danger{ background: var(--red-soft); }
-.attention-stat i{ font-size: 0.95rem; }
-.attention-stat__figure{ font-family: var(--font-mono); font-size: 1.28rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.attention-stat__figure-row{ display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+/* the icon is always the .bi rendered first — pin it top-right, faded,
+   out of the flex flow entirely */
+.attention-stat > i.bi{ position: absolute; top: 0.75rem; right: 0.75rem; font-size: 1rem; opacity: 0.45; z-index: 1; }
+.attention-stat__label{ order: -1; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); padding-right: 1.4rem; z-index: 1; }
+.attention-stat__figure{ font-family: var(--font-mono); font-size: 1.55rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; z-index: 1; }
+.attention-stat__figure-row{ display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; order: 0; z-index: 1; }
 .kpi-delta{ font-size: 0.64rem; font-weight: 700; white-space: nowrap; }
 .kpi-delta--good{ color: var(--green); }
 .kpi-delta--bad{ color: var(--red); }
 .kpi-delta--neutral{ color: var(--text-faint); }
-.attention-stat__label{ font-size: 0.66rem; color: var(--text-dim); font-weight: 600; }
-.attention-stat--danger i, .attention-stat--danger .attention-stat__figure{ color: var(--red); }
-.attention-stat--amber i, .attention-stat--amber .attention-stat__figure{ color: var(--amber); }
-.attention-stat--slate i, .attention-stat--slate .attention-stat__figure{ color: var(--text-dim); }
-.attention-stat--cyan i, .attention-stat--cyan .attention-stat__figure{ color: var(--cyan); }
-.attention-stat--green i, .attention-stat--green .attention-stat__figure{ color: var(--green); }
-.stat-cat-tag{ display: inline-block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); font-weight: 700; margin-left: 0.3rem; }
-.attention-stat--clickable{ cursor: pointer; text-align: left; }
-.attention-stat--clickable:hover{ border-color: var(--accent); }
+.attention-stat--danger > i.bi, .attention-stat--danger .attention-stat__figure{ color: var(--red); }
+.attention-stat--amber > i.bi, .attention-stat--amber .attention-stat__figure{ color: var(--amber); }
+.attention-stat--slate > i.bi, .attention-stat--slate .attention-stat__figure{ color: var(--text-dim); }
+.attention-stat--cyan > i.bi, .attention-stat--cyan .attention-stat__figure{ color: var(--cyan); }
+.attention-stat--green > i.bi, .attention-stat--green .attention-stat__figure{ color: var(--green); }
+/* the decorative circle from the mockup — soft, oversized, tucked into
+   the bottom-right corner and clipped by the card's own overflow:hidden */
+.attention-stat::after{
+  content: ''; position: absolute; right: -1rem; bottom: -1rem; width: 5.5rem; height: 5.5rem;
+  border-radius: 50%; background: var(--surface-hi); opacity: 0.5; z-index: 0;
+  transition: transform var(--motion-med);
+}
+.attention-stat:hover::after{ transform: scale(1.1); }
+.stat-cat-tag{ display: inline-block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); font-weight: 700; margin-left: 0.3rem; z-index: 1; position: relative; }
 
 .today-greeting{ font-size: 0.78rem; color: var(--text-faint); font-weight: 500; }
 .day-group-label{ font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin: 0.5rem 0 0.3rem; }
