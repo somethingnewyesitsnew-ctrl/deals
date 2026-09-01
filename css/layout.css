@@ -25,17 +25,19 @@
 
 .view-tab{
   display: flex; align-items: center; gap: var(--sp-3); width: 100%; border: none; background: transparent;
-  color: var(--text-dim); font-weight: 500; font-size: 0.83rem; padding: 0.5rem 0.6rem; border-radius: var(--r-sm);
+  color: var(--text-dim); font-weight: 600; font-size: 0.83rem; padding: 0.55rem 0.7rem; border-radius: 0 999px 999px 0;
   text-align: left; position: relative; white-space: nowrap;
 }
-.view-tab i{ font-size: 0.98rem; width: 1.1rem; text-align: center; flex-shrink: 0; }
+.view-tab i{ font-size: 1rem; width: 1.1rem; text-align: center; flex-shrink: 0; }
 .view-tab span:not(.chip-count){ flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.win-sidebar.is-collapsed .view-tab{ justify-content: center; padding: 0.55rem; }
+.win-sidebar.is-collapsed .view-tab{ justify-content: center; padding: 0.55rem; border-radius: var(--r-sm); }
 .win-sidebar.is-collapsed .view-tab span{ display: none; }
 .view-tab:hover{ background: var(--surface-hi); color: var(--text); }
-.view-tab.is-active{ background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.view-tab.is-active::before{ content: ''; position: absolute; left: -0.5rem; top: 0.35rem; bottom: 0.35rem; width: 3px; border-radius: 4px; background: var(--accent); }
-.win-sidebar.is-collapsed .view-tab.is-active::before{ left: 0; }
+/* Pill-with-stripe active indicator — ported from the mockup's
+   rounded-r-full nav treatment: a solid left border-stripe plus a
+   soft accent-tinted pill fill, rather than the old thin left bar. */
+.view-tab.is-active{ background: var(--accent-soft); color: var(--accent); font-weight: 700; border-left: 3px solid var(--accent); padding-left: calc(0.7rem - 3px); }
+.win-sidebar.is-collapsed .view-tab.is-active{ border-radius: var(--r-sm); }
 
 .win-sidebar__footer{ border-top: 1px solid var(--line); padding: var(--sp-2); display: flex; flex-direction: column; gap: 2px; }
 

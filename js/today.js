@@ -25,7 +25,6 @@
 const todayGreetingEl = document.getElementById('todayGreeting');
 const todayStatsEl = document.getElementById('todayStats');
 const dashAttentionListEl = document.getElementById('dashAttentionList');
-const dashTodayListEl = document.getElementById('dashTodayList');
 const dashStageBarEl = document.getElementById('dashStageBar');
 const dashDealsTableEl = document.getElementById('dashDealsTable');
 
@@ -114,45 +113,121 @@ function renderDashboardStats() {
   ).join('');
 }
 
-// ---------- "Needs attention" panel — just the top of attention.js's own
-// unified ranked list (see attention.js for the actual merge logic and
-// why it's one list instead of a dozen buckets). Kept to a handful of
-// rows here; "View all" jumps to the full Attention tab for the rest. ----------
-function renderDashboardAttentionPanel() {
-  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 7) : [];
-  dashAttentionListEl.innerHTML = items.length
-    ? items.map(unifiedAttentionRow).join('')
-    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>All clear</p>';
-}
+// ---------- "Needs attention" feed — a mockup-style dot+title+subtitle
+// row with a right-aligned date and action link, reusing the same
+// ranked data as the full Attention tab (see attention.js) but rendered
+// with this screen's own row shape rather than attention.js's icon-badge
+// rows. ----------
+const DASH_FEED_ACTION_LABEL = {
+  'Deal overdue': 'Review deal', 'Follow-up overdue': 'Follow up', 'Contact follow-up overdue': 'Follow up',
+  'Invoice overdue': 'Send reminder', 'Task overdue': 'Open task', 'Debt overdue': 'Open debt',
+  'Closing soon': 'Review deal', 'Follow-up due soon': 'Follow up', 'Contact follow-up due soon': 'Follow up',
+  'Invoice due soon': 'View invoice', 'Task due soon': 'Open task', 'Debt due soon': 'Open debt',
+  'Stalled': 'Nudge it', 'Never contacted': 'Reach out',
+};
 
-// ---------- "Today & upcoming" panel ----------
-function updateRow(u, dayLabelOverride) {
-  const time = (u.datetime && u.datetime.includes('T'))
-    ? new Date(u.datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    : '';
-  const dayLabel = dayLabelOverride || (u.key === (new Date().toISOString().slice(0, 10)) ? 'Today' : relativeDayLabel(u.key));
+function dashFeedRow(item) {
+  const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
+    : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
+    : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
+    : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
   return '' +
-    '<button type="button" class="attention-row attention-row--time" data-id="' + u.dealId + '">' +
-      '<span class="attention-row__timeblock">' +
-        '<span class="attention-row__timeblock-day">' + escapeHtml(dayLabel) + '</span>' +
-        (time ? '<span class="attention-row__timeblock-time">' + escapeHtml(time) + '</span>' : '<span class="attention-row__timeblock-time attention-row__timeblock-time--muted">—</span>') +
+    '<button type="button" class="dash-feed-row" ' + idAttr + '>' +
+      '<span class="dash-feed-row__main">' +
+        '<span class="dash-feed-row__dot dash-feed-row__dot--' + item.tone + '"></span>' +
+        '<span class="dash-feed-row__text">' +
+          '<span class="dash-feed-row__title">' + escapeHtml(item.name) + '</span>' +
+          '<span class="dash-feed-row__subtitle">' + escapeHtml(item.reason) + '</span>' +
+        '</span>' +
       '</span>' +
-      '<span class="attention-row__stack">' +
-        '<span class="attention-row__name">' + escapeHtml(u.entityName) + '</span>' +
-        '<span class="attention-row__note">' + escapeHtml(u.note) + '</span>' +
+      '<span class="dash-feed-row__side">' +
+        '<span class="dash-feed-row__date">' + escapeHtml(item.detail) + '</span>' +
+        '<span class="dash-feed-row__action">' + (DASH_FEED_ACTION_LABEL[item.reason] || 'View') + '</span>' +
       '</span>' +
-      statusBadge(u.status) +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
     '</button>';
 }
 
-function renderDashboardTodayPanel() {
-  const { todayItems, upcomingItems } = buildTodaySections();
-  const combined = todayItems.concat(upcomingItems).slice(0, 7);
-  dashTodayListEl.innerHTML = combined.length
-    ? combined.map(u => updateRow(u)).join('')
-    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>Nothing scheduled this week</p>';
+function renderDashboardAttentionPanel() {
+  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 8) : [];
+  dashAttentionListEl.innerHTML = items.length
+    ? items.map(dashFeedRow).join('')
+    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>All clear</p>';
 }
+
+// ---------- Mini calendar widget — a real (not decorative) month grid:
+// today highlighted solid, days with logged updates get a small dot,
+// click a day to open it (reuses calendar.js's openDayUpdatesModal /
+// buildCalendarEntries — same data, same modal, just a smaller grid). ----------
+let dashCalMonth = firstOfMonth(new Date());
+
+function renderDashCalendarWidget() {
+  const titleEl = document.getElementById('dashCalTitle');
+  const gridEl = document.getElementById('dashCalGrid');
+  const upcomingEl = document.getElementById('dashCalUpcoming');
+  if (!titleEl || !gridEl || !upcomingEl) return;
+
+  titleEl.textContent = dashCalMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const entries = typeof buildCalendarEntries === 'function' ? buildCalendarEntries() : new Map();
+  const year = dashCalMonth.getFullYear();
+  const month = dashCalMonth.getMonth();
+  const mondayFirstOffset = (new Date(year, month, 1).getDay() + 6) % 7; // Mon-first week, matching the mockup
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const now = new Date();
+  const todayKey = dateKeyOf(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const cells = [];
+  for (let i = mondayFirstOffset - 1; i >= 0; i--) cells.push({ num: daysInPrevMonth - i, key: null });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ num: d, key: dateKeyOf(year, month, d) });
+  let trail = 1;
+  while (cells.length % 7 !== 0) cells.push({ num: trail++, key: null });
+
+  const weekdayHeaders = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => '<div class="dash-cal-weekday">' + w + '</div>').join('');
+
+  const dayCells = cells.map(cell => {
+    if (!cell.key) return '<div class="dash-cal-day dash-cal-day--muted">' + cell.num + '</div>';
+    const dayEntries = entries.get(cell.key) || [];
+    const isToday = cell.key === todayKey;
+    return '<button type="button" class="dash-cal-day' + (isToday ? ' dash-cal-day--today' : '') + (dayEntries.length ? ' dash-cal-day--has-items' : '') + '" data-date="' + cell.key + '">' +
+      cell.num + (dayEntries.length ? '<span class="dash-cal-day__dot"></span>' : '') +
+    '</button>';
+  }).join('');
+
+  gridEl.innerHTML = weekdayHeaders + dayCells;
+
+  const { todayItems } = buildTodaySections();
+  if (!todayItems.length) {
+    upcomingEl.innerHTML = '<p class="dash-cal-upcoming-empty">Nothing scheduled today.</p>';
+  } else {
+    const next = todayItems[0];
+    const time = (next.datetime && next.datetime.includes('T'))
+      ? new Date(next.datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      : '';
+    upcomingEl.innerHTML =
+      '<button type="button" class="dash-cal-upcoming-item" data-id="' + next.dealId + '">' +
+        '<span class="dash-cal-upcoming-item__bar"></span>' +
+        '<span><span class="dash-cal-upcoming-item__title">' + escapeHtml(next.entityName) + '</span><br>' +
+        '<span class="dash-cal-upcoming-item__time">' + escapeHtml(next.note) + (time ? ' · ' + escapeHtml(time) : '') + '</span></span>' +
+      '</button>' +
+      (todayItems.length > 1 ? '<p class="dash-cal-upcoming-more">+' + (todayItems.length - 1) + ' more today</p>' : '');
+  }
+}
+
+document.getElementById('dashCalPrevBtn').addEventListener('click', () => {
+  dashCalMonth = new Date(dashCalMonth.getFullYear(), dashCalMonth.getMonth() - 1, 1);
+  renderDashCalendarWidget();
+});
+document.getElementById('dashCalNextBtn').addEventListener('click', () => {
+  dashCalMonth = new Date(dashCalMonth.getFullYear(), dashCalMonth.getMonth() + 1, 1);
+  renderDashCalendarWidget();
+});
+document.getElementById('dashCalGrid').addEventListener('click', (e) => {
+  const cell = e.target.closest('.dash-cal-day[data-date]');
+  if (!cell || typeof openDayUpdatesModal !== 'function') return;
+  openDayUpdatesModal(cell.dataset.date);
+});
 
 // ---------- "Pipeline by stage" mini bar (plain CSS, no chart library — kept
 // tiny on purpose so it fits the dashboard's compact panel) ----------
@@ -217,7 +292,7 @@ function renderToday() {
 
   renderDashboardStats();
   renderDashboardAttentionPanel();
-  renderDashboardTodayPanel();
+  renderDashCalendarWidget();
   renderDashboardStageBar();
   renderDashboardDealsTable();
 }
@@ -227,16 +302,16 @@ document.getElementById('todayView').addEventListener('click', (e) => {
   const jumpBtn = e.target.closest('[data-jump-view]');
   if (jumpBtn) { switchView(jumpBtn.dataset.jumpView); return; }
 
-  const todoRow = e.target.closest('.attention-row[data-todo-id]');
+  const todoRow = e.target.closest('[data-todo-id]');
   if (todoRow) { switchView('todos'); openTodoModal(todoRow.dataset.todoId); return; }
 
-  const debtRow = e.target.closest('.attention-row[data-debt-id]');
+  const debtRow = e.target.closest('[data-debt-id]');
   if (debtRow) { switchView('debts'); openDebtModal(debtRow.dataset.debtId); return; }
 
-  const contactRow = e.target.closest('.attention-row[data-contact-key]');
+  const contactRow = e.target.closest('[data-contact-key]');
   if (contactRow) { switchView('contacts'); openContactUpdateModal(contactRow.dataset.contactKey, contactRow.dataset.contactName); return; }
 
-  const row = e.target.closest('.attention-row[data-id], .dash-mini-row[data-id]');
+  const row = e.target.closest('.dash-feed-row[data-id], .dash-mini-row[data-id], .dash-cal-upcoming-item[data-id]');
   if (!row) return;
   switchView('deals');
   openDetailModal(row.dataset.id);

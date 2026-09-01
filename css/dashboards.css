@@ -1,21 +1,82 @@
 /* dashboards.css — Attention dashboard + Calendar month grid + the landing Dashboard tab. */
 
-/* ===== Landing Dashboard (KPIs + 3 panels + mini deals table) ===== */
-.dash-grid{ display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-3); align-items: stretch; }
-@media (max-width: 980px){ .dash-grid{ grid-template-columns: 1fr; } }
+/* ===== Landing Dashboard (KPIs, Needs Attention feed + calendar, mini deals table) ===== */
+/* 8/4 split — the mockup's "Needs Attention" (2/3) + "Calendar" (1/3)
+   layout. min-width:0 on both sides so neither column can force the
+   grid wider than its track under a long unbreakable string. */
+.dash-split{ display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-4); align-items: start; }
+.dash-split__main, .dash-split__side{ min-width: 0; }
+@media (max-width: 980px){ .dash-split{ grid-template-columns: 1fr; } }
 
-.dash-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.dash-section-head{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
+.dash-section-head i{ color: var(--red); font-size: 1rem; }
+.dash-section-head h2{ font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text); flex: 1; }
+.dash-section-head .dash-card__more{ font-size: 0.76rem; }
+
+.dash-card--feed{ box-shadow: var(--shadow-sm); }
+.dash-attention-feed{ display: flex; flex-direction: column; max-height: 420px; overflow-y: auto; }
+.dash-attention-feed .attention-clear{ padding: 1.2rem; }
 .dash-card__head{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.8rem; background: var(--surface); border-bottom: 1px solid var(--line); }
 .dash-card__head h3{ display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-display); font-size: 0.8rem; font-weight: 700; margin: 0; color: var(--text); }
 .dash-card__head h3 i{ color: var(--accent); font-size: 0.82rem; }
 .dash-card__more{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.7rem; padding: 0; white-space: nowrap; }
 .dash-card__more:hover{ text-decoration: underline; }
-/* flex:1 (not just max-height) so all three dash-grid cards read as the
-   same height even when one has fewer rows than its siblings — without
-   it, align-items:stretch sizes the CARD correctly but this inner body
+/* flex:1 (not just max-height) so dash-card panels read as the same
+   height when placed side by side even when one has fewer rows than its
+   siblings — without it, align-items:stretch sizes the CARD correctly
+   but this inner body
    was still only as tall as its own content, leaving one card's header
    visually "floating" above empty space differently from the others. */
 .dash-card__body{ flex: 1 1 auto; max-height: 210px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.55rem 0.65rem; }
+.dash-card__body--tall{ max-height: none; }
+
+/* Feed row — ported from the mockup's "Needs Attention" list item:
+   a small colored dot (not an icon-badge circle), title + subtitle
+   stacked on the left, a right-aligned mono date with a small
+   accent-colored action link underneath it. */
+.dash-feed-row{ display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; width: 100%; border: none; border-bottom: 1px solid var(--line); background: transparent; padding: 0.7rem 0.85rem; text-align: left; transition: background-color var(--motion-fast); }
+.dash-feed-row:last-child{ border-bottom: none; }
+.dash-feed-row:hover{ background: var(--surface); }
+.dash-feed-row__main{ display: flex; gap: 0.6rem; align-items: flex-start; min-width: 0; }
+.dash-feed-row__dot{ margin-top: 0.4rem; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dash-feed-row__dot--danger{ background: var(--red); }
+.dash-feed-row__dot--amber{ background: var(--amber); }
+.dash-feed-row__dot--slate{ background: var(--text-faint); }
+.dash-feed-row__dot--cyan{ background: var(--cyan); }
+.dash-feed-row__text{ min-width: 0; }
+.dash-feed-row__title{ font-weight: 600; font-size: 0.86rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-feed-row__subtitle{ font-size: 0.78rem; color: var(--text-faint); margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.dash-feed-row__side{ flex-shrink: 0; text-align: right; }
+.dash-feed-row__date{ font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; }
+.dash-feed-row__action{ display: block; margin-top: 0.2rem; font-size: 0.76rem; font-weight: 600; color: var(--focus); white-space: nowrap; }
+.dash-feed-row:hover .dash-feed-row__action{ text-decoration: underline; }
+
+/* Mini calendar widget — a compact, real (not decorative) month grid:
+   today highlighted solid, days with logged updates get a small dot,
+   an "Upcoming today" strip at the bottom. */
+.dash-calendar-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.dash-calendar-card__head{ display: flex; align-items: center; justify-content: space-between; }
+.dash-calendar-card__head h2{ font-family: var(--font-display); font-size: 0.92rem; font-weight: 700; margin: 0; color: var(--text); }
+.dash-calendar-card__nav{ display: flex; gap: 0.2rem; }
+.dash-calendar-card__nav button{ border: none; background: transparent; color: var(--text-dim); width: 1.5rem; height: 1.5rem; border-radius: var(--r-sm); font-size: 0.78rem; }
+.dash-calendar-card__nav button:hover{ background: var(--surface-hi); color: var(--text); }
+.dash-calendar-card__grid{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.dash-cal-weekday{ font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-faint); padding-bottom: 0.2rem; }
+.dash-cal-day{ position: relative; font-size: 0.76rem; color: var(--text-dim); padding: 0.28rem 0; border-radius: var(--r-sm); }
+.dash-cal-day--muted{ color: var(--text-faint); opacity: 0.4; }
+.dash-cal-day--has-items{ cursor: pointer; }
+.dash-cal-day--has-items:hover{ background: var(--surface-hi); }
+.dash-cal-day--today{ background: var(--accent); color: #fff; font-weight: 700; }
+.dash-cal-day__dot{ position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--amber); }
+.dash-cal-day--today .dash-cal-day__dot{ background: #fff; }
+.dash-calendar-card__upcoming{ margin-top: auto; padding-top: 0.6rem; border-top: 1px solid var(--line); }
+.dash-calendar-card__upcoming-label{ display: block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 0.4rem; }
+.dash-cal-upcoming-item{ display: flex; align-items: stretch; gap: 0.5rem; width: 100%; border: none; background: transparent; text-align: left; padding: 0; cursor: pointer; }
+.dash-cal-upcoming-empty{ font-size: 0.78rem; color: var(--text-faint); margin: 0; }
+.dash-cal-upcoming-more{ font-size: 0.7rem; color: var(--text-faint); margin: 0.35rem 0 0; }
+.dash-cal-upcoming-item__bar{ width: 3px; border-radius: 999px; background: var(--accent); flex-shrink: 0; }
+.dash-cal-upcoming-item__title{ font-size: 0.8rem; font-weight: 600; color: var(--text); }
+.dash-cal-upcoming-item__time{ font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint); margin-top: 0.1rem; }
 
 .dash-stagebar{ display: flex; width: 100%; height: 13px; border-radius: var(--r-sm); overflow: hidden; margin-bottom: 0.55rem; background: var(--slate-soft); }
 .dash-stagebar__seg{ height: 100%; min-width: 2px; transition: width var(--motion-med); }

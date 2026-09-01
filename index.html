@@ -128,48 +128,57 @@
     <main class="win-content">
 
   <!-- ============ DASHBOARD ============
-       (kept id="todayView" / "today*" internally — this section replaced the
-       old daily-briefing view and is now the single-screen dashboard: a KPI
-       strip, three compact panels, and a condensed recent-deals table, all
-       capped in height with their own scroll so the page itself barely
-       scrolls. Click anything to jump to the full tab/detail.) -->
+       (kept id="todayView" / "today*" internally). Restructured to match
+       the Stitch mockup's dashboard layout: a KPI bento row, an 8/4 split
+       (a "Needs Attention" feed on the left, a real working mini-calendar
+       on the right), a full-width pipeline-by-stage bar, then a Recent
+       Deals table. -->
   <section class="ledger-view" id="todayView">
     <div class="page-header">
-      <h1 class="page-title">Dashboard</h1>
-      <span class="today-greeting" id="todayGreeting"></span>
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <span class="today-greeting" id="todayGreeting"></span>
+      </div>
     </div>
 
     <div class="attention-summary" id="todayStats"></div>
 
-    <div class="dash-grid">
-      <div class="dash-card">
-        <div class="dash-card__head">
-          <h3><i class="bi bi-bell"></i> Needs attention</h3>
-          <button type="button" class="dash-card__more" data-jump-view="attention">View all</button>
+    <div class="dash-split">
+      <div class="dash-split__main">
+        <div class="dash-section-head"><i class="bi bi-exclamation-triangle-fill"></i><h2>Needs Attention</h2><button type="button" class="dash-card__more" data-jump-view="attention">View all</button></div>
+        <div class="dash-card dash-card--feed">
+          <div id="dashAttentionList" class="dash-attention-feed"></div>
         </div>
-        <div id="dashAttentionList" class="attention-list dash-card__body"></div>
       </div>
-
-      <div class="dash-card">
-        <div class="dash-card__head">
-          <h3><i class="bi bi-calendar-week"></i> Today &amp; upcoming</h3>
-          <button type="button" class="dash-card__more" data-jump-view="calendar">Calendar</button>
+      <div class="dash-split__side">
+        <div class="dash-calendar-card">
+          <div class="dash-calendar-card__head">
+            <h2 id="dashCalTitle">Month Year</h2>
+            <div class="dash-calendar-card__nav">
+              <button type="button" id="dashCalPrevBtn" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+              <button type="button" id="dashCalNextBtn" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+            </div>
+          </div>
+          <div id="dashCalGrid" class="dash-calendar-card__grid"></div>
+          <div class="dash-calendar-card__upcoming">
+            <span class="dash-calendar-card__upcoming-label">Upcoming today</span>
+            <div id="dashCalUpcoming"></div>
+          </div>
         </div>
-        <div id="dashTodayList" class="attention-list dash-card__body"></div>
       </div>
+    </div>
 
+    <div class="dashboard-section">
+      <h2 class="dashboard-section__title"><i class="bi bi-pie-chart"></i> Pipeline by stage</h2>
       <div class="dash-card">
-        <div class="dash-card__head">
-          <h3><i class="bi bi-pie-chart"></i> Pipeline by stage</h3>
-        </div>
-        <div id="dashStageBar" class="dash-card__body"></div>
+        <div id="dashStageBar" class="dash-card__body dash-card__body--tall"></div>
       </div>
     </div>
 
     <div class="dash-card dash-card--wide">
       <div class="dash-card__head">
         <h3><i class="bi bi-journal-text"></i> Recent deals</h3>
-        <button type="button" class="dash-card__more" data-jump-view="deals">View all deals</button>
+        <button type="button" class="dash-card__more" data-jump-view="deals">View all deals <i class="bi bi-arrow-right"></i></button>
       </div>
       <div id="dashDealsTable" class="dash-card__table-body"></div>
     </div>
