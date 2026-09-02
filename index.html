@@ -304,7 +304,18 @@
   <section class="ledger-view d-none" id="attentionView">
     <div class="page-header"><h1 class="page-title">Attention</h1></div>
     <div class="attention-summary" id="attentionSummary"></div>
-    <div class="attention-groups" id="attentionGroups"></div>
+    <div class="attn-split">
+      <div class="attn-split__main" id="attentionGroups"></div>
+      <div class="attn-split__side">
+        <div class="attn-queue-card">
+          <div class="attn-queue-card__head">
+            <h3><i class="bi bi-check2-square"></i> Personal Queue</h3>
+            <button type="button" id="attnQueueAddBtn" title="Add task" aria-label="Add task"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <div id="attnQueueList" class="attn-queue-card__body"></div>
+        </div>
+      </div>
+    </div>
     <div class="ledger-empty d-none" id="attentionAllClear">
       <i class="bi bi-check-circle"></i>
       <p>Nothing needs attention right now — every open deal is on track.</p>

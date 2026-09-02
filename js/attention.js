@@ -205,26 +205,48 @@ function getAttentionCounts() {
   return buildUnifiedAttentionItems().length;
 }
 
-function unifiedAttentionRow(item) {
+// Small caption chip naming what kind of thing a priority card is about
+// — Deal / Contact / Task / Debt — shown alongside the urgency label.
+const ATTENTION_KIND_LABEL = { deal: 'Deal', contact: 'Contact', todo: 'Task', debt: 'Debt' };
+
+// The little pill action label on the right of each priority card —
+// names what to actually DO about it, not just what it is. Shared with
+// today.js's Dashboard feed, which renders the same ranked items in a
+// more compact row shape but wants the same action wording.
+const ATTENTION_ACTION_LABEL = {
+  'Deal overdue': 'Review deal', 'Follow-up overdue': 'Follow up', 'Contact follow-up overdue': 'Follow up',
+  'Invoice overdue': 'Send reminder', 'Task overdue': 'Open task', 'Debt overdue': 'Open debt',
+  'Closing soon': 'Review deal', 'Follow-up due soon': 'Follow up', 'Contact follow-up due soon': 'Follow up',
+  'Invoice due soon': 'View invoice', 'Task due soon': 'Open task', 'Debt due soon': 'Open debt',
+  'Stalled': 'Nudge it', 'Never contacted': 'Reach out',
+};
+
+// Priority card — ported from the mockup's "Critical & Overdue" item: a
+// solid left accent stripe, a type chip + urgency label row, a title +
+// one-line description, and a pill naming the next action.
+function attentionPriorityCard(item) {
   const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
     : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
     : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
     : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
   return '' +
-    '<button type="button" class="attention-row attention-row--icon" ' + idAttr + '>' +
-      '<span class="attention-row__icon-badge attention-row__icon-badge--' + item.tone + '"><i class="bi ' + item.icon + '"></i></span>' +
-      '<span class="attention-row__stack">' +
-        '<span class="attention-row__name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
-        '<span class="attention-row__context attention-row__context--' + item.tone + '">' + escapeHtml(item.reason) + ' · ' + escapeHtml(item.detail) + '</span>' +
+    '<button type="button" class="attn-card attn-card--' + item.tone + '" ' + idAttr + '>' +
+      '<span class="attn-card__main">' +
+        '<span class="attn-card__chips">' +
+          '<span class="attn-card__type-chip">' + (ATTENTION_KIND_LABEL[item.kind] || 'Item') + '</span>' +
+          '<span class="attn-card__urgency attn-card__urgency--' + item.tone + '"><i class="bi ' + item.icon + '"></i>' + escapeHtml(item.detail) + '</span>' +
+        '</span>' +
+        '<h4 class="attn-card__title">' + escapeHtml(item.name) + '</h4>' +
+        '<p class="attn-card__desc">' + escapeHtml(item.reason) + '</p>' +
       '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+      '<span class="attn-card__action">' + (ATTENTION_ACTION_LABEL[item.reason] || 'View') + '</span>' +
     '</button>';
 }
 
 const ATTENTION_TIER_META = [
-  { label: 'Overdue', icon: 'bi-exclamation-circle', tone: 'danger' },
+  { label: 'Overdue', icon: 'bi-exclamation-circle-fill', tone: 'danger' },
   { label: 'Due soon', icon: 'bi-hourglass-split', tone: 'amber' },
-  { label: 'Needs a look', icon: 'bi-moon-stars', tone: 'slate' },
+  { label: 'Needs a look', icon: 'bi-moon-stars-fill', tone: 'slate' },
 ];
 
 function renderAttention() {
@@ -242,43 +264,89 @@ function renderAttention() {
   if (items.length === 0) {
     attentionGroupsEl.innerHTML = '';
     attentionAllClearEl.classList.remove('d-none');
+  } else {
+    attentionAllClearEl.classList.add('d-none');
+    attentionGroupsEl.innerHTML = ATTENTION_TIER_META.map((meta, tier) => {
+      const tierItems = byTier[tier];
+      if (!tierItems.length) return '';
+      return '' +
+        '<div>' +
+          '<div class="attn-tier-head"><i class="bi ' + meta.icon + ' attn-tier-head__icon--' + meta.tone + '"></i><h3>' + meta.label + '<span class="chip-count">' + tierItems.length + '</span></h3></div>' +
+          '<div class="attn-tier-list">' + tierItems.map(attentionPriorityCard).join('') + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  renderAttnQueue();
+}
+
+// ---------- Personal Queue (sidebar) — open to-dos, quick-check to close ----------
+const attnQueueListEl = document.getElementById('attnQueueList');
+const attnQueueAddBtn = document.getElementById('attnQueueAddBtn');
+
+function renderAttnQueue() {
+  if (!attnQueueListEl) return;
+  const open = getTodos().filter(t => t.status === 'open')
+    .sort((a, b) => {
+      if (!!a.dueDate !== !!b.dueDate) return a.dueDate ? -1 : 1;
+      return (a.dueDate || '').localeCompare(b.dueDate || '');
+    })
+    .slice(0, 20);
+
+  if (open.length === 0) {
+    attnQueueListEl.innerHTML = '<p class="attn-queue-empty">Nothing on your queue — add a task with the + above.</p>';
     return;
   }
-  attentionAllClearEl.classList.add('d-none');
 
-  attentionGroupsEl.innerHTML = ATTENTION_TIER_META.map((meta, tier) => {
-    const tierItems = byTier[tier];
-    if (!tierItems.length) return '';
+  attnQueueListEl.innerHTML = open.map(t => {
+    const dueLabel = t.dueDate ? relativeDayLabel(t.dueDate) : '';
     return '' +
-      '<div class="attention-tier">' +
-        '<h3 class="attention-tier__title"><i class="bi ' + meta.icon + '"></i>' + meta.label + '<span class="chip-count">' + tierItems.length + '</span></h3>' +
-        '<div class="attention-list">' + tierItems.map(unifiedAttentionRow).join('') + '</div>' +
+      '<div class="attn-queue-item" data-todo-id="' + t.id + '">' +
+        '<button type="button" class="attn-queue-item__check" data-toggle-todo="' + t.id + '" title="Mark done" aria-label="Mark done"><i class="bi bi-circle"></i></button>' +
+        '<span class="attn-queue-item__body">' +
+          '<span class="attn-queue-item__title">' + escapeHtml(t.title) + '</span>' +
+          (dueLabel ? '<span class="attn-queue-item__meta"><i class="bi bi-calendar-event"></i>' + escapeHtml(dueLabel) + '</span>' : '') +
+        '</span>' +
       '</div>';
   }).join('');
 }
 
+attnQueueListEl.addEventListener('click', (e) => {
+  const toggleBtn = e.target.closest('[data-toggle-todo]');
+  if (toggleBtn) {
+    toggleTodoDone(toggleBtn.dataset.toggleTodo);
+    renderAttnQueue();
+    if (typeof updateTabCounts === 'function') updateTabCounts();
+    return;
+  }
+  const item = e.target.closest('.attn-queue-item[data-todo-id]');
+  if (item) openTodoModal(item.dataset.todoId);
+});
+
+if (attnQueueAddBtn) attnQueueAddBtn.addEventListener('click', () => openNewTodoModal());
+
 // Handles every row kind the unified list can produce — deal, contact,
 // task, or debt — dispatching to that thing's own editor/detail view.
 attentionGroupsEl.addEventListener('click', (e) => {
-  const contactBtn = e.target.closest('.attention-row[data-contact-key]');
+  const contactBtn = e.target.closest('.attn-card[data-contact-key]');
   if (contactBtn) {
     switchView('contacts');
     openContactUpdateModal(contactBtn.dataset.contactKey, contactBtn.dataset.contactName);
     return;
   }
-  const todoBtn = e.target.closest('.attention-row[data-todo-id]');
+  const todoBtn = e.target.closest('.attn-card[data-todo-id]');
   if (todoBtn) {
     switchView('todos');
     openTodoModal(todoBtn.dataset.todoId);
     return;
   }
-  const debtBtn = e.target.closest('.attention-row[data-debt-id]');
+  const debtBtn = e.target.closest('.attn-card[data-debt-id]');
   if (debtBtn) {
     switchView('debts');
     openDebtModal(debtBtn.dataset.debtId);
     return;
   }
-  const btn = e.target.closest('.attention-row[data-id]');
+  const btn = e.target.closest('.attn-card[data-id]');
   if (!btn) return;
   switchView('deals');
   openDetailModal(btn.dataset.id);

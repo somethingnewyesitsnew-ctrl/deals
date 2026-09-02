@@ -116,16 +116,10 @@ function renderDashboardStats() {
 // ---------- "Needs attention" feed — a mockup-style dot+title+subtitle
 // row with a right-aligned date and action link, reusing the same
 // ranked data as the full Attention tab (see attention.js) but rendered
-// with this screen's own row shape rather than attention.js's icon-badge
-// rows. ----------
-const DASH_FEED_ACTION_LABEL = {
-  'Deal overdue': 'Review deal', 'Follow-up overdue': 'Follow up', 'Contact follow-up overdue': 'Follow up',
-  'Invoice overdue': 'Send reminder', 'Task overdue': 'Open task', 'Debt overdue': 'Open debt',
-  'Closing soon': 'Review deal', 'Follow-up due soon': 'Follow up', 'Contact follow-up due soon': 'Follow up',
-  'Invoice due soon': 'View invoice', 'Task due soon': 'Open task', 'Debt due soon': 'Open debt',
-  'Stalled': 'Nudge it', 'Never contacted': 'Reach out',
-};
-
+// with this screen's own compact row shape rather than attention.js's
+// full priority cards. ATTENTION_ACTION_LABEL is defined in attention.js
+// (loaded first) and shared so the two screens never word an action
+// differently for the same reason. ----------
 function dashFeedRow(item) {
   const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
     : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
@@ -142,7 +136,7 @@ function dashFeedRow(item) {
       '</span>' +
       '<span class="dash-feed-row__side">' +
         '<span class="dash-feed-row__date">' + escapeHtml(item.detail) + '</span>' +
-        '<span class="dash-feed-row__action">' + (DASH_FEED_ACTION_LABEL[item.reason] || 'View') + '</span>' +
+        '<span class="dash-feed-row__action">' + (ATTENTION_ACTION_LABEL[item.reason] || 'View') + '</span>' +
       '</span>' +
     '</button>';
 }

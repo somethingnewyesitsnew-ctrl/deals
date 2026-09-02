@@ -169,15 +169,69 @@
 .day-group-label{ font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin: 0.5rem 0 0.3rem; }
 .day-group-label:first-child{ margin-top: 0; }
 
-.attention-groups{ display: flex; flex-direction: column; gap: var(--sp-4); }
+/* Attention tab: an 8/4 split, ported from the mockup — a "Personal
+   Queue" (open to-dos) sits fixed on the right while the ranked
+   priority list fills the left. */
+.attn-split{ display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-4); align-items: start; }
+.attn-split__main, .attn-split__side{ min-width: 0; }
+@media (max-width: 980px){ .attn-split{ grid-template-columns: 1fr; } }
+
+.attn-split__main{ display: flex; flex-direction: column; gap: var(--sp-4); }
 
 /* One tier ("Overdue" / "Due soon" / "Needs a look") of the unified,
    cross-type ranked list — replaces what used to be up to a dozen small
    same-shaped cards, one per category, with items sorted only by which
    bucket produced them rather than by actual urgency. */
-.attention-tier__title{ display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-display); font-size: 0.86rem; font-weight: 700; color: var(--text); margin: 0 0 0.5rem; }
-.attention-tier__title i{ font-size: 0.85rem; color: var(--text-faint); }
-.attention-tier .attention-list{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.35rem; }
+.attn-tier-head{ display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--line); padding-bottom: 0.4rem; margin-bottom: 0.1rem; }
+.attn-tier-head i{ font-size: 1rem; }
+.attn-tier-head__icon--danger{ color: var(--red); }
+.attn-tier-head__icon--amber{ color: var(--amber); }
+.attn-tier-head__icon--slate{ color: var(--text-faint); }
+.attn-tier-head h3{ font-family: var(--font-display); font-size: 0.92rem; font-weight: 700; color: var(--text); margin: 0; flex: 1; display: flex; align-items: center; gap: 0.4rem; }
+.attn-tier-head .chip-count{ background: var(--slate-soft); }
+.attn-tier-list{ display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Priority card — ported from the mockup's "Critical & Overdue" item:
+   a solid left accent stripe, a chip row (item type + urgency label),
+   title + one-line description, and a small pill action label on the
+   right naming what to actually do. */
+.attn-card{ position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; text-align: left; border: 1px solid var(--line); background: var(--bg-raise); border-radius: var(--r-md); padding: 0.75rem 0.9rem 0.75rem 1.1rem; overflow: hidden; transition: background-color var(--motion-fast), border-color var(--motion-fast); }
+.attn-card:hover{ background: var(--surface); }
+.attn-card::before{ content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.attn-card--danger{ border-color: var(--red); }
+.attn-card--danger::before{ background: var(--red); }
+.attn-card--amber::before{ background: var(--amber); }
+.attn-card--slate::before{ background: var(--line-strong); }
+.attn-card--cyan::before{ background: var(--cyan); }
+.attn-card__main{ flex: 1; min-width: 0; }
+.attn-card__chips{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; flex-wrap: wrap; }
+.attn-card__type-chip{ font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: var(--r-sm); background: var(--slate-soft); color: var(--text-dim); }
+.attn-card__urgency{ font-size: 0.74rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; }
+.attn-card__urgency--danger{ color: var(--red); }
+.attn-card__urgency--amber{ color: var(--amber); }
+.attn-card__urgency--slate{ color: var(--text-faint); }
+.attn-card__urgency--cyan{ color: var(--cyan); }
+.attn-card__title{ font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; color: var(--text); margin: 0 0 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attn-card__desc{ font-size: 0.78rem; color: var(--text-faint); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attn-card__action{ flex-shrink: 0; font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.7rem; border-radius: var(--r-sm); background: var(--accent); color: #fff; white-space: nowrap; }
+.attn-card--danger .attn-card__action{ background: var(--red); }
+
+/* Personal Queue sidebar — open to-dos, quick-check to mark done */
+.attn-queue-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
+.attn-queue-card__head{ display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); }
+.attn-queue-card__head h3{ font-family: var(--font-display); font-size: 0.85rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.4rem; color: var(--text); }
+.attn-queue-card__head h3 i{ color: var(--accent); }
+.attn-queue-card__head button{ border: none; background: transparent; color: var(--text-faint); width: 1.6rem; height: 1.6rem; border-radius: var(--r-sm); }
+.attn-queue-card__head button:hover{ background: var(--surface-hi); color: var(--accent); }
+.attn-queue-card__body{ max-height: 520px; overflow-y: auto; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.attn-queue-item{ display: flex; align-items: flex-start; gap: 0.55rem; padding: 0.55rem 0.5rem; border-radius: var(--r-sm); cursor: pointer; }
+.attn-queue-item:hover{ background: var(--surface); }
+.attn-queue-item__check{ flex-shrink: 0; margin-top: 0.15rem; border: none; background: transparent; color: var(--text-faint); font-size: 1rem; padding: 0; }
+.attn-queue-item__check:hover{ color: var(--accent); }
+.attn-queue-item__body{ min-width: 0; }
+.attn-queue-item__title{ font-size: 0.82rem; color: var(--text); display: block; }
+.attn-queue-item__meta{ font-size: 0.7rem; color: var(--text-faint); display: flex; align-items: center; gap: 0.25rem; margin-top: 0.15rem; }
+.attn-queue-empty{ padding: 1rem 0.5rem; font-size: 0.8rem; color: var(--text-faint); text-align: center; }
 
 .attention-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.7rem; box-shadow: var(--shadow-md); }
 .attention-card__head{ display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.6rem; }
@@ -200,12 +254,6 @@
 .attention-clear{ display: flex; align-items: center; gap: 0.5rem; color: var(--green); font-size: 0.84rem; font-weight: 600; margin: 0; }
 .attention-row__note{ flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; color: var(--text-dim); }
 
-.attention-row--icon{ align-items: flex-start; }
-.attention-row__icon-badge{ flex-shrink: 0; width: 1.5rem; height: 1.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.74rem; margin-top: 0.05rem; }
-.attention-row__icon-badge--danger{ background: var(--red-soft); color: var(--red); }
-.attention-row__icon-badge--amber{ background: var(--amber-soft); color: var(--amber); }
-.attention-row__icon-badge--slate{ background: var(--slate-soft); color: var(--text-dim); }
-.attention-row__icon-badge--cyan{ background: var(--cyan-soft); color: var(--cyan); }
 .attention-row__stack{ display: flex; flex-direction: column; gap: 0.08rem; min-width: 0; flex: 1 1 auto; }
 .attention-row__stack .attention-row__name{ white-space: normal; }
 .attention-row__context--danger{ color: var(--red); font-weight: 600; }
@@ -213,11 +261,6 @@
 .attention-row__context--slate{ color: var(--text-faint); }
 .attention-row__context--cyan{ color: var(--cyan); font-weight: 600; }
 
-.attention-row--time{ align-items: center; }
-.attention-row__timeblock{ flex-shrink: 0; width: 44px; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.attention-row__timeblock-day{ font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); }
-.attention-row__timeblock-time{ font-size: 0.74rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-.attention-row__timeblock-time--muted{ color: var(--text-faint); font-weight: 500; }
 
 /* ===== Calendar ===== */
 .calendar-toolbar{ display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-4); flex-wrap: wrap; gap: var(--sp-3); }
