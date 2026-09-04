@@ -95,7 +95,7 @@
       <button class="view-tab" data-view="entities" title="Entities"><i class="bi bi-building"></i><span>Entities</span><span class="chip-count" id="tabCountEntities">0</span></button>
 
       <span class="win-sidebar__section-label">Money</span>
-      <button class="view-tab" data-view="financial" title="Financial"><i class="bi bi-wallet2"></i><span>Financial</span><span class="chip-count" id="tabCountFinancial">0</span></button>
+      <button class="view-tab" data-view="financial" title="Financials"><i class="bi bi-wallet2"></i><span>Financials</span><span class="chip-count" id="tabCountFinancial">0</span></button>
       <button class="view-tab" data-view="debts" title="Debts"><i class="bi bi-credit-card"></i><span>Debts</span><span class="chip-count chip-count--alert" id="tabCountDebts">0</span></button>
       <button class="view-tab" data-view="overview" title="Reports"><i class="bi bi-bar-chart-line"></i><span>Reports</span></button>
     </nav>
@@ -396,10 +396,45 @@
   <!-- ============ FINANCIAL ============ -->
   <section class="ledger-view d-none" id="financialView">
     <div class="page-header">
-      <h1 class="page-title">Financial</h1>
+      <h1 class="page-title">Financials</h1>
     </div>
 
     <div class="attention-summary" id="financialStatsGrid"></div>
+
+    <div class="fin-split">
+      <div class="fin-split__main">
+        <div class="dash-card">
+          <div class="dash-card__head">
+            <h3><i class="bi bi-receipt"></i> All Invoices</h3>
+          </div>
+          <div class="fin-invoice-search">
+            <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="financialInvoiceSearchInput" placeholder="Search invoices by number or entity…"></div>
+          </div>
+          <div class="table-responsive">
+            <table class="table ledger-table">
+              <thead>
+                <tr><th>Invoice</th><th>Deal</th><th class="text-end">Amount</th><th>Status</th><th>Date</th><th>Due</th><th></th></tr>
+              </thead>
+              <tbody id="financialInvoicesTableBody"></tbody>
+            </table>
+          </div>
+          <div class="ledger-empty d-none" id="financialInvoicesEmptyState"><i class="bi bi-receipt"></i><p>No invoices yet — create one from a deal's detail view.</p></div>
+        </div>
+      </div>
+      <div class="fin-split__side">
+        <div class="fin-side-card">
+          <h3><i class="bi bi-pie-chart"></i> Profitability Overview</h3>
+          <div id="finProfitability"></div>
+        </div>
+        <div class="fin-side-card">
+          <div class="fin-side-card__head-row">
+            <h3><i class="bi bi-credit-card"></i> Active Debts</h3>
+            <button type="button" class="dash-card__more" data-jump-view="debts">View all</button>
+          </div>
+          <div id="finDebtsSummary"></div>
+        </div>
+      </div>
+    </div>
 
     <div class="dashboard-section">
       <h2 class="dashboard-section__title"><i class="bi bi-graph-up"></i> Income vs expenses</h2>
@@ -407,22 +442,6 @@
         <p class="chart-sub">Paid invoices vs recorded expenses, per month, last 9 months</p>
         <div id="incomeExpenseChart"></div>
       </div>
-    </div>
-
-    <div class="dashboard-section">
-      <h2 class="dashboard-section__title"><i class="bi bi-receipt"></i> Invoices</h2>
-      <div class="ledger-toolbar">
-        <div class="ledger-search"><i class="bi bi-search"></i><input type="text" id="financialInvoiceSearchInput" placeholder="Search invoices by number or entity…"></div>
-      </div>
-      <div class="table-responsive ledger-table-wrap">
-        <table class="table ledger-table">
-          <thead>
-            <tr><th>Invoice</th><th>Deal</th><th class="text-end">Amount</th><th>Status</th><th>Date</th><th>Due</th><th></th></tr>
-          </thead>
-          <tbody id="financialInvoicesTableBody"></tbody>
-        </table>
-      </div>
-      <div class="ledger-empty d-none" id="financialInvoicesEmptyState"><i class="bi bi-receipt"></i><p>No invoices yet — create one from a deal's detail view.</p></div>
     </div>
 
     <div class="dashboard-section">

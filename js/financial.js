@@ -450,11 +450,54 @@ invoiceStatusModalBody.addEventListener('click', (e) => {
   }
 });
 
+// ---------- Profitability Overview (sidebar) — net margin + income/expense bars ----------
+function renderFinProfitability() {
+  const el = document.getElementById('finProfitability');
+  if (!el) return;
+  const s = computeFinancialStats();
+  const totalIncome = s.collectedUSD + s.otherIncomeUSD;
+  const totalFlow = totalIncome + s.expensesUSD; // shared denominator so both bars are comparable
+  const incomePct = totalFlow > 0 ? Math.round((totalIncome / totalFlow) * 100) : 0;
+  const expensePct = totalFlow > 0 ? Math.round((s.expensesUSD / totalFlow) * 100) : 0;
+  const marginPct = totalIncome > 0 ? Math.round((s.netUSD / totalIncome) * 100) : 0;
+
+  el.innerHTML =
+    '<div class="fin-margin"><span class="fin-margin__figure' + (marginPct < 0 ? ' fin-margin__figure--negative' : '') + '">' + marginPct + '%</span><span class="fin-margin__label">Net margin</span></div>' +
+    '<div class="fin-bar-row"><span class="fin-bar-row__label">Income</span><span class="fin-bar-row__value">' + formatUSD(totalIncome) + '</span></div>' +
+    '<div class="fin-bar"><div class="fin-bar__fill fin-bar__fill--green" style="width:' + Math.max(2, incomePct) + '%"></div></div>' +
+    '<div class="fin-bar-row"><span class="fin-bar-row__label">Expenses</span><span class="fin-bar-row__value">' + formatUSD(s.expensesUSD) + '</span></div>' +
+    '<div class="fin-bar"><div class="fin-bar__fill fin-bar__fill--red" style="width:' + Math.max(2, expensePct) + '%"></div></div>';
+}
+
+// ---------- Active Debts (sidebar) — compact payable/receivable summary, links to the full Debts tab ----------
+function renderFinDebtsSummary() {
+  const el = document.getElementById('finDebtsSummary');
+  if (!el) return;
+  const debts = (typeof getDebts === 'function' ? getDebts() : []).filter(d => d.status === 'open');
+  const iOweUSD = debts.filter(d => d.direction === 'i_owe').reduce((s, d) => s + toUSD(d.amount, d.currency), 0);
+  const owedUSD = debts.filter(d => d.direction === 'owed_to_me').reduce((s, d) => s + toUSD(d.amount, d.currency), 0);
+
+  if (debts.length === 0) {
+    el.innerHTML = '<p class="chart-empty" style="padding:0.5rem 0;">No open debts.</p>';
+    return;
+  }
+  el.innerHTML =
+    '<div class="fin-debt-box fin-debt-box--danger"><span class="fin-debt-box__label">Payable</span><span class="fin-debt-box__figure">' + formatUSD(iOweUSD) + '</span></div>' +
+    '<div class="fin-debt-box fin-debt-box--green"><span class="fin-debt-box__label">Receivable</span><span class="fin-debt-box__figure">' + formatUSD(owedUSD) + '</span></div>';
+}
+
+document.getElementById('financialView').addEventListener('click', (e) => {
+  const jumpBtn = e.target.closest('[data-jump-view]');
+  if (jumpBtn) switchView(jumpBtn.dataset.jumpView);
+});
+
 // ---------- Orchestration ----------
 function renderFinancial() {
   renderFinancialStats();
   renderFinancialInvoicesTable();
   renderExpensesTable();
+  renderFinProfitability();
+  renderFinDebtsSummary();
   const financialViewEl = document.getElementById('financialView');
   if (financialViewEl && !financialViewEl.classList.contains('d-none')) {
     renderIncomeExpenseChart();

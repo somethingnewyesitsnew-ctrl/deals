@@ -293,3 +293,40 @@
   .cal-weekday::first-letter{ font-size: 0.66rem; }
   .cal-day{ min-height: 60px; }
 }
+
+/* ===== Financials tab: 8/4 split (invoices table + Profitability/Debts sidebar) ===== */
+.fin-split{ display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-4); align-items: start; }
+.fin-split__main, .fin-split__side{ min-width: 0; }
+.fin-split__side{ display: flex; flex-direction: column; gap: var(--sp-3); }
+@media (max-width: 980px){ .fin-split{ grid-template-columns: 1fr; } }
+
+.fin-invoice-search{ padding: 0.6rem 0.8rem 0; }
+.fin-invoice-search .ledger-search{ margin: 0; }
+
+.fin-side-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.85rem 0.95rem; }
+.fin-side-card h3{ font-family: var(--font-display); font-size: 0.85rem; font-weight: 700; margin: 0 0 0.75rem; display: flex; align-items: center; gap: 0.4rem; color: var(--text); }
+.fin-side-card h3 i{ color: var(--accent); }
+.fin-side-card__head-row{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.fin-side-card__head-row h3{ margin: 0; }
+
+.fin-margin{ text-align: center; padding-bottom: 0.85rem; margin-bottom: 0.85rem; border-bottom: 1px dashed var(--line); }
+.fin-margin__figure{ display: block; font-family: var(--font-mono); font-size: 2rem; font-weight: 700; color: var(--green); line-height: 1.1; }
+.fin-margin__figure--negative{ color: var(--red); }
+.fin-margin__label{ font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.fin-bar-row{ display: flex; justify-content: space-between; font-size: 0.76rem; margin-bottom: 0.25rem; }
+.fin-bar-row__label{ color: var(--text-dim); font-weight: 600; }
+.fin-bar-row__value{ font-family: var(--font-mono); color: var(--text); font-weight: 600; }
+.fin-bar{ width: 100%; height: 6px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; margin-bottom: 0.7rem; }
+.fin-bar:last-child{ margin-bottom: 0; }
+.fin-bar__fill{ height: 100%; border-radius: 999px; transition: width var(--motion-med); }
+.fin-bar__fill--green{ background: var(--green); }
+.fin-bar__fill--red{ background: var(--red); }
+
+.fin-debt-box{ display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.7rem; border-radius: var(--r-sm); margin-bottom: 0.4rem; }
+.fin-debt-box:last-child{ margin-bottom: 0; }
+.fin-debt-box--danger{ background: var(--red-soft); }
+.fin-debt-box--green{ background: var(--green-soft); }
+.fin-debt-box__label{ font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
+.fin-debt-box__figure{ font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; }
+.fin-debt-box--danger .fin-debt-box__figure{ color: var(--red); }
+.fin-debt-box--green .fin-debt-box__figure{ color: var(--green); }
