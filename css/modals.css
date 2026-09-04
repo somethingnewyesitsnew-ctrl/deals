@@ -122,14 +122,19 @@
 .status-box--danger{ --tone-color: var(--red); } .status-box--danger .status-box__value{ color: var(--red); }
 .status-box--slate .status-box__value{ color: var(--text-dim); }
 
-.update-list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 320px; overflow-y: auto; }
-.update-item{ display: flex; gap: 0.75rem; padding: 0.65rem 0.8rem; background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); }
-.update-item__when{ flex-shrink: 0; width: 76px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); font-weight: 600; line-height: 1.4; }
-.update-item__time{ display: block; color: var(--text-faint); font-weight: 500; }
-.update-item__body{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
-.update-item__note{ font-size: 0.82rem; color: var(--text); margin: 0; line-height: 1.5; }
-.update-item__meta{ font-size: 0.72rem; color: var(--text-faint); }
-.update-item__remove{ flex-shrink: 0; align-self: flex-start; border: none; background: none; color: var(--text-faint); font-size: 0.8rem; padding: 0.2rem 0.3rem; border-radius: var(--r-sm); }
+/* Connected vertical activity timeline — ported from the mockup: a left
+   border line with a dot per entry, the most recent one solid/larger,
+   replacing the old stacked-card update list. */
+.update-timeline{ list-style: none; margin: 0; padding: 0 0 0 1.1rem; position: relative; border-left: 2px solid var(--line); max-height: 320px; overflow-y: auto; }
+.update-timeline__item{ position: relative; padding-bottom: 1rem; }
+.update-timeline__item:last-child{ padding-bottom: 0.1rem; }
+.update-timeline__dot{ position: absolute; left: -1.45rem; top: 0.2rem; width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); border: 3px solid var(--bg-raise); box-shadow: 0 0 0 1px var(--line-strong); }
+.update-timeline__dot--latest{ width: 11px; height: 11px; left: -1.51rem; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.update-timeline__head{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.update-timeline__title{ font-size: 0.84rem; font-weight: 700; color: var(--text); margin: 0; flex: 1; min-width: 0; }
+.update-timeline__when{ font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-faint); margin: 0.25rem 0 0; }
+.update-item__meta{ font-size: 0.72rem; color: var(--text-faint); margin-top: 0.15rem; }
+.update-item__remove{ flex-shrink: 0; border: none; background: none; color: var(--text-faint); font-size: 0.78rem; padding: 0.15rem 0.3rem; border-radius: var(--r-sm); }
 .update-item__remove:hover{ background: var(--red-soft); color: var(--red); }
 
 /* Documents */

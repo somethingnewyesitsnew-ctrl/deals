@@ -101,25 +101,33 @@ function openDetailModal(dealId) {
       '</div>'
     : '';
 
+  // Timeline — ported from the mockup's connected vertical activity feed:
+  // a left border line with a dot per entry (the most recent one solid
+  // and larger, matching the mockup's filled-vs-hollow distinction),
+  // rather than the previous stacked-card list.
   const updatesHtml = (deal.commLog && deal.commLog.length)
-    ? '<ul class="update-list">' + deal.commLog
+    ? '<ul class="update-timeline">' + deal.commLog
         .slice()
         .sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''))
-        .map(entry => {
+        .map((entry, i) => {
           const dayLabel = relativeDayLabel(entryDateKey(entry));
           const time = (entry.datetime && entry.datetime.includes('T'))
             ? new Date(entry.datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
             : '';
           const metaBits = [entry.channel, entry.action, entry.nextStep ? (entry.nextStep + (entry.nextStepDate ? ' (' + relativeDayLabel(entry.nextStepDate) + ')' : '')) : null].filter(Boolean).map(escapeHtml);
+          const title = entry.note || entry.action || entry.channel || 'Update';
 
-          return '<li class="update-item" data-id="' + entry.id + '">' +
-            '<div class="update-item__when">' + escapeHtml(dayLabel) + (time ? ' <span class="update-item__time">' + time + '</span>' : '') + '</div>' +
-            '<div class="update-item__body">' +
-              statusBadge(entry.status) +
-              (entry.note ? '<p class="update-item__note">' + escapeHtml(entry.note) + '</p>' : '') +
+          return '<li class="update-timeline__item" data-id="' + entry.id + '">' +
+            '<span class="update-timeline__dot' + (i === 0 ? ' update-timeline__dot--latest' : '') + '"></span>' +
+            '<div class="update-timeline__body">' +
+              '<div class="update-timeline__head">' +
+                '<p class="update-timeline__title">' + escapeHtml(title) + '</p>' +
+                statusBadge(entry.status) +
+                '<button type="button" class="update-item__remove" data-remove-update="' + entry.id + '" aria-label="Remove update"><i class="bi bi-trash3"></i></button>' +
+              '</div>' +
               (metaBits.length ? '<div class="update-item__meta">' + metaBits.join(' <span class="meta-dot">·</span> ') + '</div>' : '') +
+              '<p class="update-timeline__when">' + escapeHtml(dayLabel) + (time ? ', ' + time : '') + '</p>' +
             '</div>' +
-            '<button type="button" class="update-item__remove" data-remove-update="' + entry.id + '" aria-label="Remove update"><i class="bi bi-trash3"></i></button>' +
           '</li>';
         }).join('') + '</ul>'
     : '<p class="no-referral">No updates logged yet.</p>';
