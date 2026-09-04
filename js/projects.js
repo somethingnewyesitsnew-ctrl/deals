@@ -37,10 +37,11 @@ const DEFAULT_PHASE_TEMPLATES = {
   other: ['Planning', 'Execution', 'Delivery'],
 };
 
-const projectsListEl = document.getElementById('projectsList');
+const projectsTableBodyEl = document.getElementById('projectsTableBody');
 const projectsEmptyState = document.getElementById('projectsEmptyState');
 const projectsFilterBar = document.getElementById('projectsFilterBar');
 const projectsSummaryEl = document.getElementById('projectsSummary');
+const projMilestonesListEl = document.getElementById('projMilestonesList');
 
 let projectsActiveFilter = 'active'; // 'active' | 'not_started' | 'on_hold' | 'delivered' | 'all'
 
@@ -71,32 +72,69 @@ function renderProjectsFilterBar(all) {
   ).join('');
 }
 
-function projectCard(project) {
+// Table row — ported from the mockup's project table: name+type stacked,
+// a status chip with a progress bar underneath it (not a separate
+// column), a lead "avatar" initial, and budget in the deal's dual
+// currency. Every project has a real "lead" here since this is a
+// single-person shop — shown as your own initial, matching the
+// mockup's per-row assignee avatar without needing a team/user system.
+function projectTableRow(project) {
   const typeMeta = PROJECT_TYPE_META[project.type] || PROJECT_TYPE_META.other;
   const progress = projectPhaseProgress(project);
   const deal = project.dealId ? getDeals().find(d => d.id === project.dealId) : null;
   const clientLabel = deal ? (deal.entityName || 'Untitled entity') : project.clientName;
-  const taskCount = getTodos().filter(t => (t.links || []).some(l => l.type === 'project' && l.id === project.id)).length;
-  const openTaskCount = getTodos().filter(t => t.status === 'open' && (t.links || []).some(l => l.type === 'project' && l.id === project.id)).length;
+  const budgetHtml = deal ? formatDualCurrency(deal.value, deal.currency) : '<span class="no-referral">—</span>';
 
   return '' +
-    '<button type="button" class="project-card" data-open-project="' + project.id + '">' +
-      '<div class="project-card__head">' +
-        '<span class="project-card__type"><i class="bi ' + typeMeta.icon + '"></i>' + typeMeta.label + '</span>' +
+    '<tr class="row-clickable" data-open-project="' + project.id + '">' +
+      '<td>' +
+        '<span class="deal-name">' + escapeHtml(project.name) + '</span>' +
+        '<div class="deal-meta"><span class="type-word">' + typeMeta.label + '</span>' + (clientLabel ? ' <span class="meta-dot">·</span> ' + escapeHtml(clientLabel) : '') + '</div>' +
+      '</td>' +
+      '<td class="proj-progress-cell">' +
         '<span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[project.status] + '">' + WORK_STATUS_LABELS[project.status] + '</span>' +
-      '</div>' +
-      '<div class="project-card__name">' + escapeHtml(project.name) + '</div>' +
-      (clientLabel ? '<div class="project-card__client"><i class="bi ' + (deal ? 'bi-journal-text' : 'bi-building') + '"></i>' + escapeHtml(clientLabel) + '</div>' : '') +
-      (progress.total ? '' +
-        '<div class="project-card__progress">' +
-          '<div class="project-card__progress-bar"><span style="width:' + progress.pct + '%"></span></div>' +
-          '<span class="project-card__progress-label">' + progress.done + '/' + progress.total + ' phases</span>' +
-        '</div>' : '<p class="no-referral mb-0">No phases set yet.</p>') +
-      '<div class="project-card__foot">' +
-        (project.targetDate ? '<span><i class="bi bi-calendar-event"></i>' + escapeHtml(relativeDayLabel(project.targetDate)) + '</span>' : '<span class="no-referral">No target date</span>') +
-        (taskCount ? '<span><i class="bi bi-list-check"></i>' + openTaskCount + '/' + taskCount + ' tasks</span>' : '') +
-      '</div>' +
-    '</button>';
+        (progress.total
+          ? '<div class="proj-progress-bar" title="' + progress.done + '/' + progress.total + ' phases"><div class="proj-progress-bar__fill" style="width:' + progress.pct + '%"></div></div>'
+          : '<span class="no-referral proj-progress-none">No phases set</span>') +
+      '</td>' +
+      '<td><span class="proj-lead-avatar" title="You"><i class="bi bi-person-fill"></i></span></td>' +
+      '<td class="text-end deal-value">' + budgetHtml + '</td>' +
+      '<td><i class="bi bi-chevron-right" style="color:var(--text-faint)"></i></td>' +
+    '</tr>';
+}
+
+// Recent Milestones (sidebar) — every project's most recently completed
+// or in-progress phase, most recent first; a compact activity feed
+// version of what the project cards used to show individually.
+function renderProjMilestones(all) {
+  if (!projMilestonesListEl) return;
+  const events = [];
+  all.forEach(p => {
+    (p.phases || []).forEach(phase => {
+      if (phase.status === 'done' || phase.status === 'in_progress') {
+        events.push({ project: p, phase, order: phase.status === 'done' ? 1 : 0 });
+      }
+    });
+  });
+  // No per-phase timestamp exists — order by the project's own updatedAt
+  // (most recently touched project surfaces its milestones first), done
+  // phases ahead of in-progress ones within that.
+  events.sort((a, b) => (b.project.updatedAt || 0) - (a.project.updatedAt || 0) || b.order - a.order);
+
+  if (events.length === 0) {
+    projMilestonesListEl.innerHTML = '<p class="chart-empty" style="padding:0.5rem 0;">No phases logged yet.</p>';
+    return;
+  }
+
+  projMilestonesListEl.innerHTML = events.slice(0, 8).map(ev => '' +
+    '<button type="button" class="proj-milestone" data-open-project="' + ev.project.id + '">' +
+      '<span class="proj-milestone__dot proj-milestone__dot--' + (ev.phase.status === 'done' ? 'done' : 'active') + '"></span>' +
+      '<span class="proj-milestone__body">' +
+        '<span class="proj-milestone__title">' + escapeHtml(ev.phase.name) + '</span>' +
+        '<span class="proj-milestone__sub">' + escapeHtml(ev.project.name) + ' · ' + (ev.phase.status === 'done' ? 'Completed' : 'In progress') + '</span>' +
+      '</span>' +
+    '</button>'
+  ).join('');
 }
 
 function renderProjects() {
@@ -119,16 +157,17 @@ function renderProjects() {
   ).join('');
 
   renderProjectsFilterBar(all);
+  renderProjMilestones(all);
 
   const visible = all.filter(p => matchesProjectFilter(p, projectsActiveFilter))
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   if (visible.length === 0) {
-    projectsListEl.innerHTML = '';
+    projectsTableBodyEl.innerHTML = '';
     projectsEmptyState.classList.remove('d-none');
   } else {
     projectsEmptyState.classList.add('d-none');
-    projectsListEl.innerHTML = visible.map(projectCard).join('');
+    projectsTableBodyEl.innerHTML = visible.map(projectTableRow).join('');
   }
 }
 
@@ -139,7 +178,11 @@ projectsFilterBar.addEventListener('click', (e) => {
   renderProjects();
 });
 
-projectsListEl.addEventListener('click', (e) => {
+projectsTableBodyEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-open-project]');
+  if (btn) openProjectModal(btn.dataset.openProject);
+});
+projMilestonesListEl.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-open-project]');
   if (btn) openProjectModal(btn.dataset.openProject);
 });

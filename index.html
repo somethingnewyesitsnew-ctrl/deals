@@ -296,8 +296,27 @@
     <div class="attention-summary" id="projectsSummary"></div>
     <div class="todo-filter-bar" id="projectsFilterBar"></div>
 
-    <div class="project-grid" id="projectsList"></div>
-    <div class="ledger-empty d-none" id="projectsEmptyState"><i class="bi bi-kanban"></i><p>No projects yet — convert a Won deal into one, or start a new project from the + button.</p></div>
+    <div class="proj-split">
+      <div class="proj-split__main">
+        <div class="dash-card">
+          <div class="table-responsive">
+            <table class="table ledger-table">
+              <thead>
+                <tr><th>Project</th><th>Status &amp; progress</th><th>Lead</th><th class="text-end">Budget</th><th class="col-actions"></th></tr>
+              </thead>
+              <tbody id="projectsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ledger-empty d-none" id="projectsEmptyState"><i class="bi bi-kanban"></i><p>No projects yet — convert a Won deal into one, or start a new project from the + button.</p></div>
+      </div>
+      <div class="fin-split__side">
+        <div class="fin-side-card">
+          <h3><i class="bi bi-flag"></i> Recent Milestones</h3>
+          <div id="projMilestonesList"></div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ ATTENTION ============ -->
