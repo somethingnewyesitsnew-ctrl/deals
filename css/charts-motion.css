@@ -45,7 +45,7 @@
 @media (max-width: 760px){ .spotlight-row{ grid-template-columns: 1fr; } }
 .spotlight-card{ background: linear-gradient(135deg, var(--accent-soft), transparent); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.85rem 0.95rem; display: flex; flex-direction: column; }
 .spotlight-card h3{ display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-display); font-size: 0.88rem; font-weight: 700; margin: 0 0 0.6rem; color: var(--text); }
-.spotlight-card h3 i{ color: #E3B341; }
+.spotlight-card h3 i{ color: var(--gold); }
 .spotlight-card__row{ display: flex; justify-content: space-between; align-items: baseline; padding: 0.35rem 0; border-bottom: 1px dashed var(--line); font-size: 0.8rem; }
 .spotlight-card__row:last-of-type{ border-bottom: none; }
 .spotlight-card__row span:first-child{ color: var(--text-faint); }
@@ -61,7 +61,7 @@
 .leaderboard-row__value{ font-size: 0.78rem; font-weight: 700; color: var(--text); }
 
 .charts-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
-.chart-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.8rem 0.9rem; box-shadow: var(--shadow-md); }
+.chart-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.8rem 0.9rem; }
 .chart-card--wide{ grid-column: 1 / -1; }
 .chart-card h3{ font-family: var(--font-display); font-size: 0.88rem; font-weight: 600; margin: 0 0 0.45rem; color: var(--text); }
 .chart-card p.chart-sub{ font-size: 0.76rem; color: var(--text-faint); margin: -0.55rem 0 0.85rem; }

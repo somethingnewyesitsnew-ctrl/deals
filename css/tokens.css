@@ -58,6 +58,11 @@
   --red:         #B91C1C;
   --red-soft:    rgba(239,68,68,0.10);
   --slate-soft:  rgba(15,23,42,0.05);
+  /* gold is its own hue, distinct from amber — amber means "needs attention",
+     gold means "this is the standout one" (spotlight star, top-rank badge).
+     Conflating the two would make a trophy icon look like a warning. */
+  --gold:        #C48A1F;
+  --focus-ring:  rgba(56,189,248,0.20);
 
   /* spacing ramp */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
@@ -122,6 +127,8 @@
   --red:         #F87171;
   --red-soft:    rgba(248,113,113,0.14);
   --slate-soft:  rgba(255,255,255,0.06);
+  --gold:        #E3B341;
+  --focus-ring:  rgba(56,189,248,0.28);
 
   --shadow-sm: none;
   --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.30), 0 4px 6px -4px rgba(0,0,0,0.24);
@@ -149,7 +156,7 @@ body{
 ::-webkit-scrollbar-thumb{ background: var(--line-strong); border-radius: var(--r-sm); }
 
 .form-select, .form-control{ background-color: var(--bg-raise); color: var(--text); border-color: var(--line-strong); font-size: 14px; border-radius: var(--r-sm); }
-.form-select:focus, .form-control:focus{ background-color: var(--bg-raise); color: var(--text); border-color: var(--focus); box-shadow: 0 0 0 2px rgba(56,189,248,0.20); }
+.form-select:focus, .form-control:focus{ background-color: var(--bg-raise); color: var(--text); border-color: var(--focus); box-shadow: 0 0 0 2px var(--focus-ring); }
 .form-control::placeholder{ color: var(--text-faint); }
 .form-label{ font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
 .link-btn{ border: none; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; }

@@ -1,7 +1,7 @@
 /* table.css — the shared table look (Deals/Referrals/Contacts/Entities), badges & chips, empty states. */
 
 /* ===== Table (shared) ===== */
-.ledger-table-wrap{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; box-shadow: var(--shadow-md); }
+.ledger-table-wrap{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
 .ledger-table{ margin-bottom: 0; color: var(--text); table-layout: fixed; width: 100%; }
 .ledger-table thead th{ font-family: var(--font-body); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); border-bottom: 1px solid var(--line); font-weight: 700; padding: 0.55rem 0.8rem; white-space: nowrap; background: var(--surface); position: sticky; top: 0; z-index: 3; }
 .ledger-table thead th.sortable{ cursor: pointer; user-select: none; }
