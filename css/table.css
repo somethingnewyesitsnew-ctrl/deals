@@ -19,11 +19,12 @@
 .ledger-table--roomy tbody td{ vertical-align: middle; padding-top: 0.5rem; padding-bottom: 0.5rem; }
 
 .col-index{ width: 56px; }
-.col-entity{ width: 30%; }
-.col-value{ width: 16%; }
-.col-status{ width: 13%; }
-.col-referral{ width: 13%; }
-.col-timeline{ width: 16%; }
+.col-entity{ width: 24%; }
+.col-contact{ width: 14%; }
+.col-value{ width: 15%; }
+.col-status{ width: 12%; }
+.col-referral{ width: 11%; }
+.col-timeline{ width: 15%; }
 .col-actions{ width: 48px; }
 .row-index{ font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -51,6 +52,9 @@
 .meta-dot{ color: var(--line-strong); }
 .deal-recent-update{ font-size: 0.68rem; color: var(--text-dim); margin-top: 0.2rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .deal-recent-update i{ color: var(--text-faint); }
+
+.contact-cell__name{ font-size: 0.82rem; color: var(--text); font-weight: 500; }
+.contact-cell__email{ font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .value-payment-cell{ display: flex; flex-direction: column; gap: 0.25rem; }
 .deal-value{ font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.35; }

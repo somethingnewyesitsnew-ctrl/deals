@@ -27,17 +27,34 @@ function fieldRow(label, value) {
     '<span class="detail-field__value">' + (value ? escapeHtml(value) : '<span class="no-referral">—</span>') + '</span></div>';
 }
 
+// Contact card — ported from the mockup's "Primary Contact" pattern:
+// a circular avatar with initials, name + role/relation, then
+// email/phone as icon rows underneath.
+function initialsOf(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
 function personCard(title, person) {
   person = person || {};
   if (!person.name && !person.number && !person.email && !person.relation) {
     return '<div class="detail-card"><h4>' + title + '</h4><p class="no-referral">Not recorded.</p></div>';
   }
+  const rows = [];
+  if (person.email) rows.push('<div class="person-card__row"><i class="bi bi-envelope"></i>' + escapeHtml(person.email) + '</div>');
+  if (person.number) rows.push('<div class="person-card__row"><i class="bi bi-telephone"></i>' + escapeHtml(person.number) + '</div>');
+
   return '<div class="detail-card"><h4>' + title + '</h4>' +
-    fieldRow('Name', person.name) +
-    fieldRow('Number', person.number) +
-    fieldRow('Email', person.email) +
-    fieldRow('Relation with us', person.relation) +
-    '</div>';
+    '<div class="person-card__head">' +
+      '<span class="person-card__avatar">' + escapeHtml(initialsOf(person.name)) + '</span>' +
+      '<div>' +
+        '<div class="person-card__name">' + escapeHtml(person.name || 'Unnamed') + '</div>' +
+        (person.relation ? '<div class="person-card__role">' + escapeHtml(person.relation) + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+    (rows.length ? '<div class="person-card__rows">' + rows.join('') + '</div>' : '') +
+  '</div>';
 }
 
 // ---------- Main render ----------
@@ -55,6 +72,26 @@ function closeDateStatus(deal) {
 // last activity, referral, invoices — so the essentials of a deal read in
 // one scan instead of hunting through the cards below.
 const RELATIONSHIP_TONE = { excellent: 'green', good: 'cyan', neutral: 'slate', issues: 'amber', bad: 'danger' };
+
+// Value Summary box — ported from the mockup: two figures side by side
+// in one bordered strip. Real deals don't track a numeric "win
+// probability" (stage is qualitative, not scored), so the right side
+// shows payment status instead — a real, non-fabricated number that
+// answers the same "how's this actually doing" question.
+function valueSummaryBox(deal) {
+  const payment = dealPaymentStatus(deal);
+  return '' +
+    '<div class="value-summary-box">' +
+      '<div>' +
+        '<p class="value-summary-box__label">Deal Value</p>' +
+        '<div class="value-summary-box__figure">' + formatUSD(toUSD(deal.value, deal.currency)) + '</div>' +
+      '</div>' +
+      '<div class="value-summary-box__side">' +
+        '<p class="value-summary-box__label">Payment</p>' +
+        '<div class="value-summary-box__status value-summary-box__status--' + payment.tone + '">' + payment.label + '</div>' +
+      '</div>' +
+    '</div>';
+}
 
 function renderStatusBoxes(deal) {
   const timeline = closeDateStatus(deal);
@@ -143,6 +180,7 @@ function openDetailModal(dealId) {
       '<div class="detail-value">' + formatDualCurrency(deal.value, deal.currency) + '</div>' +
     '</div>' +
 
+    valueSummaryBox(deal) +
     renderStatusBoxes(deal) +
 
     '<div class="detail-card">' +

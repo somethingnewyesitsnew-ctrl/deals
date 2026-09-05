@@ -336,6 +336,19 @@ function renderDealsAnalytics(allDeals) {
 }
 
 // ---------- Row rendering ----------
+// Ported from the mockup's "Contact" table column — name + email
+// stacked. Real deals track a firstContact person; falls back to the
+// project manager if there's no first contact on file, and to an em
+// dash if neither is set (never fabricates a name).
+function contactCellHtml(deal) {
+  const person = (deal.firstContact && deal.firstContact.name) ? deal.firstContact
+    : (deal.projectManager && deal.projectManager.name) ? deal.projectManager
+    : null;
+  if (!person) return '<span class="no-referral">—</span>';
+  return '<div class="contact-cell__name">' + escapeHtml(person.name) + '</div>' +
+    (person.email ? '<div class="contact-cell__email">' + escapeHtml(person.email) + '</div>' : '');
+}
+
 function paymentCellHtml(deal) {
   const status = dealPaymentStatus(deal);
   const remainingText = status.remainingUSD > 0.01 ? formatUSD(status.remainingUSD) + ' left' : '';
@@ -409,6 +422,7 @@ function renderDealRow(deal) {
         metaHtml +
         recentHtml +
       '</td>' +
+      '<td class="contact-cell">' + contactCellHtml(deal) + '</td>' +
       '<td class="value-payment-cell">' +
         '<div class="deal-value">' + formatDualCurrency(deal.value, deal.currency) + '</div>' +
         paymentCellHtml(deal) +

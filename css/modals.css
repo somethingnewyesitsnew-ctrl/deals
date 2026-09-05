@@ -111,6 +111,28 @@
 .detail-notes{ font-size: 0.82rem; color: var(--text-dim); white-space: pre-wrap; margin: 0; line-height: 1.55; }
 
 /* status boxes — left-accent bar, matches the rest of the app's stat treatment */
+/* Value Summary box — ported from the mockup: two figures side by side
+   in one bordered strip, sitting right under the drawer's title. */
+.value-summary-box{ display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.7rem 0.9rem; margin-bottom: var(--sp-3); }
+.value-summary-box__label{ font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin: 0 0 0.2rem; }
+.value-summary-box__figure{ font-family: var(--font-mono); font-size: 1.15rem; font-weight: 700; color: var(--text); }
+.value-summary-box__side{ text-align: right; }
+.value-summary-box__status{ font-family: var(--font-display); font-size: 1rem; font-weight: 700; }
+.value-summary-box__status--green{ color: var(--green); }
+.value-summary-box__status--amber{ color: var(--amber); }
+.value-summary-box__status--danger{ color: var(--red); }
+.value-summary-box__status--slate{ color: var(--text-dim); }
+
+/* Contact card — ported from the mockup's "Primary Contact": a round
+   avatar with initials, name + role, then icon rows for email/phone. */
+.person-card__head{ display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.6rem; }
+.person-card__avatar{ flex-shrink: 0; width: 2.4rem; height: 2.4rem; border-radius: 50%; background: var(--surface-hi); color: var(--text-dim); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }
+.person-card__name{ font-size: 0.88rem; font-weight: 700; color: var(--text); }
+.person-card__role{ font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); margin-top: 0.1rem; }
+.person-card__rows{ display: flex; flex-direction: column; gap: 0.35rem; }
+.person-card__row{ display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
+.person-card__row i{ color: var(--text-faint); font-size: 0.85rem; width: 1rem; text-align: center; }
+
 .status-box-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 0.5rem; margin-bottom: var(--sp-3); }
 .status-box{ position: relative; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--tone-color, var(--line-strong)); border-radius: var(--r-sm); padding: 0.45rem 0.6rem; display: flex; flex-direction: column; gap: 0.15rem; }
 .status-box__label{ font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
