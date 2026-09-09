@@ -128,11 +128,13 @@
     <main class="win-content">
 
   <!-- ============ DASHBOARD ============
-       (kept id="todayView" / "today*" internally). Restructured to match
-       the Stitch mockup's dashboard layout: a KPI bento row, an 8/4 split
-       (a "Needs Attention" feed on the left, a real working mini-calendar
-       on the right), a full-width pipeline-by-stage bar, then a Recent
-       Deals table. -->
+       (kept id="todayView" / "today*" internally). A "Command Center"
+       bento grid — deliberately a different information design from a
+       uniform KPI-row + split-panel layout: mixed cell sizes carry
+       different weight (a real historical pipeline-trend chart gets 2x2,
+       a revenue-goal gauge gets a tall 1x2, single numbers get compact
+       1x1 tiles), a condensed one-line-per-item attention ticker instead
+       of a card feed, and a stage-mix donut instead of a bar. -->
   <section class="ledger-view" id="todayView">
     <div class="page-header">
       <div>
@@ -141,46 +143,54 @@
       </div>
     </div>
 
-    <div class="attention-summary" id="todayStats"></div>
-
-    <div class="dash-split">
-      <div class="dash-split__main">
-        <div class="dash-section-head"><i class="bi bi-exclamation-triangle-fill"></i><h2>Needs Attention</h2><button type="button" class="dash-card__more" data-jump-view="attention">View all</button></div>
-        <div class="dash-card dash-card--feed">
-          <div id="dashAttentionList" class="dash-attention-feed"></div>
+    <div class="bento-grid">
+      <div class="bento-card bento-card--hero">
+        <div class="bento-card__head">
+          <span class="bento-card__label">Pipeline &amp; Collected</span>
         </div>
+        <div class="bento-hero__figure" id="bentoHeroFigure">$0</div>
+        <span class="bento-hero__delta" id="bentoHeroDelta">Open pipeline value</span>
+        <div id="bentoTrendChart" class="bento-card__chart bento-card__chart--grow"></div>
       </div>
-      <div class="dash-split__side">
-        <div class="dash-calendar-card">
-          <div class="dash-calendar-card__head">
-            <h2 id="dashCalTitle">Month Year</h2>
-            <div class="dash-calendar-card__nav">
-              <button type="button" id="dashCalPrevBtn" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
-              <button type="button" id="dashCalNextBtn" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
-            </div>
-          </div>
-          <div id="dashCalGrid" class="dash-calendar-card__grid"></div>
-          <div class="dash-calendar-card__upcoming">
-            <span class="dash-calendar-card__upcoming-label">Upcoming today</span>
-            <div id="dashCalUpcoming"></div>
-          </div>
+
+      <div class="bento-card bento-card--tall">
+        <span class="bento-card__label">Revenue Goal</span>
+        <div id="bentoGoalRadial" class="bento-card__chart bento-card__chart--radial"></div>
+        <div class="bento-goal__figures" id="bentoGoalFigures"></div>
+      </div>
+
+      <div class="bento-card bento-card--sm">
+        <span class="bento-card__label">Win Rate</span>
+        <div class="bento-sm__figure" id="bentoWinRateFigure">—</div>
+        <span class="bento-sm__sub" id="bentoWinRateSub"></span>
+      </div>
+
+      <div class="bento-card bento-card--sm">
+        <span class="bento-card__label">Avg Deal Size</span>
+        <div class="bento-sm__figure" id="bentoAvgDealFigure">—</div>
+        <span class="bento-sm__sub" id="bentoAvgDealSub"></span>
+      </div>
+
+      <div class="bento-card bento-card--wide">
+        <div class="bento-card__head">
+          <span class="bento-card__label">Needs Attention</span>
+          <button type="button" class="dash-card__more" data-jump-view="attention">View all</button>
         </div>
+        <div id="bentoTicker" class="bento-ticker"></div>
       </div>
-    </div>
 
-    <div class="dashboard-section">
-      <h2 class="dashboard-section__title"><i class="bi bi-pie-chart"></i> Pipeline by stage</h2>
-      <div class="dash-card">
-        <div id="dashStageBar" class="dash-card__body dash-card__body--tall"></div>
+      <div class="bento-card bento-card--wide">
+        <span class="bento-card__label">Pipeline by Stage</span>
+        <div id="bentoStageDonut" class="bento-card__chart"></div>
       </div>
-    </div>
 
-    <div class="dash-card dash-card--wide">
-      <div class="dash-card__head">
-        <h3><i class="bi bi-journal-text"></i> Recent deals</h3>
-        <button type="button" class="dash-card__more" data-jump-view="deals">View all deals <i class="bi bi-arrow-right"></i></button>
+      <div class="bento-card bento-card--full">
+        <div class="bento-card__head">
+          <span class="bento-card__label">Recent Deals</span>
+          <button type="button" class="dash-card__more" data-jump-view="deals">View all deals <i class="bi bi-arrow-right"></i></button>
+        </div>
+        <div id="dashDealsTable" class="dash-card__table-body"></div>
       </div>
-      <div id="dashDealsTable" class="dash-card__table-body"></div>
     </div>
   </section>
 

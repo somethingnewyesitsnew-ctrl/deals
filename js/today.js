@@ -3,29 +3,30 @@
    ------------------------------------------------------------
    The landing tab — internally still called "today" (ids like
    #todayView, functions like renderToday()) for historical
-   reasons, but it's now the single-screen Dashboard: a KPI strip,
-   three compact panels (Needs attention / Today & upcoming /
-   Pipeline by stage), and a condensed recent-deals table. Nothing
-   here is stored — everything is read live from deals (via
-   storage.js), attention.js's buckets, and updates.js's follow-up
-   helpers, the same way every other computed view in this app
-   works. Each panel is capped at a handful of rows with its own
-   scroll, specifically so the page itself doesn't need to scroll
-   to see "everything" — click any row, or a panel's "View all",
-   to drill into the full tab or the deal's own detail popup.
+   reasons, but visually it's now a "Command Center" bento grid,
+   deliberately a different information design from a uniform
+   KPI-row: mixed cell sizes carry different weight — a real
+   historical pipeline-trend chart (built from metric_snapshots,
+   never a synthetic/fabricated series) gets the big 2x2 hero cell,
+   a revenue-goal radial gauge gets a tall 1x2, single numbers
+   get compact 1x1 tiles, attention items render as a condensed
+   one-line ticker instead of a card feed, and pipeline mix is a
+   donut instead of a bar.
 
-   Depends on: storage.js, updates.js (statusBadge, relativeDayLabel,
-   entryDateKey, followUpState), attention.js (buildAttentionGroups,
-   getAttentionCounts), deals-shared.js (formatIndex, relationshipDot,
-   isOverdue), deals-detail.js (openDetailModal), app.js (switchView).
+   Nothing here is stored — everything is read live from deals,
+   metric snapshots, and attention.js's unified ranked list, the
+   same way every other computed view in this app works.
+
+   Depends on: storage.js, charts.js (chartBase, isDarkTheme,
+   computeOverviewStats, getMetricDelta, monthLabel), attention.js
+   (buildUnifiedAttentionItems, ATTENTION_KIND_LABEL), invoices.js
+   (getTotalCollectedUSD), updates.js (entryDateKey), deals-shared.js
+   (isOverdue), deals-detail.js (openDetailModal), app.js (switchView).
 
    Exposes: renderToday(), buildTodaySections()
    ============================================================ */
 
 const todayGreetingEl = document.getElementById('todayGreeting');
-const todayStatsEl = document.getElementById('todayStats');
-const dashAttentionListEl = document.getElementById('dashAttentionList');
-const dashStageBarEl = document.getElementById('dashStageBar');
 const dashDealsTableEl = document.getElementById('dashDealsTable');
 
 function greetingWord() {
@@ -35,7 +36,7 @@ function greetingWord() {
   return 'Good evening';
 }
 
-// ---------- "Today & upcoming" data (still used by app.js's tab badge) ----------
+// ---------- "Today & upcoming" data — still used by app.js's tab badge ----------
 function collectAllUpdates() {
   const list = [];
   getDeals().forEach(deal => {
@@ -79,177 +80,176 @@ function buildTodaySections() {
   return { todayItems, upcomingItems };
 }
 
-// ---------- KPI strip ----------
-function renderDashboardStats() {
-  const deals = getDeals();
-  const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
-  const openValueUSD = openDeals.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  const wonUSD = deals.filter(d => d.stage === 'won').reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  const collectedUSD = getTotalCollectedUSD();
+// ---------- Hero cell: real open-pipeline figure + 7-day delta + trend chart ----------
+let bentoTrendChartInstance = null;
 
-  const { todayItems } = buildTodaySections();
-  const attentionCount = typeof getAttentionCounts === 'function' ? getAttentionCounts() : 0;
+function renderBentoHeroFigure() {
+  const figureEl = document.getElementById('bentoHeroFigure');
+  const deltaEl = document.getElementById('bentoHeroDelta');
+  if (!figureEl || !deltaEl) return;
 
-  // Deliberately restrained palette: gray by default, green only for
-  // money you've actually earned, red only for the one tile that's
-  // genuinely urgent (and only when there's something in it). Every
-  // tile having its own color turned this into a rainbow strip that
-  // fought for attention instead of directing it — a KPI row should
-  // make the ONE thing that needs a look obvious, not compete with five
-  // others that don't.
-  todayStatsEl.innerHTML = [
-    { label: 'Deals', figure: deals.length, icon: 'bi-collection', tone: 'slate', view: 'deals' },
-    { label: 'Open pipeline', figure: formatUSD(openValueUSD), icon: 'bi-graph-up', tone: 'cyan', view: 'deals' },
-    { label: 'Won', figure: formatUSD(wonUSD), icon: 'bi-trophy', tone: 'green', view: 'deals' },
-    { label: 'Collected', figure: formatUSD(collectedUSD), icon: 'bi-cash-stack', tone: 'green', view: 'deals' },
-    { label: 'Needs attention', figure: attentionCount, icon: 'bi-bell', tone: attentionCount > 0 ? 'danger' : 'slate', view: 'attention', highlight: attentionCount > 0 },
-    { label: 'Scheduled today', figure: todayItems.length, icon: 'bi-sun', tone: 'slate', view: 'calendar' },
-  ].map(s =>
-    '<button type="button" class="attention-stat attention-stat--' + s.tone + (s.highlight ? ' attention-stat--highlight' : '') + ' attention-stat--clickable" data-jump-view="' + s.view + '">' +
-      '<i class="bi ' + s.icon + '"></i>' +
-      '<span class="attention-stat__figure">' + s.figure + '</span>' +
-      '<span class="attention-stat__label">' + s.label + '</span>' +
-    '</button>'
-  ).join('');
+  const openDeals = getDeals().filter(d => d.stage !== 'won' && d.stage !== 'lost');
+  const pipelineUSD = openDeals.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
+  figureEl.textContent = formatUSD(pipelineUSD);
+
+  const delta = typeof getMetricDelta === 'function' ? getMetricDelta('pipelineUSD', pipelineUSD, 7) : null;
+  if (delta && delta.direction !== 'flat') {
+    deltaEl.className = 'bento-hero__delta kpi-delta kpi-delta--' + (delta.direction === 'up' ? 'good' : 'bad');
+    deltaEl.innerHTML = (delta.direction === 'up' ? '▲ ' : '▼ ') + formatUSD(Math.abs(delta.delta)) + ' vs 7 days ago';
+  } else {
+    deltaEl.className = 'bento-hero__delta kpi-delta kpi-delta--neutral';
+    deltaEl.textContent = 'Open pipeline value';
+  }
 }
 
-// ---------- "Needs attention" feed — a mockup-style dot+title+subtitle
-// row with a right-aligned date and action link, reusing the same
-// ranked data as the full Attention tab (see attention.js) but rendered
-// with this screen's own compact row shape rather than attention.js's
-// full priority cards. ATTENTION_ACTION_LABEL is defined in attention.js
-// (loaded first) and shared so the two screens never word an action
-// differently for the same reason. ----------
-function dashFeedRow(item) {
+// A real time series from metric_snapshots (one row per day the app was
+// opened) — never a fabricated/synthetic trend. Fewer points just means
+// less history exists yet; nothing here invents data to fill the chart.
+function renderBentoTrendChart() {
+  const el = document.getElementById('bentoTrendChart');
+  if (!el) return;
+  const snaps = (typeof getMetricSnapshots === 'function' ? getMetricSnapshots() : []).slice(-30);
+
+  if (snaps.length < 2) {
+    el.innerHTML = '<p class="chart-empty" style="padding:1rem 0;">Trend builds up day by day — check back after the app\'s been used a bit more.</p>';
+    return;
+  }
+
+  const base = chartBase();
+  const dark = isDarkTheme();
+  const options = Object.assign({}, base, {
+    series: [
+      { name: 'Pipeline', data: snaps.map(s => Math.round(s.metrics.pipelineUSD || 0)) },
+      { name: 'Collected', data: snaps.map(s => Math.round(s.metrics.collectedUSD || 0)) },
+    ],
+    chart: Object.assign({}, base.chart, { type: 'area', height: '100%' }),
+    xaxis: { categories: snaps.map(s => new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), labels: { style: { colors: '#94A0B8' }, rotate: 0 }, tickAmount: Math.min(6, snaps.length - 1) },
+    yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) } },
+    stroke: { curve: 'smooth', width: 2.5 },
+    colors: [dark ? '#38BDF8' : '#0F172A', '#10B981'],
+    fill: { type: 'gradient', gradient: { shadeIntensity: 0.3, opacityFrom: 0.35, opacityTo: 0.03 } },
+    legend: { show: true, position: 'top', horizontalAlign: 'right', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' }, markers: { size: 5 } },
+    dataLabels: { enabled: false },
+    grid: Object.assign({}, base.grid, { padding: { left: 8, right: 8 } }),
+  });
+
+  if (bentoTrendChartInstance) bentoTrendChartInstance.destroy();
+  bentoTrendChartInstance = new ApexCharts(el, options);
+  bentoTrendChartInstance.render();
+}
+
+// ---------- Revenue Goal radial gauge ----------
+let bentoGoalChartInstance = null;
+
+function renderBentoGoalRadial() {
+  const el = document.getElementById('bentoGoalRadial');
+  const figuresEl = document.getElementById('bentoGoalFigures');
+  if (!el || !figuresEl) return;
+
+  const goal = typeof getRevenueGoal === 'function' ? getRevenueGoal() : 0;
+  const collected = typeof getTotalCollectedUSD === 'function' ? getTotalCollectedUSD() : 0;
+
+  if (goal <= 0) {
+    el.innerHTML = '';
+    figuresEl.innerHTML = '<button type="button" class="link-btn" id="bentoSetGoalBtn">Set a revenue goal →</button>';
+    document.getElementById('bentoSetGoalBtn').addEventListener('click', () => {
+      const val = Number(prompt('Set revenue goal (USD):'));
+      if (val > 0) { setRevenueGoal(val); renderBentoGoalRadial(); }
+    });
+    return;
+  }
+
+  const pct = Math.min(100, Math.round((collected / goal) * 100));
+  const base = chartBase();
+  const dark = isDarkTheme();
+  const options = {
+    series: [pct],
+    chart: Object.assign({}, base.chart, { type: 'radialBar', height: 150 }),
+    plotOptions: { radialBar: { hollow: { size: '62%' }, track: { background: dark ? 'rgba(255,255,255,0.08)' : 'var(--slate-soft)' }, dataLabels: { name: { show: false }, value: { fontSize: '22px', fontWeight: 700, color: dark ? '#F1F5F9' : '#0F172A', formatter: (v) => v + '%' } } } },
+    colors: [dark ? '#38BDF8' : '#0F172A'],
+  };
+
+  if (bentoGoalChartInstance) bentoGoalChartInstance.destroy();
+  bentoGoalChartInstance = new ApexCharts(el, options);
+  bentoGoalChartInstance.render();
+
+  figuresEl.innerHTML = '<span class="bento-goal__collected">' + formatUSD(collected) + '</span><span class="bento-goal__of">of ' + formatUSD(goal) + ' goal</span>';
+}
+
+// ---------- Compact single-figure tiles ----------
+function renderBentoSmallStats() {
+  const deals = getDeals();
+  const s = typeof computeOverviewStats === 'function' ? computeOverviewStats(deals) : {};
+
+  const winRateEl = document.getElementById('bentoWinRateFigure');
+  const winRateSubEl = document.getElementById('bentoWinRateSub');
+  if (winRateEl) winRateEl.textContent = (s.winRate === null || s.winRate === undefined) ? '—' : Math.round(s.winRate) + '%';
+  if (winRateSubEl) winRateSubEl.textContent = (s.wonCount || 0) + ' won · ' + (s.lostCount || 0) + ' lost';
+
+  const avgEl = document.getElementById('bentoAvgDealFigure');
+  const avgSubEl = document.getElementById('bentoAvgDealSub');
+  if (avgEl) avgEl.textContent = formatUSD(s.avgDealSizeUSD || 0);
+  if (avgSubEl) avgSubEl.textContent = deals.length + ' deal' + (deals.length === 1 ? '' : 's') + ' total';
+}
+
+// ---------- Needs Attention ticker — condensed, one line per item ----------
+function bentoTickerRow(item) {
   const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
     : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
     : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
     : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
   return '' +
-    '<button type="button" class="dash-feed-row" ' + idAttr + '>' +
-      '<span class="dash-feed-row__main">' +
-        '<span class="dash-feed-row__dot dash-feed-row__dot--' + item.tone + '"></span>' +
-        '<span class="dash-feed-row__text">' +
-          '<span class="dash-feed-row__title">' + escapeHtml(item.name) + '</span>' +
-          '<span class="dash-feed-row__subtitle">' + escapeHtml(item.reason) + '</span>' +
-        '</span>' +
-      '</span>' +
-      '<span class="dash-feed-row__side">' +
-        '<span class="dash-feed-row__date">' + escapeHtml(item.detail) + '</span>' +
-        '<span class="dash-feed-row__action">' + (ATTENTION_ACTION_LABEL[item.reason] || 'View') + '</span>' +
-      '</span>' +
+    '<button type="button" class="bento-ticker__row" ' + idAttr + '>' +
+      '<span class="bento-ticker__dot bento-ticker__dot--' + item.tone + '"></span>' +
+      '<span class="bento-ticker__name">' + escapeHtml(item.name) + '</span>' +
+      '<span class="bento-ticker__reason">' + escapeHtml(item.reason) + '</span>' +
+      '<span class="bento-ticker__detail">' + escapeHtml(item.detail) + '</span>' +
+      '<i class="bi bi-chevron-right bento-ticker__chevron"></i>' +
     '</button>';
 }
 
-function renderDashboardAttentionPanel() {
-  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 8) : [];
-  dashAttentionListEl.innerHTML = items.length
-    ? items.map(dashFeedRow).join('')
+function renderBentoTicker() {
+  const el = document.getElementById('bentoTicker');
+  if (!el) return;
+  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 5) : [];
+  el.innerHTML = items.length
+    ? items.map(bentoTickerRow).join('')
     : '<p class="attention-clear"><i class="bi bi-check-lg"></i>All clear</p>';
 }
 
-// ---------- Mini calendar widget — a real (not decorative) month grid:
-// today highlighted solid, days with logged updates get a small dot,
-// click a day to open it (reuses calendar.js's openDayUpdatesModal /
-// buildCalendarEntries — same data, same modal, just a smaller grid). ----------
-let dashCalMonth = firstOfMonth(new Date());
+// ---------- Pipeline by Stage — donut instead of a bar ----------
+let bentoStageDonutInstance = null;
 
-function renderDashCalendarWidget() {
-  const titleEl = document.getElementById('dashCalTitle');
-  const gridEl = document.getElementById('dashCalGrid');
-  const upcomingEl = document.getElementById('dashCalUpcoming');
-  if (!titleEl || !gridEl || !upcomingEl) return;
+function renderBentoStageDonut() {
+  const el = document.getElementById('bentoStageDonut');
+  if (!el) return;
+  const openDeals = getDeals().filter(d => d.stage !== 'won' && d.stage !== 'lost');
 
-  titleEl.textContent = dashCalMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  const entries = typeof buildCalendarEntries === 'function' ? buildCalendarEntries() : new Map();
-  const year = dashCalMonth.getFullYear();
-  const month = dashCalMonth.getMonth();
-  const mondayFirstOffset = (new Date(year, month, 1).getDay() + 6) % 7; // Mon-first week, matching the mockup
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-  const now = new Date();
-  const todayKey = dateKeyOf(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const cells = [];
-  for (let i = mondayFirstOffset - 1; i >= 0; i--) cells.push({ num: daysInPrevMonth - i, key: null });
-  for (let d = 1; d <= daysInMonth; d++) cells.push({ num: d, key: dateKeyOf(year, month, d) });
-  let trail = 1;
-  while (cells.length % 7 !== 0) cells.push({ num: trail++, key: null });
-
-  const weekdayHeaders = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => '<div class="dash-cal-weekday">' + w + '</div>').join('');
-
-  const dayCells = cells.map(cell => {
-    if (!cell.key) return '<div class="dash-cal-day dash-cal-day--muted">' + cell.num + '</div>';
-    const dayEntries = entries.get(cell.key) || [];
-    const isToday = cell.key === todayKey;
-    return '<button type="button" class="dash-cal-day' + (isToday ? ' dash-cal-day--today' : '') + (dayEntries.length ? ' dash-cal-day--has-items' : '') + '" data-date="' + cell.key + '">' +
-      cell.num + (dayEntries.length ? '<span class="dash-cal-day__dot"></span>' : '') +
-    '</button>';
-  }).join('');
-
-  gridEl.innerHTML = weekdayHeaders + dayCells;
-
-  const { todayItems } = buildTodaySections();
-  if (!todayItems.length) {
-    upcomingEl.innerHTML = '<p class="dash-cal-upcoming-empty">Nothing scheduled today.</p>';
-  } else {
-    const next = todayItems[0];
-    const time = (next.datetime && next.datetime.includes('T'))
-      ? new Date(next.datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-      : '';
-    upcomingEl.innerHTML =
-      '<button type="button" class="dash-cal-upcoming-item" data-id="' + next.dealId + '">' +
-        '<span class="dash-cal-upcoming-item__bar"></span>' +
-        '<span><span class="dash-cal-upcoming-item__title">' + escapeHtml(next.entityName) + '</span><br>' +
-        '<span class="dash-cal-upcoming-item__time">' + escapeHtml(next.note) + (time ? ' · ' + escapeHtml(time) : '') + '</span></span>' +
-      '</button>' +
-      (todayItems.length > 1 ? '<p class="dash-cal-upcoming-more">+' + (todayItems.length - 1) + ' more today</p>' : '');
-  }
-}
-
-document.getElementById('dashCalPrevBtn').addEventListener('click', () => {
-  dashCalMonth = new Date(dashCalMonth.getFullYear(), dashCalMonth.getMonth() - 1, 1);
-  renderDashCalendarWidget();
-});
-document.getElementById('dashCalNextBtn').addEventListener('click', () => {
-  dashCalMonth = new Date(dashCalMonth.getFullYear(), dashCalMonth.getMonth() + 1, 1);
-  renderDashCalendarWidget();
-});
-document.getElementById('dashCalGrid').addEventListener('click', (e) => {
-  const cell = e.target.closest('.dash-cal-day[data-date]');
-  if (!cell || typeof openDayUpdatesModal !== 'function') return;
-  openDayUpdatesModal(cell.dataset.date);
-});
-
-// ---------- "Pipeline by stage" mini bar (plain CSS, no chart library — kept
-// tiny on purpose so it fits the dashboard's compact panel) ----------
-function renderDashboardStageBar() {
-  const deals = getDeals();
-  const order = ['new', 'contacted', 'proposal', 'negotiation', 'won', 'lost'];
-  const labels = { new: 'New', contacted: 'Contacted', proposal: 'Proposal', negotiation: 'Negotiation', won: 'Won', lost: 'Lost' };
-  const sums = order.map(stage => deals.filter(d => d.stage === stage).reduce((s, d) => s + toUSD(d.value, d.currency), 0));
-  const total = sums.reduce((a, b) => a + b, 0);
-
-  if (total <= 0) {
-    dashStageBarEl.innerHTML = '<p class="chart-empty">No deal value recorded yet.</p>';
+  if (openDeals.length === 0) {
+    el.innerHTML = '<p class="chart-empty" style="padding:1rem 0;">No open deals right now.</p>';
     return;
   }
 
-  const segments = order.map((stage, i) =>
-    '<div class="dash-stagebar__seg dash-stagebar__seg--' + stage + '" style="width:' + Math.max(1, (sums[i] / total) * 100) + '%" title="' + labels[stage] + ': ' + formatUSD(sums[i]) + '"></div>'
-  ).join('');
+  const order = ['new', 'contacted', 'proposal', 'negotiation'];
+  const labels = ['New', 'Contacted', 'Proposal', 'Negotiation'];
+  const counts = order.map(s => openDeals.filter(d => d.stage === s).length);
+  const base = chartBase();
+  const dark = isDarkTheme();
 
-  const legend = order.map((stage, i) =>
-    '<div class="dash-stagebar__legend-row">' +
-      '<span class="dash-stagebar__dot dash-stagebar__seg--' + stage + '"></span>' +
-      '<span class="dash-stagebar__legend-label">' + labels[stage] + '</span>' +
-      '<span class="dash-stagebar__legend-value">' + formatUSD(sums[i]) + '</span>' +
-    '</div>'
-  ).join('');
+  const options = {
+    series: counts,
+    labels,
+    chart: Object.assign({}, base.chart, { type: 'donut', height: '100%' }),
+    colors: ['#8A8886', '#0369A1', '#B45309', '#7C3AED'],
+    legend: { position: 'right', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
+    dataLabels: { enabled: false },
+    stroke: { colors: [dark ? '#161E2E' : '#FFFFFF'], width: 2 },
+    plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Open deals', formatter: () => String(openDeals.length) } } } } },
+  };
 
-  dashStageBarEl.innerHTML = '<div class="dash-stagebar">' + segments + '</div><div class="dash-stagebar__legend">' + legend + '</div>';
+  if (bentoStageDonutInstance) bentoStageDonutInstance.destroy();
+  bentoStageDonutInstance = new ApexCharts(el, options);
+  bentoStageDonutInstance.render();
 }
 
 // ---------- Compact recent-deals table ----------
@@ -284,10 +284,12 @@ function renderToday() {
   todayGreetingEl.textContent = greetingWord() + ' — ' +
     new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  renderDashboardStats();
-  renderDashboardAttentionPanel();
-  renderDashCalendarWidget();
-  renderDashboardStageBar();
+  renderBentoHeroFigure();
+  renderBentoTrendChart();
+  renderBentoGoalRadial();
+  renderBentoSmallStats();
+  renderBentoTicker();
+  renderBentoStageDonut();
   renderDashboardDealsTable();
 }
 
@@ -305,7 +307,7 @@ document.getElementById('todayView').addEventListener('click', (e) => {
   const contactRow = e.target.closest('[data-contact-key]');
   if (contactRow) { switchView('contacts'); openContactUpdateModal(contactRow.dataset.contactKey, contactRow.dataset.contactName); return; }
 
-  const row = e.target.closest('.dash-feed-row[data-id], .dash-mini-row[data-id], .dash-cal-upcoming-item[data-id]');
+  const row = e.target.closest('.bento-ticker__row[data-id], .dash-mini-row[data-id]');
   if (!row) return;
   switchView('deals');
   openDetailModal(row.dataset.id);

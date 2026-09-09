@@ -1,96 +1,65 @@
 /* dashboards.css — Attention dashboard + Calendar month grid + the landing Dashboard tab. */
 
-/* ===== Landing Dashboard (KPIs, Needs Attention feed + calendar, mini deals table) ===== */
-/* 8/4 split — the mockup's "Needs Attention" (2/3) + "Calendar" (1/3)
-   layout. min-width:0 on both sides so neither column can force the
-   grid wider than its track under a long unbreakable string. */
-.dash-split{ display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-4); align-items: start; }
-.dash-split__main, .dash-split__side{ min-width: 0; }
-@media (max-width: 980px){ .dash-split{ grid-template-columns: 1fr; } }
+/* ===== Landing Dashboard: "Command Center" bento grid ===== */
+/* Mixed cell sizes on purpose — a 4-col grid with dense auto-flow packing,
+   so cards of different spans (hero 2x2, tall 1x2, sm 1x1, wide 2x1,
+   full 4-col) settle into place without manual grid-row placement. */
+.bento-grid{ display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 128px; grid-auto-flow: row dense; gap: var(--sp-4); }
+.bento-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.9rem 1rem; display: flex; flex-direction: column; overflow: hidden; position: relative; min-width: 0; }
+.bento-card--hero{ grid-column: span 2; grid-row: span 2; }
+.bento-card--tall{ grid-column: span 1; grid-row: span 2; align-items: center; text-align: center; }
+.bento-card--sm{ grid-column: span 1; grid-row: span 1; }
+.bento-card--wide{ grid-column: span 2; grid-row: span 1; }
+.bento-card--full{ grid-column: span 4; grid-row: span 2; padding: 0; }
+.bento-card--full .bento-card__head{ padding: 0.75rem 1rem 0.5rem; }
+@media (max-width: 1100px){
+  .bento-grid{ grid-template-columns: repeat(2, 1fr); }
+  .bento-card--hero{ grid-column: span 2; }
+  .bento-card--full{ grid-column: span 2; }
+}
+@media (max-width: 640px){
+  .bento-grid{ grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .bento-card{ grid-column: span 1 !important; grid-row: span 1 !important; min-height: 140px; }
+  .bento-card--hero{ min-height: 320px; }
+}
 
-.dash-section-head{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
-.dash-section-head i{ color: var(--red); font-size: 1rem; }
-.dash-section-head h2{ font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text); flex: 1; }
-.dash-section-head .dash-card__more{ font-size: 0.76rem; }
+.bento-card__label{ font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.bento-card__head{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.3rem; }
+.bento-card__chart{ flex: 1; min-height: 0; }
+.bento-card__chart--grow{ margin-top: 0.3rem; }
+.bento-card__chart--radial{ display: flex; align-items: center; justify-content: center; }
 
-.dash-card--feed{ box-shadow: var(--shadow-sm); }
-.dash-attention-feed{ display: flex; flex-direction: column; max-height: 420px; overflow-y: auto; }
-.dash-attention-feed .attention-clear{ padding: 1.2rem; }
+.bento-hero__figure{ font-family: var(--font-mono); font-size: 1.9rem; font-weight: 700; color: var(--text); line-height: 1.15; margin-top: 0.2rem; }
+.bento-hero__delta{ font-size: 0.76rem; margin-bottom: 0.3rem; }
+
+.bento-goal__figures{ text-align: center; margin-top: 0.4rem; }
+.bento-goal__collected{ display: block; font-family: var(--font-mono); font-weight: 700; font-size: 0.98rem; color: var(--text); }
+.bento-goal__of{ display: block; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.1rem; }
+
+.bento-sm__figure{ font-family: var(--font-mono); font-size: 1.7rem; font-weight: 700; color: var(--text); margin-top: 0.35rem; }
+.bento-sm__sub{ font-size: 0.72rem; color: var(--text-faint); margin-top: 0.2rem; }
+
+/* Attention ticker — one condensed line per item (dot, name, reason,
+   detail, chevron) instead of a stacked card feed. */
+.bento-ticker{ display: flex; flex-direction: column; flex: 1; overflow-y: auto; margin: 0 -0.3rem; }
+.bento-ticker__row{ display: flex; align-items: center; gap: 0.55rem; width: 100%; border: none; background: transparent; padding: 0.4rem 0.3rem; text-align: left; border-radius: var(--r-sm); }
+.bento-ticker__row:hover{ background: var(--surface); }
+.bento-ticker__dot{ width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.bento-ticker__dot--danger{ background: var(--red); }
+.bento-ticker__dot--amber{ background: var(--amber); }
+.bento-ticker__dot--slate{ background: var(--text-faint); }
+.bento-ticker__dot--cyan{ background: var(--cyan); }
+.bento-ticker__name{ font-size: 0.82rem; font-weight: 600; color: var(--text); flex: 1 1 30%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bento-ticker__reason{ font-size: 0.74rem; color: var(--text-faint); flex: 1 1 30%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bento-ticker__detail{ font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); flex-shrink: 0; white-space: nowrap; }
+.bento-ticker__chevron{ flex-shrink: 0; color: var(--text-faint); font-size: 0.7rem; }
+
+.dash-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .dash-card__head{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.8rem; background: var(--surface); border-bottom: 1px solid var(--line); }
 .dash-card__head h3{ display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-display); font-size: 0.8rem; font-weight: 700; margin: 0; color: var(--text); }
 .dash-card__head h3 i{ color: var(--accent); font-size: 0.82rem; }
 .dash-card__more{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.7rem; padding: 0; white-space: nowrap; }
 .dash-card__more:hover{ text-decoration: underline; }
-/* flex:1 (not just max-height) so dash-card panels read as the same
-   height when placed side by side even when one has fewer rows than its
-   siblings — without it, align-items:stretch sizes the CARD correctly
-   but this inner body
-   was still only as tall as its own content, leaving one card's header
-   visually "floating" above empty space differently from the others. */
-.dash-card__body{ flex: 1 1 auto; max-height: 210px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.55rem 0.65rem; }
-.dash-card__body--tall{ max-height: none; }
-
-/* Feed row — ported from the mockup's "Needs Attention" list item:
-   a small colored dot (not an icon-badge circle), title + subtitle
-   stacked on the left, a right-aligned mono date with a small
-   accent-colored action link underneath it. */
-.dash-feed-row{ display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; width: 100%; border: none; border-bottom: 1px solid var(--line); background: transparent; padding: 0.7rem 0.85rem; text-align: left; transition: background-color var(--motion-fast); }
-.dash-feed-row:last-child{ border-bottom: none; }
-.dash-feed-row:hover{ background: var(--surface); }
-.dash-feed-row__main{ display: flex; gap: 0.6rem; align-items: flex-start; min-width: 0; }
-.dash-feed-row__dot{ margin-top: 0.4rem; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dash-feed-row__dot--danger{ background: var(--red); }
-.dash-feed-row__dot--amber{ background: var(--amber); }
-.dash-feed-row__dot--slate{ background: var(--text-faint); }
-.dash-feed-row__dot--cyan{ background: var(--cyan); }
-.dash-feed-row__text{ min-width: 0; }
-.dash-feed-row__title{ font-weight: 600; font-size: 0.86rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dash-feed-row__subtitle{ font-size: 0.78rem; color: var(--text-faint); margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
-.dash-feed-row__side{ flex-shrink: 0; text-align: right; }
-.dash-feed-row__date{ font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; }
-.dash-feed-row__action{ display: block; margin-top: 0.2rem; font-size: 0.76rem; font-weight: 600; color: var(--focus); white-space: nowrap; }
-.dash-feed-row:hover .dash-feed-row__action{ text-decoration: underline; }
-
-/* Mini calendar widget — a compact, real (not decorative) month grid:
-   today highlighted solid, days with logged updates get a small dot,
-   an "Upcoming today" strip at the bottom. */
-.dash-calendar-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem; }
-.dash-calendar-card__head{ display: flex; align-items: center; justify-content: space-between; }
-.dash-calendar-card__head h2{ font-family: var(--font-display); font-size: 0.92rem; font-weight: 700; margin: 0; color: var(--text); }
-.dash-calendar-card__nav{ display: flex; gap: 0.2rem; }
-.dash-calendar-card__nav button{ border: none; background: transparent; color: var(--text-dim); width: 1.5rem; height: 1.5rem; border-radius: var(--r-sm); font-size: 0.78rem; }
-.dash-calendar-card__nav button:hover{ background: var(--surface-hi); color: var(--text); }
-.dash-calendar-card__grid{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
-.dash-cal-weekday{ font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-faint); padding-bottom: 0.2rem; }
-.dash-cal-day{ position: relative; font-size: 0.76rem; color: var(--text-dim); padding: 0.28rem 0; border-radius: var(--r-sm); }
-.dash-cal-day--muted{ color: var(--text-faint); opacity: 0.4; }
-.dash-cal-day--has-items{ cursor: pointer; }
-.dash-cal-day--has-items:hover{ background: var(--surface-hi); }
-.dash-cal-day--today{ background: var(--accent); color: #fff; font-weight: 700; }
-.dash-cal-day__dot{ position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--amber); }
-.dash-cal-day--today .dash-cal-day__dot{ background: #fff; }
-.dash-calendar-card__upcoming{ margin-top: auto; padding-top: 0.6rem; border-top: 1px solid var(--line); }
-.dash-calendar-card__upcoming-label{ display: block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 0.4rem; }
-.dash-cal-upcoming-item{ display: flex; align-items: stretch; gap: 0.5rem; width: 100%; border: none; background: transparent; text-align: left; padding: 0; cursor: pointer; }
-.dash-cal-upcoming-empty{ font-size: 0.78rem; color: var(--text-faint); margin: 0; }
-.dash-cal-upcoming-more{ font-size: 0.7rem; color: var(--text-faint); margin: 0.35rem 0 0; }
-.dash-cal-upcoming-item__bar{ width: 3px; border-radius: 999px; background: var(--accent); flex-shrink: 0; }
-.dash-cal-upcoming-item__title{ font-size: 0.8rem; font-weight: 600; color: var(--text); }
-.dash-cal-upcoming-item__time{ font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint); margin-top: 0.1rem; }
-
-.dash-stagebar{ display: flex; width: 100%; height: 13px; border-radius: var(--r-sm); overflow: hidden; margin-bottom: 0.55rem; background: var(--slate-soft); }
-.dash-stagebar__seg{ height: 100%; min-width: 2px; transition: width var(--motion-med); }
-.dash-stagebar__seg--new{ background: var(--text-faint); }
-.dash-stagebar__seg--contacted{ background: var(--cyan); }
-.dash-stagebar__seg--proposal{ background: var(--amber); }
-.dash-stagebar__seg--negotiation{ background: var(--violet); }
-.dash-stagebar__seg--won{ background: var(--green); }
-.dash-stagebar__seg--lost{ background: var(--red); }
-.dash-stagebar__legend{ display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.6rem; }
-.dash-stagebar__legend-row{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; }
-.dash-stagebar__dot{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dash-stagebar__legend-label{ color: var(--text-dim); flex: 1; }
-.dash-stagebar__legend-value{ color: var(--text-faint); font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .dash-card__table-body{ padding: 0.35rem 0.65rem; }
 .dash-mini-table{ display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; }
