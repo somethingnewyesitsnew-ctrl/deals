@@ -1,0 +1,137 @@
+/* dashboard.css — "Executive Overview", the landing Dashboard tab (#todayView).
+   ------------------------------------------------------------------------
+   Kept in its own file, split out of dashboards.css, specifically because
+   this is the one screen in the app that intentionally breaks from the
+   light-surfaces-everywhere look: a dark executive-summary "hero" band up
+   top, styled closer to a corporate BI tool (Stripe/Linear-style overview)
+   than the rest of Deal Ledger's Fluent-derived surfaces. Isolating that
+   in one file means nobody editing table.css or modals.css needs to know
+   this exception exists.
+
+   Structure or this file:
+     1. Hero band (greeting, attention pill, 4 KPI tiles)
+     2. Revenue chart + goal-ring row
+     3. Priority actions / Pipeline by stage / Recent wins (3-col strip)
+   All class names are prefixed "cc-" (Command Center) so nothing here
+   collides with the Attention tab's .attention-row (which the priority
+   list and recent-wins list deliberately reuse for visual consistency —
+   see dashboards.css) or the old .bento-*/.dash-mini-* rules this file
+   replaces. */
+
+/* ===== 1. Hero band ===== */
+:root{
+  --cc-hero-grad: linear-gradient(135deg, #0B1E3A 0%, #10315F 55%, #0F6CBD 130%);
+  --cc-hero-text: #FFFFFF;
+  --cc-hero-text-dim: rgba(255,255,255,0.68);
+  --cc-tile-bg: rgba(255,255,255,0.07);
+  --cc-tile-border: rgba(255,255,255,0.14);
+}
+:root[data-theme="dark"]{
+  --cc-hero-grad: linear-gradient(135deg, #060D1A 0%, #0C1E36 55%, #123A5E 130%);
+}
+
+.cc-hero{
+  position: relative; overflow: hidden;
+  background: var(--cc-hero-grad); color: var(--cc-hero-text);
+  border-radius: var(--r-md); box-shadow: var(--shadow-lg);
+  padding: 1.3rem 1.5rem 1.5rem; margin-bottom: var(--sp-4);
+}
+/* A faint decorative ring, purely textural — corporate BI dashboards
+   almost always have some subtle non-data graphic in the hero band so it
+   doesn't read as a flat color block. */
+.cc-hero::after{
+  content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,0.10); pointer-events: none;
+}
+.cc-hero::before{
+  content: ''; position: absolute; top: -20px; right: 40px; width: 140px; height: 140px;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); pointer-events: none;
+}
+
+.cc-hero__top{ display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; position: relative; z-index: 1; }
+.cc-hero__eyebrow{ font-size: 0.72rem; font-weight: 600; letter-spacing: 0.03em; color: var(--cc-hero-text-dim); margin: 0 0 0.2rem; }
+.cc-hero__title{ font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; margin: 0; color: #fff; letter-spacing: -0.01em; }
+
+.cc-hero__pill{
+  display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.09); color: #fff; font-size: 0.78rem; font-weight: 700;
+  padding: 0.42rem 0.85rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.cc-hero__pill:hover{ background: rgba(255,255,255,0.16); }
+.cc-hero__pill--danger{ border-color: rgba(255,153,164,0.45); background: rgba(255,99,113,0.20); }
+.cc-hero__pill--danger:hover{ background: rgba(255,99,113,0.30); }
+.cc-hero__pill--clear{ border-color: rgba(108,203,95,0.4); background: rgba(108,203,95,0.16); }
+.cc-hero__pill i{ font-size: 0.85rem; }
+
+.cc-kpi-row{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; margin-top: 1.15rem; position: relative; z-index: 1; }
+@media (max-width: 980px){ .cc-kpi-row{ grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px){ .cc-kpi-row{ grid-template-columns: 1fr; } }
+
+.cc-kpi{
+  background: var(--cc-tile-bg); border: 1px solid var(--cc-tile-border); border-radius: var(--r-md);
+  padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;
+}
+.cc-kpi__label{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cc-hero-text-dim); }
+.cc-kpi__label i{ font-size: 0.8rem; color: rgba(255,255,255,0.85); }
+.cc-kpi__value-row{ display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.cc-kpi__value{ font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.cc-kpi__delta{ font-size: 0.7rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; white-space: nowrap; }
+.cc-kpi__delta--good{ background: rgba(108,203,95,0.22); color: #8FE07F; }
+.cc-kpi__delta--bad{ background: rgba(255,138,148,0.22); color: #FFAFB8; }
+.cc-kpi__delta--neutral{ background: rgba(255,255,255,0.12); color: var(--cc-hero-text-dim); }
+
+/* ===== 2. Revenue chart + goal ring ===== */
+.cc-grid{ display: grid; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+.cc-grid--main{ grid-template-columns: 2fr 1fr; align-items: stretch; }
+.cc-grid--triple{ grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 980px){
+  .cc-grid--main{ grid-template-columns: 1fr; }
+  .cc-grid--triple{ grid-template-columns: 1fr; }
+}
+
+.cc-card{
+  background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm); padding: 0.95rem 1.05rem; display: flex; flex-direction: column; min-width: 0;
+}
+.cc-card__head{ display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
+.cc-card__head h3{ font-family: var(--font-display); font-size: 0.86rem; font-weight: 700; margin: 0; color: var(--text); display: flex; align-items: center; gap: 0.42rem; }
+.cc-card__head h3 i{ color: var(--accent); font-size: 0.86rem; }
+.cc-card__sub{ font-size: 0.7rem; color: var(--text-faint); }
+.cc-card__link{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.72rem; padding: 0; white-space: nowrap; }
+.cc-card__link:hover{ text-decoration: underline; }
+
+.cc-card--chart{ min-height: 300px; }
+.cc-card__chart-body{ flex: 1; min-height: 220px; }
+
+.cc-card--goal{ align-items: center; text-align: center; justify-content: center; }
+.cc-goal-ring{
+  --pct: 0;
+  width: 128px; height: 128px; border-radius: 50%; margin: 0.2rem auto 0.9rem;
+  background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--slate-soft) 0);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cc-goal-ring__inner{ width: 98px; height: 98px; border-radius: 50%; background: var(--bg-raise); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px var(--line); }
+.cc-goal-ring__pct{ font-family: var(--font-mono); font-size: 1.3rem; font-weight: 700; color: var(--text); }
+.cc-goal-ring__label{ font-size: 0.62rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.1rem; }
+.cc-goal-figures{ font-size: 0.8rem; color: var(--text-dim); line-height: 1.6; }
+.cc-goal-figures strong{ color: var(--text); font-family: var(--font-mono); }
+.cc-goal-edit{ margin-top: 0.6rem; }
+
+.cc-goal-empty{ display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.6rem 0; color: var(--text-faint); }
+.cc-goal-empty i{ font-size: 1.6rem; color: var(--accent); }
+.cc-goal-empty__row{ display: flex; gap: 0.4rem; }
+.cc-goal-empty__row input{ width: 130px; padding: 0.4rem 0.6rem; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: 0.8rem; }
+
+/* ===== 3. Priority actions / Pipeline by stage / Recent wins ===== */
+.cc-list{ display: flex; flex-direction: column; gap: 0.35rem; max-height: 250px; overflow-y: auto; }
+.cc-list .attention-row__note{ font-family: var(--font-mono); flex: 0 0 auto; }
+
+.cc-stage-bars{ display: flex; flex-direction: column; gap: 0.65rem; padding-top: 0.15rem; }
+.cc-stage-bar{ display: flex; align-items: center; gap: 0.6rem; }
+.cc-stage-bar__label{ width: 78px; flex-shrink: 0; font-size: 0.74rem; font-weight: 600; color: var(--text-dim); }
+.cc-stage-bar__track{ flex: 1; height: 8px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; }
+.cc-stage-bar__fill{ height: 100%; border-radius: 999px; transition: width var(--motion-med); }
+.cc-stage-bar__value{ width: 92px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; }
+
+.cc-empty-note{ font-size: 0.8rem; color: var(--text-faint); text-align: center; padding: 1.2rem 0.5rem; }

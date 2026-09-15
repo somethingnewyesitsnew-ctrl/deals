@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="css/charts-motion.css">
 <link rel="stylesheet" href="css/todos.css">
 <link rel="stylesheet" href="css/projects.css">
+<link rel="stylesheet" href="css/dashboard.css">
 <script>
   // Set the theme before first paint so there's no flash of the wrong mode.
   (function () {
@@ -128,68 +129,64 @@
     <main class="win-content">
 
   <!-- ============ DASHBOARD ============
-       (kept id="todayView" / "today*" internally). A "Command Center"
-       bento grid — deliberately a different information design from a
-       uniform KPI-row + split-panel layout: mixed cell sizes carry
-       different weight (a real historical pipeline-trend chart gets 2x2,
-       a revenue-goal gauge gets a tall 1x2, single numbers get compact
-       1x1 tiles), a condensed one-line-per-item attention ticker instead
-       of a card feed, and a stage-mix donut instead of a bar. -->
+       (kept id="todayView" / "today*" internally for load-order/back-compat
+       reasons). "Executive Overview" — a corporate command-center layout:
+       a dark executive summary band up top (greeting + 4 real KPI tiles,
+       each with an honest week-over-week delta pulled from metric_snapshots
+       — never fabricated), a large revenue-collected trend chart paired
+       with a revenue-goal progress ring, then a three-column strip of
+       Priority Actions (the same unified, ranked attention feed the
+       Attention tab uses), Pipeline by Stage, and Recent Wins. -->
   <section class="ledger-view" id="todayView">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Dashboard</h1>
-        <span class="today-greeting" id="todayGreeting"></span>
+
+    <div class="cc-hero">
+      <div class="cc-hero__top">
+        <div>
+          <p class="cc-hero__eyebrow" id="ccDateLabel">Date</p>
+          <h1 class="cc-hero__title" id="todayGreeting">Good day</h1>
+        </div>
+        <button type="button" class="cc-hero__pill" id="ccAttentionPill" data-jump-view="attention"></button>
+      </div>
+      <div class="cc-kpi-row" id="ccKpiRow"></div>
+    </div>
+
+    <div class="cc-grid cc-grid--main">
+      <div class="cc-card cc-card--chart">
+        <div class="cc-card__head">
+          <h3><i class="bi bi-graph-up-arrow"></i> Revenue collected</h3>
+          <span class="cc-card__sub">Paid invoices, last 6 months</span>
+        </div>
+        <div id="ccRevenueChart" class="cc-card__chart-body"></div>
+      </div>
+
+      <div class="cc-card cc-card--goal">
+        <div class="cc-card__head"><h3><i class="bi bi-bullseye"></i> Revenue goal</h3></div>
+        <div id="ccGoalBody"></div>
       </div>
     </div>
 
-    <div class="bento-grid">
-      <div class="bento-card bento-card--hero">
-        <div class="bento-card__head">
-          <span class="bento-card__label">Pipeline &amp; Collected</span>
+    <div class="cc-grid cc-grid--triple">
+      <div class="cc-card">
+        <div class="cc-card__head">
+          <h3><i class="bi bi-flag-fill"></i> Priority actions</h3>
+          <button type="button" class="cc-card__link" data-jump-view="attention">View all</button>
         </div>
-        <div class="bento-hero__figure" id="bentoHeroFigure">$0</div>
-        <span class="bento-hero__delta" id="bentoHeroDelta">Open pipeline value</span>
-        <div id="bentoTrendChart" class="bento-card__chart bento-card__chart--grow"></div>
+        <div id="ccPriorityList" class="cc-list"></div>
       </div>
 
-      <div class="bento-card bento-card--tall">
-        <span class="bento-card__label">Revenue Goal</span>
-        <div id="bentoGoalRadial" class="bento-card__chart bento-card__chart--radial"></div>
-        <div class="bento-goal__figures" id="bentoGoalFigures"></div>
-      </div>
-
-      <div class="bento-card bento-card--sm">
-        <span class="bento-card__label">Win Rate</span>
-        <div class="bento-sm__figure" id="bentoWinRateFigure">—</div>
-        <span class="bento-sm__sub" id="bentoWinRateSub"></span>
-      </div>
-
-      <div class="bento-card bento-card--sm">
-        <span class="bento-card__label">Avg Deal Size</span>
-        <div class="bento-sm__figure" id="bentoAvgDealFigure">—</div>
-        <span class="bento-sm__sub" id="bentoAvgDealSub"></span>
-      </div>
-
-      <div class="bento-card bento-card--wide">
-        <div class="bento-card__head">
-          <span class="bento-card__label">Needs Attention</span>
-          <button type="button" class="dash-card__more" data-jump-view="attention">View all</button>
+      <div class="cc-card">
+        <div class="cc-card__head">
+          <h3><i class="bi bi-bar-chart-steps"></i> Pipeline by stage</h3>
+          <button type="button" class="cc-card__link" data-jump-view="deals">View all</button>
         </div>
-        <div id="bentoTicker" class="bento-ticker"></div>
+        <div id="ccStageBars" class="cc-stage-bars"></div>
       </div>
 
-      <div class="bento-card bento-card--wide">
-        <span class="bento-card__label">Pipeline by Stage</span>
-        <div id="bentoStageDonut" class="bento-card__chart"></div>
-      </div>
-
-      <div class="bento-card bento-card--full">
-        <div class="bento-card__head">
-          <span class="bento-card__label">Recent Deals</span>
-          <button type="button" class="dash-card__more" data-jump-view="deals">View all deals <i class="bi bi-arrow-right"></i></button>
+      <div class="cc-card">
+        <div class="cc-card__head">
+          <h3><i class="bi bi-trophy-fill"></i> Recent wins</h3>
         </div>
-        <div id="dashDealsTable" class="dash-card__table-body"></div>
+        <div id="ccRecentWins" class="cc-list"></div>
       </div>
     </div>
   </section>

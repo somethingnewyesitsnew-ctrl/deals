@@ -2,32 +2,29 @@
    today.js
    ------------------------------------------------------------
    The landing tab — internally still called "today" (ids like
-   #todayView, functions like renderToday()) for historical
-   reasons, but visually it's now a "Command Center" bento grid,
-   deliberately a different information design from a uniform
-   KPI-row: mixed cell sizes carry different weight — a real
-   historical pipeline-trend chart (built from metric_snapshots,
-   never a synthetic/fabricated series) gets the big 2x2 hero cell,
-   a revenue-goal radial gauge gets a tall 1x2, single numbers
-   get compact 1x1 tiles, attention items render as a condensed
-   one-line ticker instead of a card feed, and pipeline mix is a
-   donut instead of a bar.
+   #todayView, functions like renderToday()) for historical/
+   load-order reasons, but visually it's now "Executive Overview":
+   a dark corporate summary band (greeting, an attention pill, and
+   4 KPI tiles — each with an honest week-over-week delta pulled
+   from real metric_snapshots history, never fabricated), a real
+   revenue-collected trend chart paired with a revenue-goal
+   progress ring, and a three-card strip: Priority Actions (the
+   same unified, ranked attention feed the Attention tab itself
+   uses), Pipeline by Stage, and Recent Wins.
 
    Nothing here is stored — everything is read live from deals,
-   metric snapshots, and attention.js's unified ranked list, the
-   same way every other computed view in this app works.
+   invoices, metric snapshots, and attention.js's unified ranked
+   list, the same way every other computed view in this app works.
 
    Depends on: storage.js, charts.js (chartBase, isDarkTheme,
-   computeOverviewStats, getMetricDelta, monthLabel), attention.js
-   (buildUnifiedAttentionItems, ATTENTION_KIND_LABEL), invoices.js
-   (getTotalCollectedUSD), updates.js (entryDateKey), deals-shared.js
-   (isOverdue), deals-detail.js (openDetailModal), app.js (switchView).
+   monthKey, monthLabel, computeOverviewStats, getMetricDelta,
+   deltaText), invoices.js (invoiceTotal, getTotalCollectedUSD),
+   attention.js (buildUnifiedAttentionItems, getAttentionCounts),
+   updates.js (entryDateKey), deals-shared.js, deals-detail.js
+   (openDetailModal), app.js (switchView).
 
    Exposes: renderToday(), buildTodaySections()
    ============================================================ */
-
-const todayGreetingEl = document.getElementById('todayGreeting');
-const dashDealsTableEl = document.getElementById('dashDealsTable');
 
 function greetingWord() {
   const h = new Date().getHours();
@@ -36,7 +33,7 @@ function greetingWord() {
   return 'Good evening';
 }
 
-// ---------- "Today & upcoming" data — still used by app.js's tab badge ----------
+// ---------- "Today" data — still used by app.js's sidebar tab badge ----------
 function collectAllUpdates() {
   const list = [];
   getDeals().forEach(deal => {
@@ -80,217 +77,217 @@ function buildTodaySections() {
   return { todayItems, upcomingItems };
 }
 
-// ---------- Hero cell: real open-pipeline figure + 7-day delta + trend chart ----------
-let bentoTrendChartInstance = null;
+// ---------- 1. Hero band: greeting, attention pill, KPI tiles ----------
+const CC_KPI_DEFS = [
+  { key: 'pipelineUSD', label: 'Open pipeline', icon: 'bi-graph-up-arrow', good: 'up', fmt: (v) => formatUSD(v) },
+  { key: 'collectedUSD', label: 'Collected', icon: 'bi-cash-stack', good: 'up', fmt: (v) => formatUSD(v) },
+  { key: 'winRate', label: 'Win rate', icon: 'bi-trophy', good: 'up', fmt: (v) => (v === null || v === undefined) ? '—' : Math.round(v) + '%' },
+  { key: 'outstandingUSD', label: 'Uncollected', icon: 'bi-hourglass-split', good: 'down', fmt: (v) => formatUSD(v) },
+];
 
-function renderBentoHeroFigure() {
-  const figureEl = document.getElementById('bentoHeroFigure');
-  const deltaEl = document.getElementById('bentoHeroDelta');
-  if (!figureEl || !deltaEl) return;
+function renderCCKpis(deals) {
+  const rowEl = document.getElementById('ccKpiRow');
+  if (!rowEl) return;
+  const s = typeof computeOverviewStats === 'function' ? computeOverviewStats(deals) : {};
 
-  const openDeals = getDeals().filter(d => d.stage !== 'won' && d.stage !== 'lost');
-  const pipelineUSD = openDeals.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
-  figureEl.textContent = formatUSD(pipelineUSD);
-
-  const delta = typeof getMetricDelta === 'function' ? getMetricDelta('pipelineUSD', pipelineUSD, 7) : null;
-  if (delta && delta.direction !== 'flat') {
-    deltaEl.className = 'bento-hero__delta kpi-delta kpi-delta--' + (delta.direction === 'up' ? 'good' : 'bad');
-    deltaEl.innerHTML = (delta.direction === 'up' ? '▲ ' : '▼ ') + formatUSD(Math.abs(delta.delta)) + ' vs 7 days ago';
-  } else {
-    deltaEl.className = 'bento-hero__delta kpi-delta kpi-delta--neutral';
-    deltaEl.textContent = 'Open pipeline value';
-  }
+  rowEl.innerHTML = CC_KPI_DEFS.map(c => {
+    const raw = s[c.key];
+    let deltaHtml = '';
+    const delta = typeof getMetricDelta === 'function' ? getMetricDelta(c.key, raw, 7) : null;
+    if (delta && delta.direction !== 'flat') {
+      const isGood = delta.direction === c.good;
+      deltaHtml = '<span class="cc-kpi__delta cc-kpi__delta--' + (isGood ? 'good' : 'bad') + '">' +
+        (delta.direction === 'up' ? '▲' : '▼') + ' ' + deltaText(c.key, delta) + '</span>';
+    }
+    return '' +
+      '<div class="cc-kpi">' +
+        '<span class="cc-kpi__label"><i class="bi ' + c.icon + '"></i>' + c.label + '</span>' +
+        '<div class="cc-kpi__value-row"><span class="cc-kpi__value">' + c.fmt(raw) + '</span>' + deltaHtml + '</div>' +
+      '</div>';
+  }).join('');
 }
 
-// A real time series from metric_snapshots (one row per day the app was
-// opened) — never a fabricated/synthetic trend. Fewer points just means
-// less history exists yet; nothing here invents data to fill the chart.
-function renderBentoTrendChart() {
-  const el = document.getElementById('bentoTrendChart');
-  if (!el) return;
-  const snaps = (typeof getMetricSnapshots === 'function' ? getMetricSnapshots() : []).slice(-30);
+function renderCCHero(deals) {
+  const dateEl = document.getElementById('ccDateLabel');
+  const greetEl = document.getElementById('todayGreeting');
+  if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  if (greetEl) greetEl.textContent = greetingWord();
 
-  if (snaps.length < 2) {
-    el.innerHTML = '<p class="chart-empty" style="padding:1rem 0;">Trend builds up day by day — check back after the app\'s been used a bit more.</p>';
+  const pillEl = document.getElementById('ccAttentionPill');
+  if (pillEl) {
+    const count = typeof getAttentionCounts === 'function' ? getAttentionCounts() : 0;
+    pillEl.className = 'cc-hero__pill ' + (count > 0 ? 'cc-hero__pill--danger' : 'cc-hero__pill--clear');
+    pillEl.innerHTML = count > 0
+      ? '<i class="bi bi-exclamation-triangle-fill"></i>' + count + (count === 1 ? ' item needs attention' : ' items need attention')
+      : '<i class="bi bi-check-circle-fill"></i>All caught up';
+  }
+
+  renderCCKpis(deals);
+}
+
+// ---------- 2a. Revenue collected trend ----------
+let ccRevenueChartInstance = null;
+
+function renderCCRevenueChart(deals) {
+  const el = document.getElementById('ccRevenueChart');
+  if (!el) return;
+
+  const byMonth = new Map();
+  deals.forEach(d => (d.invoices || []).forEach(inv => {
+    if (inv.status !== 'paid' || !inv.date) return;
+    const key = monthKey(new Date(inv.date).getTime());
+    byMonth.set(key, (byMonth.get(key) || 0) + toUSD(invoiceTotal(inv.items), inv.currency));
+  }));
+  const keys = Array.from(byMonth.keys()).sort();
+  const last = keys.slice(-6);
+
+  if (last.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No paid invoices yet — collected revenue will chart here once invoices are marked paid.</p>';
     return;
   }
+  el.innerHTML = '';
 
   const base = chartBase();
   const dark = isDarkTheme();
+  const lineColor = dark ? '#4CC2FF' : '#0F6CBD';
+
   const options = Object.assign({}, base, {
-    series: [
-      { name: 'Pipeline', data: snaps.map(s => Math.round(s.metrics.pipelineUSD || 0)) },
-      { name: 'Collected', data: snaps.map(s => Math.round(s.metrics.collectedUSD || 0)) },
-    ],
-    chart: Object.assign({}, base.chart, { type: 'area', height: '100%' }),
-    xaxis: { categories: snaps.map(s => new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), labels: { style: { colors: '#94A0B8' }, rotate: 0 }, tickAmount: Math.min(6, snaps.length - 1) },
-    yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) } },
-    stroke: { curve: 'smooth', width: 2.5 },
-    colors: [dark ? '#38BDF8' : '#0F172A', '#10B981'],
-    fill: { type: 'gradient', gradient: { shadeIntensity: 0.3, opacityFrom: 0.35, opacityTo: 0.03 } },
-    legend: { show: true, position: 'top', horizontalAlign: 'right', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' }, markers: { size: 5 } },
+    series: [{ name: 'Revenue collected', data: last.map(k => Math.round(byMonth.get(k) || 0)) }],
+    chart: Object.assign({}, base.chart, { type: 'area', height: 250 }),
+    xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
+    yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) }, forceNiceScale: true },
+    stroke: { curve: 'smooth', width: 3 },
+    colors: [lineColor],
+    fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 0.4, opacityTo: 0.04, stops: [0, 100] } },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
     dataLabels: { enabled: false },
-    grid: Object.assign({}, base.grid, { padding: { left: 8, right: 8 } }),
+    tooltip: Object.assign({}, base.tooltip, { y: { formatter: (v) => formatUSD(v) } }),
   });
 
-  if (bentoTrendChartInstance) bentoTrendChartInstance.destroy();
-  bentoTrendChartInstance = new ApexCharts(el, options);
-  bentoTrendChartInstance.render();
+  if (ccRevenueChartInstance) ccRevenueChartInstance.destroy();
+  ccRevenueChartInstance = new ApexCharts(el, options);
+  ccRevenueChartInstance.render();
 }
 
-// ---------- Revenue Goal radial gauge ----------
-let bentoGoalChartInstance = null;
-
-function renderBentoGoalRadial() {
-  const el = document.getElementById('bentoGoalRadial');
-  const figuresEl = document.getElementById('bentoGoalFigures');
-  if (!el || !figuresEl) return;
+// ---------- 2b. Revenue goal progress ring ----------
+function renderCCGoal() {
+  const bodyEl = document.getElementById('ccGoalBody');
+  if (!bodyEl) return;
 
   const goal = typeof getRevenueGoal === 'function' ? getRevenueGoal() : 0;
   const collected = typeof getTotalCollectedUSD === 'function' ? getTotalCollectedUSD() : 0;
 
   if (goal <= 0) {
-    el.innerHTML = '';
-    figuresEl.innerHTML = '<button type="button" class="link-btn" id="bentoSetGoalBtn">Set a revenue goal →</button>';
-    document.getElementById('bentoSetGoalBtn').addEventListener('click', () => {
-      const val = Number(prompt('Set revenue goal (USD):'));
-      if (val > 0) { setRevenueGoal(val); renderBentoGoalRadial(); }
+    bodyEl.innerHTML = '' +
+      '<div class="cc-goal-empty">' +
+        '<i class="bi bi-bullseye"></i>' +
+        '<p style="margin:0;font-size:0.82rem;">No revenue goal set yet.</p>' +
+        '<div class="cc-goal-empty__row">' +
+          '<input type="number" min="0" step="100" id="ccGoalInput" placeholder="e.g. 50000">' +
+          '<button type="button" class="btn btn-sm btn-ink" id="ccGoalSaveBtn">Set goal</button>' +
+        '</div>' +
+      '</div>';
+    document.getElementById('ccGoalSaveBtn').addEventListener('click', () => {
+      const val = Number(document.getElementById('ccGoalInput').value);
+      if (val > 0) { setRevenueGoal(val); renderCCGoal(); }
     });
     return;
   }
 
   const pct = Math.min(100, Math.round((collected / goal) * 100));
-  const base = chartBase();
-  const dark = isDarkTheme();
-  const options = {
-    series: [pct],
-    chart: Object.assign({}, base.chart, { type: 'radialBar', height: 150 }),
-    plotOptions: { radialBar: { hollow: { size: '62%' }, track: { background: dark ? 'rgba(255,255,255,0.08)' : 'var(--slate-soft)' }, dataLabels: { name: { show: false }, value: { fontSize: '22px', fontWeight: 700, color: dark ? '#F1F5F9' : '#0F172A', formatter: (v) => v + '%' } } } },
-    colors: [dark ? '#38BDF8' : '#0F172A'],
-  };
+  bodyEl.innerHTML = '' +
+    '<div class="cc-goal-ring" style="--pct:' + pct + '">' +
+      '<div class="cc-goal-ring__inner"><span class="cc-goal-ring__pct">' + pct + '%</span><span class="cc-goal-ring__label">of goal</span></div>' +
+    '</div>' +
+    '<div class="cc-goal-figures"><strong>' + formatUSD(collected) + '</strong> collected<br>of <strong>' + formatUSD(goal) + '</strong> target</div>' +
+    '<button type="button" class="link-btn cc-goal-edit" id="ccGoalEditBtn">Edit goal</button>';
 
-  if (bentoGoalChartInstance) bentoGoalChartInstance.destroy();
-  bentoGoalChartInstance = new ApexCharts(el, options);
-  bentoGoalChartInstance.render();
-
-  figuresEl.innerHTML = '<span class="bento-goal__collected">' + formatUSD(collected) + '</span><span class="bento-goal__of">of ' + formatUSD(goal) + ' goal</span>';
+  document.getElementById('ccGoalEditBtn').addEventListener('click', () => {
+    const val = Number(prompt('Set revenue goal (USD):', goal));
+    if (val > 0) { setRevenueGoal(val); renderCCGoal(); }
+  });
 }
 
-// ---------- Compact single-figure tiles ----------
-function renderBentoSmallStats() {
-  const deals = getDeals();
-  const s = typeof computeOverviewStats === 'function' ? computeOverviewStats(deals) : {};
-
-  const winRateEl = document.getElementById('bentoWinRateFigure');
-  const winRateSubEl = document.getElementById('bentoWinRateSub');
-  if (winRateEl) winRateEl.textContent = (s.winRate === null || s.winRate === undefined) ? '—' : Math.round(s.winRate) + '%';
-  if (winRateSubEl) winRateSubEl.textContent = (s.wonCount || 0) + ' won · ' + (s.lostCount || 0) + ' lost';
-
-  const avgEl = document.getElementById('bentoAvgDealFigure');
-  const avgSubEl = document.getElementById('bentoAvgDealSub');
-  if (avgEl) avgEl.textContent = formatUSD(s.avgDealSizeUSD || 0);
-  if (avgSubEl) avgSubEl.textContent = deals.length + ' deal' + (deals.length === 1 ? '' : 's') + ' total';
-}
-
-// ---------- Needs Attention ticker — condensed, one line per item ----------
-function bentoTickerRow(item) {
+// ---------- 3a. Priority actions — reuses attention.js's unified ranked list ----------
+function ccPriorityRow(item) {
   const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
     : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
     : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
     : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
+
   return '' +
-    '<button type="button" class="bento-ticker__row" ' + idAttr + '>' +
-      '<span class="bento-ticker__dot bento-ticker__dot--' + item.tone + '"></span>' +
-      '<span class="bento-ticker__name">' + escapeHtml(item.name) + '</span>' +
-      '<span class="bento-ticker__reason">' + escapeHtml(item.reason) + '</span>' +
-      '<span class="bento-ticker__detail">' + escapeHtml(item.detail) + '</span>' +
-      '<i class="bi bi-chevron-right bento-ticker__chevron"></i>' +
+    '<button type="button" class="attention-row" ' + idAttr + '>' +
+      '<span class="attention-row__name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
+      '<span class="attention-row__context attention-row__context--' + item.tone + '">' + escapeHtml(item.reason) + '</span>' +
+      '<span class="attention-row__note">' + escapeHtml(item.detail) + '</span>' +
+      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
     '</button>';
 }
 
-function renderBentoTicker() {
-  const el = document.getElementById('bentoTicker');
+function renderCCPriorityList() {
+  const el = document.getElementById('ccPriorityList');
   if (!el) return;
-  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 5) : [];
+  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 6) : [];
   el.innerHTML = items.length
-    ? items.map(bentoTickerRow).join('')
-    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>All clear</p>';
+    ? items.map(ccPriorityRow).join('')
+    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>Nothing needs attention right now</p>';
 }
 
-// ---------- Pipeline by Stage — donut instead of a bar ----------
-let bentoStageDonutInstance = null;
+// ---------- 3b. Pipeline by stage ----------
+const CC_STAGE_ORDER = ['new', 'contacted', 'proposal', 'negotiation'];
+const CC_STAGE_LABELS = { new: 'New', contacted: 'Contacted', proposal: 'Proposal', negotiation: 'Negotiation' };
+const CC_STAGE_COLOR_VARS = { new: 'var(--text-faint)', contacted: 'var(--cyan)', proposal: 'var(--amber)', negotiation: 'var(--violet)' };
 
-function renderBentoStageDonut() {
-  const el = document.getElementById('bentoStageDonut');
+function renderCCStageBars(deals) {
+  const el = document.getElementById('ccStageBars');
   if (!el) return;
-  const openDeals = getDeals().filter(d => d.stage !== 'won' && d.stage !== 'lost');
+  const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
 
-  if (openDeals.length === 0) {
-    el.innerHTML = '<p class="chart-empty" style="padding:1rem 0;">No open deals right now.</p>';
+  if (open.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No open deals right now.</p>';
     return;
   }
 
-  const order = ['new', 'contacted', 'proposal', 'negotiation'];
-  const labels = ['New', 'Contacted', 'Proposal', 'Negotiation'];
-  const counts = order.map(s => openDeals.filter(d => d.stage === s).length);
-  const base = chartBase();
-  const dark = isDarkTheme();
+  const sums = CC_STAGE_ORDER.map(s => open.filter(d => d.stage === s).reduce((sum, d) => sum + toUSD(d.value, d.currency), 0));
+  const counts = CC_STAGE_ORDER.map(s => open.filter(d => d.stage === s).length);
+  const max = Math.max(...sums, 1);
 
-  const options = {
-    series: counts,
-    labels,
-    chart: Object.assign({}, base.chart, { type: 'donut', height: '100%' }),
-    colors: ['#8A8886', '#0369A1', '#B45309', '#7C3AED'],
-    legend: { position: 'right', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
-    dataLabels: { enabled: false },
-    stroke: { colors: [dark ? '#161E2E' : '#FFFFFF'], width: 2 },
-    plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Open deals', formatter: () => String(openDeals.length) } } } } },
-  };
-
-  if (bentoStageDonutInstance) bentoStageDonutInstance.destroy();
-  bentoStageDonutInstance = new ApexCharts(el, options);
-  bentoStageDonutInstance.render();
+  el.innerHTML = CC_STAGE_ORDER.map((stage, i) => '' +
+    '<div class="cc-stage-bar">' +
+      '<span class="cc-stage-bar__label">' + CC_STAGE_LABELS[stage] + '</span>' +
+      '<span class="cc-stage-bar__track"><span class="cc-stage-bar__fill" style="width:' + Math.max(4, (sums[i] / max) * 100) + '%;background:' + CC_STAGE_COLOR_VARS[stage] + '"></span></span>' +
+      '<span class="cc-stage-bar__value">' + formatUSD(sums[i]) + ' · ' + counts[i] + '</span>' +
+    '</div>'
+  ).join('');
 }
 
-// ---------- Compact recent-deals table ----------
-function renderDashboardDealsTable() {
-  const deals = getDeals().slice().sort((a, b) => (lastActivityTimestamp(b) || 0) - (lastActivityTimestamp(a) || 0)).slice(0, 8);
+// ---------- 3c. Recent wins ----------
+function ccWinRow(deal) {
+  return '' +
+    '<button type="button" class="attention-row" data-id="' + deal.id + '">' +
+      '<span class="attention-row__name" title="' + escapeHtml(deal.entityName || 'Untitled entity') + '">' + escapeHtml(deal.entityName || 'Untitled entity') + '</span>' +
+      '<span class="attention-row__note">' + formatUSD(toUSD(deal.value, deal.currency)) + '</span>' +
+      '<span class="attention-row__context">' + escapeHtml(timeAgo(deal.updatedAt) || '') + '</span>' +
+      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
+    '</button>';
+}
 
-  if (deals.length === 0) {
-    dashDealsTableEl.innerHTML = '<p class="chart-empty">No deals recorded yet.</p>';
-    return;
-  }
-
-  const rows = deals.map(deal => {
-    const overdue = typeof isOverdue === 'function' && isOverdue(deal);
-    const closeLabel = deal.closeDate
-      ? new Date(deal.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : '—';
-    return '' +
-      '<button type="button" class="dash-mini-row" data-id="' + deal.id + '">' +
-        '<span class="dash-mini-row__name">' + escapeHtml(deal.entityName || 'Untitled entity') + '</span>' +
-        '<span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span>' +
-        '<span class="dash-mini-row__value">' + formatUSD(toUSD(deal.value, deal.currency)) + '</span>' +
-        '<span class="dash-mini-row__close' + (overdue ? ' dash-mini-row__close--overdue' : '') + '">' + closeLabel + '</span>' +
-        '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-      '</button>';
-  }).join('');
-
-  dashDealsTableEl.innerHTML = '<div class="dash-mini-table">' + rows + '</div>';
+function renderCCRecentWins(deals) {
+  const el = document.getElementById('ccRecentWins');
+  if (!el) return;
+  const wins = deals.filter(d => d.stage === 'won').slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 6);
+  el.innerHTML = wins.length ? wins.map(ccWinRow).join('') : '<p class="cc-empty-note">No wins recorded yet — they\'ll show up here the moment a deal moves to Won.</p>';
 }
 
 // ---------- Orchestration ----------
 function renderToday() {
-  todayGreetingEl.textContent = greetingWord() + ' — ' +
-    new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-
-  renderBentoHeroFigure();
-  renderBentoTrendChart();
-  renderBentoGoalRadial();
-  renderBentoSmallStats();
-  renderBentoTicker();
-  renderBentoStageDonut();
-  renderDashboardDealsTable();
+  const deals = getDeals();
+  renderCCHero(deals);
+  renderCCRevenueChart(deals);
+  renderCCGoal();
+  renderCCPriorityList();
+  renderCCStageBars(deals);
+  renderCCRecentWins(deals);
 }
 
 // ---------- Shared interactions ----------
@@ -307,7 +304,7 @@ document.getElementById('todayView').addEventListener('click', (e) => {
   const contactRow = e.target.closest('[data-contact-key]');
   if (contactRow) { switchView('contacts'); openContactUpdateModal(contactRow.dataset.contactKey, contactRow.dataset.contactName); return; }
 
-  const row = e.target.closest('.bento-ticker__row[data-id], .dash-mini-row[data-id]');
+  const row = e.target.closest('.attention-row[data-id]');
   if (!row) return;
   switchView('deals');
   openDetailModal(row.dataset.id);
