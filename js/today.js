@@ -127,6 +127,9 @@ function renderCCHero(deals) {
 
 // ---------- 2a. Revenue collected trend ----------
 let ccRevenueChartInstance = null;
+let ccDealsLineChartInstance = null;
+let ccEntityMixChartInstance = null;
+let ccFollowupChartInstance = null;
 
 function renderCCRevenueChart(deals) {
   const el = document.getElementById('ccRevenueChart');
@@ -208,6 +211,81 @@ function renderCCGoal() {
   });
 }
 
+// ---------- 2c. Deals momentum (new deals created per month) ----------
+function renderCCDealsLineChart(deals) {
+  const el = document.getElementById('ccDealsLineChart');
+  if (!el) return;
+
+  if (deals.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">Record a deal to see this chart.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const byMonth = new Map();
+  deals.forEach(d => {
+    const key = monthKey(d.createdAt);
+    byMonth.set(key, (byMonth.get(key) || 0) + 1);
+  });
+  const keys = Array.from(byMonth.keys()).sort();
+  const last = keys.slice(-9);
+
+  const base = chartBase();
+  const dark = isDarkTheme();
+  const lineColor = dark ? '#C29CFF' : '#7719AA';
+
+  const options = Object.assign({}, base, {
+    series: [{ name: 'New deals', data: last.map(k => byMonth.get(k) || 0) }],
+    chart: Object.assign({}, base.chart, { type: 'line', height: 230 }),
+    xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
+    yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
+    stroke: { curve: 'smooth', width: 3 },
+    colors: [lineColor],
+    fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.3, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
+    dataLabels: { enabled: false },
+  });
+
+  if (ccDealsLineChartInstance) ccDealsLineChartInstance.destroy();
+  ccDealsLineChartInstance = new ApexCharts(el, options);
+  ccDealsLineChartInstance.render();
+}
+
+// ---------- 2d. Client mix (entity type donut) ----------
+function renderCCEntityMixChart(deals) {
+  const el = document.getElementById('ccEntityMixChart');
+  if (!el) return;
+
+  if (deals.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No deals recorded yet.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const types = ['government', 'private', 'international'];
+  const labels = ['Government', 'Private', 'International', 'Not set'];
+  const counts = types.map(t => deals.filter(d => d.entityType === t).length);
+  counts.push(deals.filter(d => !d.entityType).length);
+
+  const base = chartBase();
+  const dark = isDarkTheme();
+
+  const options = {
+    series: counts,
+    labels,
+    chart: Object.assign({}, base.chart, { type: 'donut', height: 230 }),
+    colors: ['#0F6CBD', '#9D5D00', '#7719AA', '#8A8886'],
+    legend: { position: 'bottom', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
+    dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+    stroke: { colors: [dark ? '#2A2A2A' : '#FFFFFF'], width: 2 },
+    tooltip: { theme: dark ? 'dark' : 'light' },
+  };
+
+  if (ccEntityMixChartInstance) ccEntityMixChartInstance.destroy();
+  ccEntityMixChartInstance = new ApexCharts(el, options);
+  ccEntityMixChartInstance.render();
+}
+
 // ---------- 3a. Priority actions — reuses attention.js's unified ranked list ----------
 function ccPriorityRow(item) {
   const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
@@ -279,15 +357,124 @@ function renderCCRecentWins(deals) {
   el.innerHTML = wins.length ? wins.map(ccWinRow).join('') : '<p class="cc-empty-note">No wins recorded yet — they\'ll show up here the moment a deal moves to Won.</p>';
 }
 
+// ---------- 4a. Smart suggestions — reuses charts.js's rule-based engine ----------
+function renderCCSuggestions(deals) {
+  const el = document.getElementById('ccSuggestions');
+  if (!el) return;
+  const suggestions = typeof computeSuggestions === 'function' ? computeSuggestions(deals) : [];
+  el.innerHTML = suggestions.map(s => '' +
+    '<div class="suggestion-card suggestion-card--' + s.tone + '">' +
+      '<span class="suggestion-card__icon"><i class="bi ' + s.icon + '"></i></span>' +
+      '<div class="suggestion-card__body">' +
+        '<span class="suggestion-card__cat">' + s.cat + '</span>' +
+        '<p>' + escapeHtml(s.text) + '</p>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+}
+
+// ---------- 4b. Top clients leaderboard (clickable — jumps into Deals, filtered) ----------
+function renderCCLeaderboard(deals) {
+  const el = document.getElementById('ccLeaderboard');
+  if (!el) return;
+
+  const groups = new Map();
+  deals.forEach(d => {
+    if (!d.entityName) return;
+    const key = d.entityName.trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, { name: d.entityName, valueUSD: 0 });
+    groups.get(key).valueUSD += toUSD(d.value, d.currency);
+  });
+  const top = Array.from(groups.values()).sort((a, b) => b.valueUSD - a.valueUSD).slice(0, 5);
+
+  const header = '<h3><i class="bi bi-trophy"></i> Top clients</h3>';
+  el.innerHTML = header + (top.length
+    ? top.map((c, i) => '' +
+        '<button type="button" class="leaderboard-row cc-leaderboard-row" data-jump-entity="' + escapeHtml(c.name) + '">' +
+          '<span class="leaderboard-row__rank">' + (i + 1) + '</span>' +
+          '<span class="leaderboard-row__name">' + escapeHtml(c.name) + '</span>' +
+          '<span class="leaderboard-row__value">' + formatUSD(c.valueUSD) + '</span>' +
+        '</button>'
+      ).join('')
+    : '<p class="cc-empty-note">No deals recorded yet.</p>');
+}
+
+// ---------- 4c. Deal spotlight (highest-value open opportunity) ----------
+function renderCCSpotlight(deals) {
+  const el = document.getElementById('ccSpotlight');
+  if (!el) return;
+
+  const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
+  if (open.length === 0) {
+    el.innerHTML = '<h3><i class="bi bi-star-fill"></i> Deal spotlight</h3><p class="cc-empty-note">No open deals right now.</p>';
+    return;
+  }
+
+  const spotlight = open.slice().sort((a, b) => toUSD(b.value, b.currency) - toUSD(a.value, a.currency))[0];
+  const lastActive = timeAgo(lastActivityTimestamp(spotlight));
+
+  el.innerHTML = '' +
+    '<h3><i class="bi bi-star-fill"></i> Deal spotlight</h3>' +
+    '<div class="spotlight-card__row"><span>Entity</span><strong>' + escapeHtml(spotlight.entityName || 'Untitled entity') + '</strong></div>' +
+    '<div class="spotlight-card__row"><span>Value</span><strong class="mono-figure spotlight-card__value">' + formatUSD(toUSD(spotlight.value, spotlight.currency)) + '</strong></div>' +
+    '<div class="spotlight-card__row"><span>Stage</span><span class="stage-badge stage-badge--' + spotlight.stage + '">' + spotlight.stage + '</span></div>' +
+    (lastActive ? '<div class="spotlight-card__row"><span>Last activity</span><span>' + escapeHtml(lastActive) + '</span></div>' : '') +
+    '<button type="button" class="btn btn-ink btn-sm spotlight-card__btn" id="ccSpotlightViewBtn">View opportunity detail</button>';
+
+  document.getElementById('ccSpotlightViewBtn').addEventListener('click', () => openDetailModal(spotlight.id));
+}
+
+// ---------- 4d. Follow-ups status (deals + contacts, by urgency) ----------
+function renderCCFollowupChart() {
+  const el = document.getElementById('ccFollowupChart');
+  if (!el) return;
+
+  const all = [
+    ...(typeof collectDealFollowUps === 'function' ? collectDealFollowUps() : []),
+    ...(typeof collectContactFollowUps === 'function' ? collectContactFollowUps() : []),
+  ];
+  const overdue = all.filter(f => f.state === 'overdue').length;
+  const soon = all.filter(f => f.state === 'soon').length;
+  const later = all.filter(f => f.state === 'later').length;
+
+  if (overdue + soon + later === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No follow-ups with a next-step date logged yet.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const base = chartBase();
+  const options = Object.assign({}, base, {
+    series: [{ name: 'Follow-ups', data: [overdue, soon, later] }],
+    chart: Object.assign({}, base.chart, { type: 'bar', height: 230 }),
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '45%', distributed: true } },
+    xaxis: { categories: ['Overdue', 'Due within 7d', 'Later'], labels: { style: { colors: '#94A0B8' } } },
+    yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
+    colors: ['#C42B1C', '#9D5D00', '#0F6CBD'],
+    legend: { show: false },
+    dataLabels: { enabled: true },
+  });
+
+  if (ccFollowupChartInstance) ccFollowupChartInstance.destroy();
+  ccFollowupChartInstance = new ApexCharts(el, options);
+  ccFollowupChartInstance.render();
+}
+
 // ---------- Orchestration ----------
 function renderToday() {
   const deals = getDeals();
   renderCCHero(deals);
   renderCCRevenueChart(deals);
   renderCCGoal();
+  renderCCDealsLineChart(deals);
+  renderCCEntityMixChart(deals);
   renderCCPriorityList();
   renderCCStageBars(deals);
   renderCCRecentWins(deals);
+  renderCCSuggestions(deals);
+  renderCCLeaderboard(deals);
+  renderCCSpotlight(deals);
+  renderCCFollowupChart();
 }
 
 // ---------- Shared interactions ----------
@@ -303,6 +490,9 @@ document.getElementById('todayView').addEventListener('click', (e) => {
 
   const contactRow = e.target.closest('[data-contact-key]');
   if (contactRow) { switchView('contacts'); openContactUpdateModal(contactRow.dataset.contactKey, contactRow.dataset.contactName); return; }
+
+  const entityRow = e.target.closest('[data-jump-entity]');
+  if (entityRow) { switchView('deals', { searchTerm: entityRow.dataset.jumpEntity }); return; }
 
   const row = e.target.closest('.attention-row[data-id]');
   if (!row) return;

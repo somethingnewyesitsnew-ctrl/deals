@@ -135,3 +135,11 @@
 .cc-stage-bar__value{ width: 92px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; }
 
 .cc-empty-note{ font-size: 0.8rem; color: var(--text-faint); text-align: center; padding: 1.2rem 0.5rem; }
+
+/* Leaderboard rows reused from the Reports tab (see charts-motion.css'
+   .leaderboard-row) are plain <div>s there — on the Dashboard they're
+   real <button>s so a click can jump into Deals filtered to that client,
+   so this strips button chrome and adds a hover state to match. */
+.cc-leaderboard-row{ width: 100%; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: var(--r-sm); padding: 0.3rem 0.35rem; margin: 0 -0.35rem; }
+.cc-leaderboard-row:hover{ background: var(--surface); }
+.cc-leaderboard-row:hover .leaderboard-row__name{ color: var(--accent); }
