@@ -87,7 +87,7 @@
   --sidebar-w:            232px;
   --sidebar-w-collapsed:  60px;
   --titlebar-h:           44px;
-  --drawer-w:             560px;
+  --drawer-w:             min(880px, 92vw);
 
   --motion-fast: 120ms ease;
   --motion-med:  220ms cubic-bezier(.2,.7,.3,1);

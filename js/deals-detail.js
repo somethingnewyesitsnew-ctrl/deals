@@ -21,6 +21,10 @@ const detailDeleteBtn = document.getElementById('detailDeleteBtn');
 
 let currentDetailDealId = null;
 let currentDetailTab = 'overview';
+let currentDetailDeal = null;
+let detailPaymentChartInstance = null;
+let detailInvoiceChartInstance = null;
+let detailActivityChartInstance = null;
 
 // ---------- Small render helpers ----------
 function fieldRow(label, value) {
@@ -224,16 +228,23 @@ function openDetailModal(dealId) {
   const financialPane = renderInvoiceSection(deal);
   const projectPane = renderDealProjectSection(deal);
   const documentsPane = renderDocumentsSection(deal);
+  const analyticsPane =
+    '<div class="detail-analytics-grid">' +
+      '<div class="detail-card"><h4><i class="bi bi-pie-chart"></i> Payment progress</h4><div id="detailPaymentChart"></div></div>' +
+      '<div class="detail-card"><h4><i class="bi bi-receipt"></i> Invoices</h4><div id="detailInvoiceChart"></div></div>' +
+      '<div class="detail-card detail-card--wide"><h4><i class="bi bi-graph-up"></i> Activity over time</h4><div id="detailActivityChart"></div></div>' +
+    '</div>';
 
   const tabs = [
     { key: 'overview', icon: 'bi-info-circle', label: 'Overview', count: null },
+    { key: 'analytics', icon: 'bi-bar-chart-line', label: 'Analytics', count: null },
     { key: 'updates', icon: 'bi-clock-history', label: 'Updates', count: (deal.commLog || []).length },
     { key: 'people', icon: 'bi-people', label: 'People', count: null },
     { key: 'financial', icon: 'bi-receipt', label: 'Financial', count: (deal.invoices || []).length },
     { key: 'project', icon: 'bi-kanban', label: 'Project', count: null },
     { key: 'documents', icon: 'bi-folder2-open', label: 'Docs', count: (deal.documents || []).length },
   ];
-  const panesByKey = { overview: overviewPane, updates: updatesPane, people: peoplePane, financial: financialPane, project: projectPane, documents: documentsPane };
+  const panesByKey = { overview: overviewPane, analytics: analyticsPane, updates: updatesPane, people: peoplePane, financial: financialPane, project: projectPane, documents: documentsPane };
   if (!panesByKey[currentDetailTab]) currentDetailTab = 'overview';
 
   detailBody.innerHTML =
@@ -274,7 +285,122 @@ function openDetailModal(dealId) {
     });
   }
 
+  currentDetailDeal = deal;
   detailModal.show();
+
+  // ApexCharts needs a container with real dimensions to measure — the
+  // Analytics pane only has that once the modal itself is actually shown
+  // (and, if it's not the active tab, only once its d-none is lifted by
+  // the tab-click handler below), so this only fires when it's already
+  // the visible pane at render time.
+  if (currentDetailTab === 'analytics') renderDetailAnalyticsCharts(deal);
+}
+
+// ---------- Analytics tab: payment progress, invoice timeline, activity trend ----------
+function renderDetailPaymentChart(deal) {
+  const el = document.getElementById('detailPaymentChart');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const valueUSD = toUSD(deal.value, deal.currency);
+  const payment = dealPaymentStatus(deal);
+  const pct = valueUSD > 0 ? Math.min(100, Math.round((payment.paidUSD / valueUSD) * 100)) : 0;
+  const dark = isDarkTheme();
+  const base = chartBase();
+  const colorByTone = { green: '#0E7A0D', amber: '#9D5D00', danger: '#C42B1C', slate: '#8A8886' };
+
+  const options = {
+    series: [pct],
+    chart: Object.assign({}, base.chart, { type: 'radialBar', height: 190 }),
+    plotOptions: { radialBar: { hollow: { size: '58%' }, dataLabels: { name: { show: false }, value: { fontSize: '20px', fontWeight: 700, color: dark ? '#fff' : '#1B1B1B', formatter: (v) => v + '%' } } } },
+    colors: [colorByTone[payment.tone] || '#8A8886'],
+    labels: ['Collected'],
+  };
+
+  if (detailPaymentChartInstance) detailPaymentChartInstance.destroy();
+  detailPaymentChartInstance = new ApexCharts(el, options);
+  detailPaymentChartInstance.render();
+}
+
+function renderDetailInvoiceChart(deal) {
+  const el = document.getElementById('detailInvoiceChart');
+  if (!el) return;
+
+  const invoices = (deal.invoices || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  if (invoices.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No invoices yet.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const base = chartBase();
+  const colorFor = (status) => status === 'paid' ? '#0E7A0D' : status === 'sent' ? '#9D5D00' : '#8A8886';
+
+  const options = Object.assign({}, base, {
+    series: [{ name: 'Invoice amount', data: invoices.map(inv => Math.round(toUSD(invoiceTotal(inv.items), inv.currency))) }],
+    chart: Object.assign({}, base.chart, { type: 'bar', height: 190 }),
+    plotOptions: { bar: { borderRadius: 5, columnWidth: '55%', distributed: true } },
+    xaxis: { categories: invoices.map(inv => inv.number), labels: { style: { colors: '#94A0B8' } } },
+    yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) } },
+    colors: invoices.map(inv => colorFor(inv.status)),
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    tooltip: Object.assign({}, base.tooltip, { y: { formatter: (v) => formatUSD(v) } }),
+  });
+
+  if (detailInvoiceChartInstance) detailInvoiceChartInstance.destroy();
+  detailInvoiceChartInstance = new ApexCharts(el, options);
+  detailInvoiceChartInstance.render();
+}
+
+function renderDetailActivityChart(deal) {
+  const el = document.getElementById('detailActivityChart');
+  if (!el) return;
+
+  const log = deal.commLog || [];
+  const byMonth = new Map();
+  log.forEach(entry => {
+    const key = entryDateKey(entry);
+    if (!key) return;
+    const mKey = key.slice(0, 7);
+    byMonth.set(mKey, (byMonth.get(mKey) || 0) + 1);
+  });
+  const keys = Array.from(byMonth.keys()).sort();
+
+  if (keys.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No dated updates yet — logged activity will chart here.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const dark = isDarkTheme();
+  const base = chartBase();
+  const lineColor = dark ? '#4CC2FF' : '#0F6CBD';
+
+  const options = Object.assign({}, base, {
+    series: [{ name: 'Updates logged', data: keys.map(k => byMonth.get(k)) }],
+    chart: Object.assign({}, base.chart, { type: 'line', height: 190 }),
+    xaxis: {
+      categories: keys.map(k => { const [y, m] = k.split('-'); return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }); }),
+      labels: { style: { colors: '#94A0B8' } },
+    },
+    yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
+    stroke: { curve: 'smooth', width: 3 },
+    colors: [lineColor],
+    fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.3, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
+    dataLabels: { enabled: false },
+  });
+
+  if (detailActivityChartInstance) detailActivityChartInstance.destroy();
+  detailActivityChartInstance = new ApexCharts(el, options);
+  detailActivityChartInstance.render();
+}
+
+function renderDetailAnalyticsCharts(deal) {
+  renderDetailPaymentChart(deal);
+  renderDetailInvoiceChart(deal);
+  renderDetailActivityChart(deal);
 }
 
 // Tab switching — delegated on the stable detailBody container (same
@@ -287,6 +413,10 @@ document.getElementById('detailBody').addEventListener('click', (e) => {
   currentDetailTab = key;
   detailBody.querySelectorAll('.detail-tab').forEach(b => b.classList.toggle('is-active', b === tabBtn));
   detailBody.querySelectorAll('.detail-tab-pane').forEach(p => p.classList.toggle('d-none', p.dataset.tabPane !== key));
+  // Lazy-render: only once the pane is actually visible (see the header
+  // comment on renderDetailAnalyticsCharts's other call site) and only
+  // when landing ON the Analytics tab, not every other tab click.
+  if (key === 'analytics' && currentDetailDeal) renderDetailAnalyticsCharts(currentDetailDeal);
 });
 
 detailEditBtn.addEventListener('click', () => {

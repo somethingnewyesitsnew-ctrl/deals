@@ -91,6 +91,15 @@
   #detailModal .modal-dialog{ max-width: 100%; }
 }
 
+/* The drawer only reaches close to its ~880px cap once the viewport is
+   wide enough to spare it (min(880px, 92vw)), so gate the 2-column
+   layouts on viewport width too — a narrow drawer on a narrow screen
+   should stay single-column, same as before this widening. */
+@media (min-width: 860px){
+  #detailModal .detail-grid{ grid-template-columns: 1fr 1fr; }
+  #detailModal .detail-analytics-grid{ grid-template-columns: 1fr 1fr; }
+}
+
 .detail-top{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--sp-4); flex-wrap: wrap; gap: var(--sp-3); }
 .detail-top__left{ display: flex; flex-direction: column; gap: 0.5rem; }
 .detail-top__badges{ display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
@@ -109,6 +118,12 @@
 .detail-field__label{ color: var(--text-faint); white-space: nowrap; flex-shrink: 0; }
 .detail-field__value{ color: var(--text); text-align: right; font-weight: 500; word-break: break-word; }
 .detail-notes{ font-size: 0.82rem; color: var(--text-dim); white-space: pre-wrap; margin: 0; line-height: 1.55; }
+
+/* Analytics tab — payment-progress radial + invoice bar chart side by
+   side (2-col above 860px, see media query up top), activity trend
+   spanning both columns underneath. */
+.detail-analytics-grid{ display: grid; grid-template-columns: 1fr; gap: var(--sp-3); }
+.detail-analytics-grid .detail-card--wide{ grid-column: 1 / -1; }
 
 /* status boxes — left-accent bar, matches the rest of the app's stat treatment */
 /* Value Summary box — ported from the mockup: two figures side by side
