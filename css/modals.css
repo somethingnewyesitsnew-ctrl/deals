@@ -144,6 +144,20 @@
 .status-box--danger{ --tone-color: var(--red); } .status-box--danger .status-box__value{ color: var(--red); }
 .status-box--slate .status-box__value{ color: var(--text-dim); }
 
+/* Detail-drawer tabs — sits under the always-visible summary (top badges,
+   value box, status boxes) and switches the deeper content below it
+   (Overview/Updates/People/Financial/Project/Docs) without re-rendering
+   or losing scroll position on the summary above. Horizontal, scrollable
+   strip rather than the wizard's vertical rail — the drawer is a fixed
+   560px wide, so a vertical rail would eat too much of that for 6 tabs. */
+.detail-tabs{ display: flex; gap: 0.1rem; border-bottom: 1px solid var(--line); margin: 0 0 var(--sp-4); overflow-x: auto; }
+.detail-tab{ flex-shrink: 0; display: flex; align-items: center; gap: 0.4rem; border: none; background: transparent; color: var(--text-faint); font-size: 0.8rem; font-weight: 600; padding: 0.55rem 0.7rem; border-bottom: 2px solid transparent; white-space: nowrap; margin-bottom: -1px; }
+.detail-tab i{ font-size: 0.86rem; }
+.detail-tab:hover{ color: var(--text); }
+.detail-tab.is-active{ color: var(--accent); border-bottom-color: var(--accent); }
+.detail-tab__count{ font-size: 0.64rem; background: var(--slate-soft); color: var(--text-dim); padding: 0.04rem 0.38rem; border-radius: 999px; font-weight: 700; }
+.detail-tab.is-active .detail-tab__count{ background: var(--accent-soft); color: var(--accent); }
+
 /* Connected vertical activity timeline — ported from the mockup: a left
    border line with a dot per entry, the most recent one solid/larger,
    replacing the old stacked-card update list. */

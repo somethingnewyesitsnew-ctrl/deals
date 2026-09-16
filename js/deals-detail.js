@@ -20,6 +20,7 @@ const detailEditBtn = document.getElementById('detailEditBtn');
 const detailDeleteBtn = document.getElementById('detailDeleteBtn');
 
 let currentDetailDealId = null;
+let currentDetailTab = 'overview';
 
 // ---------- Small render helpers ----------
 function fieldRow(label, value) {
@@ -115,6 +116,7 @@ function renderStatusBoxes(deal) {
 function openDetailModal(dealId) {
   const deal = getDeals().find(d => d.id === dealId);
   if (!deal) return;
+  if (currentDetailDealId !== dealId) currentDetailTab = 'overview';
   currentDetailDealId = dealId;
 
   detailTitle.textContent = deal.entityName || 'Untitled entity';
@@ -171,26 +173,8 @@ function openDetailModal(dealId) {
 
   const lastActive = timeAgo(lastActivityTimestamp(deal));
 
-  detailBody.innerHTML =
-    '<div class="detail-top">' +
-      '<div class="detail-top__left">' +
-        '<div class="detail-top__badges">' + relDot + typeBadge + '<span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span></div>' +
-        (lastActive ? '<span class="detail-last-activity"><i class="bi bi-clock-history"></i>' + lastActive + '</span>' : '') +
-      '</div>' +
-      '<div class="detail-value">' + formatDualCurrency(deal.value, deal.currency) + '</div>' +
-    '</div>' +
-
-    valueSummaryBox(deal) +
-    renderStatusBoxes(deal) +
-
-    '<div class="detail-card">' +
-      '<div class="detail-card__head-row">' +
-        '<h4><i class="bi bi-clock-history"></i> Updates</h4>' +
-        '<button type="button" class="btn btn-sm btn-outline-secondary" id="detailAddUpdateBtn"><i class="bi bi-plus-lg"></i> Add update</button>' +
-      '</div>' +
-      updatesHtml +
-    '</div>' +
-
+  // ---------- Tab panes ----------
+  const overviewPane =
     '<div class="detail-grid">' +
       '<div class="detail-card">' +
         '<h4><i class="bi bi-building"></i> Entity</h4>' +
@@ -219,20 +203,61 @@ function openDetailModal(dealId) {
         '</div></div>'
       : '') +
 
-    renderInvoiceSection(deal) +
+    (deal.notes ? '<div class="detail-card"><h4><i class="bi bi-sticky"></i> Notes</h4><p class="detail-notes">' + escapeHtml(deal.notes) + '</p></div>' : '');
 
-    renderDealProjectSection(deal) +
+  const updatesPane =
+    '<div class="detail-card">' +
+      '<div class="detail-card__head-row">' +
+        '<h4><i class="bi bi-clock-history"></i> Updates</h4>' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary" id="detailAddUpdateBtn"><i class="bi bi-plus-lg"></i> Add update</button>' +
+      '</div>' +
+      updatesHtml +
+    '</div>';
 
-    renderDocumentsSection(deal) +
-
+  const peoplePane =
     '<div class="detail-grid">' +
       personCard('First contact person', deal.firstContact) +
       personCard('Project manager (their side)', deal.projectManager) +
     '</div>' +
+    referralBlock;
 
-    referralBlock +
+  const financialPane = renderInvoiceSection(deal);
+  const projectPane = renderDealProjectSection(deal);
+  const documentsPane = renderDocumentsSection(deal);
 
-    (deal.notes ? '<div class="detail-card"><h4><i class="bi bi-sticky"></i> Notes</h4><p class="detail-notes">' + escapeHtml(deal.notes) + '</p></div>' : '');
+  const tabs = [
+    { key: 'overview', icon: 'bi-info-circle', label: 'Overview', count: null },
+    { key: 'updates', icon: 'bi-clock-history', label: 'Updates', count: (deal.commLog || []).length },
+    { key: 'people', icon: 'bi-people', label: 'People', count: null },
+    { key: 'financial', icon: 'bi-receipt', label: 'Financial', count: (deal.invoices || []).length },
+    { key: 'project', icon: 'bi-kanban', label: 'Project', count: null },
+    { key: 'documents', icon: 'bi-folder2-open', label: 'Docs', count: (deal.documents || []).length },
+  ];
+  const panesByKey = { overview: overviewPane, updates: updatesPane, people: peoplePane, financial: financialPane, project: projectPane, documents: documentsPane };
+  if (!panesByKey[currentDetailTab]) currentDetailTab = 'overview';
+
+  detailBody.innerHTML =
+    '<div class="detail-top">' +
+      '<div class="detail-top__left">' +
+        '<div class="detail-top__badges">' + relDot + typeBadge + '<span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span></div>' +
+        (lastActive ? '<span class="detail-last-activity"><i class="bi bi-clock-history"></i>' + lastActive + '</span>' : '') +
+      '</div>' +
+      '<div class="detail-value">' + formatDualCurrency(deal.value, deal.currency) + '</div>' +
+    '</div>' +
+
+    valueSummaryBox(deal) +
+    renderStatusBoxes(deal) +
+
+    '<div class="detail-tabs" id="detailTabs">' +
+      tabs.map(t => '' +
+        '<button type="button" class="detail-tab' + (t.key === currentDetailTab ? ' is-active' : '') + '" data-tab="' + t.key + '">' +
+          '<i class="bi ' + t.icon + '"></i>' + t.label +
+          (t.count ? '<span class="detail-tab__count">' + t.count + '</span>' : '') +
+        '</button>'
+      ).join('') +
+    '</div>' +
+
+    tabs.map(t => '<div class="detail-tab-pane' + (t.key === currentDetailTab ? '' : ' d-none') + '" data-tab-pane="' + t.key + '">' + panesByKey[t.key] + '</div>').join('');
 
   const jumpBtn = document.getElementById('detailJumpReferral');
   if (jumpBtn) {
@@ -242,12 +267,27 @@ function openDetailModal(dealId) {
     });
   }
 
-  document.getElementById('detailAddUpdateBtn').addEventListener('click', () => {
-    openQuickUpdateModal(deal.id);
-  });
+  const addUpdateBtn = document.getElementById('detailAddUpdateBtn');
+  if (addUpdateBtn) {
+    addUpdateBtn.addEventListener('click', () => {
+      openQuickUpdateModal(deal.id);
+    });
+  }
 
   detailModal.show();
 }
+
+// Tab switching — delegated on the stable detailBody container (same
+// pattern invoices.js/documents.js use for their own buttons), so it
+// works no matter how many times openDetailModal() rebuilds the markup.
+document.getElementById('detailBody').addEventListener('click', (e) => {
+  const tabBtn = e.target.closest('.detail-tab');
+  if (!tabBtn) return;
+  const key = tabBtn.dataset.tab;
+  currentDetailTab = key;
+  detailBody.querySelectorAll('.detail-tab').forEach(b => b.classList.toggle('is-active', b === tabBtn));
+  detailBody.querySelectorAll('.detail-tab-pane').forEach(p => p.classList.toggle('d-none', p.dataset.tabPane !== key));
+});
 
 detailEditBtn.addEventListener('click', () => {
   detailModal.hide();
