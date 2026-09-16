@@ -136,6 +136,20 @@
 
 .cc-empty-note{ font-size: 0.8rem; color: var(--text-faint); text-align: center; padding: 1.2rem 0.5rem; }
 
+/* "View all" link sitting inside a .dashboard-section__title (flex row) —
+   pushed to the far right instead of crowding the heading text. */
+.cc-section-link{ margin-left: auto; font-weight: 600; }
+
+/* Money line appended to the bottom of a reused .project-card (see
+   css/projects.css) — the Projects tab's own cards don't show this,
+   only the Dashboard's project preview does. */
+.cc-project-card__money{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
+.cc-project-card__money i{ font-size: 0.76rem; }
+.cc-project-card__money--green{ color: var(--green); }
+.cc-project-card__money--danger{ color: var(--red); }
+.cc-project-card__money--amber{ color: var(--amber); }
+.cc-project-card__money--slate{ color: var(--text-faint); font-weight: 500; }
+
 /* Leaderboard rows reused from the Reports tab (see charts-motion.css'
    .leaderboard-row) are plain <div>s there — on the Dashboard they're
    real <button>s so a click can jump into Deals filtered to that client,

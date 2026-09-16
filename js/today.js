@@ -460,6 +460,93 @@ function renderCCFollowupChart() {
   ccFollowupChartInstance.render();
 }
 
+// ---------- 4e. Projects — work progress + money, per project ----------
+function ccProjectMoney(project) {
+  if (project.dealId) {
+    const deal = getDeals().find(d => d.id === project.dealId);
+    if (!deal) return { tone: 'slate', text: 'Linked deal not found' };
+    const status = dealPaymentStatus(deal);
+    const valueUSD = toUSD(deal.value, deal.currency);
+    return {
+      tone: status.tone,
+      text: formatUSD(valueUSD) + ' · ' + status.label + (status.remainingUSD > 0.01 ? ' (' + formatUSD(status.remainingUSD) + ' left)' : ''),
+    };
+  }
+  const linked = (typeof getExpenses === 'function' ? getExpenses() : []).filter(e => (e.links || []).some(l => l.type === 'project' && l.id === project.id));
+  if (linked.length === 0) return { tone: 'slate', text: 'No money linked yet' };
+  const incomeUSD = linked.filter(e => e.kind === 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  const expenseUSD = linked.filter(e => e.kind !== 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  return { tone: (incomeUSD - expenseUSD) >= 0 ? 'green' : 'danger', text: formatUSD(incomeUSD) + ' in · ' + formatUSD(expenseUSD) + ' out' };
+}
+
+function ccProjectCard(project) {
+  const typeMeta = PROJECT_TYPE_META[project.type] || PROJECT_TYPE_META.other;
+  const progress = projectPhaseProgress(project);
+  const deal = project.dealId ? getDeals().find(d => d.id === project.dealId) : null;
+  const clientLabel = deal ? (deal.entityName || 'Untitled entity') : project.clientName;
+  const money = ccProjectMoney(project);
+
+  return '' +
+    '<button type="button" class="project-card" data-open-project="' + project.id + '">' +
+      '<div class="project-card__head">' +
+        '<span class="project-card__type"><i class="bi ' + typeMeta.icon + '"></i>' + typeMeta.label + '</span>' +
+        '<span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[project.status] + '">' + WORK_STATUS_LABELS[project.status] + '</span>' +
+      '</div>' +
+      '<div class="project-card__name">' + escapeHtml(project.name) + '</div>' +
+      (clientLabel ? '<div class="project-card__client"><i class="bi ' + (deal ? 'bi-journal-text' : 'bi-building') + '"></i>' + escapeHtml(clientLabel) + '</div>' : '') +
+      (progress.total
+        ? '<div class="project-card__progress"><div class="project-card__progress-bar"><span style="width:' + progress.pct + '%"></span></div><span class="project-card__progress-label">' + progress.done + '/' + progress.total + ' phases</span></div>'
+        : '<p class="no-referral mb-0">No phases set yet.</p>') +
+      '<div class="cc-project-card__money cc-project-card__money--' + money.tone + '"><i class="bi bi-cash-coin"></i>' + escapeHtml(money.text) + '</div>' +
+    '</button>';
+}
+
+function renderCCProjects() {
+  const statsEl = document.getElementById('ccProjectStats');
+  const gridEl = document.getElementById('ccProjectGrid');
+  if (!statsEl || !gridEl) return;
+
+  const projects = typeof getProjects === 'function' ? getProjects() : [];
+  if (projects.length === 0) {
+    statsEl.innerHTML = '';
+    gridEl.innerHTML = '<p class="cc-empty-note">No projects yet — convert a Won deal into one, or start a new project from the + button.</p>';
+    return;
+  }
+
+  const active = projects.filter(p => p.status !== 'delivered' && p.status !== 'completed');
+  const delivered = projects.filter(p => p.status === 'delivered' || p.status === 'completed');
+
+  let valueUSD = 0, collectedUSD = 0;
+  projects.forEach(p => {
+    if (!p.dealId) return;
+    const deal = getDeals().find(d => d.id === p.dealId);
+    if (!deal) return;
+    valueUSD += toUSD(deal.value, deal.currency);
+    collectedUSD += dealPaymentStatus(deal).paidUSD;
+  });
+
+  const withPhases = projects.filter(p => (p.phases || []).length > 0);
+  const avgPct = withPhases.length ? Math.round(withPhases.reduce((sum, p) => sum + projectPhaseProgress(p).pct, 0) / withPhases.length) : null;
+
+  statsEl.innerHTML = [
+    ['Active projects', active.length, 'bi-kanban', 'cyan'],
+    ['Delivered', delivered.length, 'bi-check-circle', 'green'],
+    ['Avg. completion', avgPct === null ? '—' : avgPct + '%', 'bi-speedometer2', 'amber'],
+    ['Project value', formatUSD(valueUSD), 'bi-cash-stack', 'slate'],
+    ['Collected', formatUSD(collectedUSD), 'bi-cash-coin', 'green'],
+  ].map(([label, value, icon, tone]) =>
+    '<div class="attention-stat attention-stat--' + tone + '">' +
+      '<i class="bi ' + icon + '"></i>' +
+      '<span class="attention-stat__figure">' + value + '</span>' +
+      '<span class="attention-stat__label">' + label + '</span>' +
+    '</div>'
+  ).join('');
+
+  const pool = active.length ? active : projects;
+  const shown = pool.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 6);
+  gridEl.innerHTML = shown.map(ccProjectCard).join('');
+}
+
 // ---------- Orchestration ----------
 function renderToday() {
   const deals = getDeals();
@@ -472,6 +559,7 @@ function renderToday() {
   renderCCStageBars(deals);
   renderCCRecentWins(deals);
   renderCCSuggestions(deals);
+  renderCCProjects();
   renderCCLeaderboard(deals);
   renderCCSpotlight(deals);
   renderCCFollowupChart();
@@ -493,6 +581,9 @@ document.getElementById('todayView').addEventListener('click', (e) => {
 
   const entityRow = e.target.closest('[data-jump-entity]');
   if (entityRow) { switchView('deals', { searchTerm: entityRow.dataset.jumpEntity }); return; }
+
+  const projectCard = e.target.closest('[data-open-project]');
+  if (projectCard) { switchView('projects'); openProjectModal(projectCard.dataset.openProject); return; }
 
   const row = e.target.closest('.attention-row[data-id]');
   if (!row) return;
