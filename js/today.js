@@ -460,7 +460,86 @@ function renderCCFollowupChart() {
   ccFollowupChartInstance.render();
 }
 
-// ---------- 4e. Projects — work progress + money, per project ----------
+// ---------- 4e. Deals in progress — funnel position + work/payment status per deal ----------
+const CC_STAGE_PROGRESS_PCT = { new: 15, contacted: 40, proposal: 65, negotiation: 90 };
+
+function ccDealCard(deal) {
+  const pct = CC_STAGE_PROGRESS_PCT[deal.stage] || 10;
+  const overdue = isOverdue(deal);
+  const closeLabel = deal.closeDate
+    ? new Date(deal.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : 'No close date';
+  const lastActive = timeAgo(lastActivityTimestamp(deal));
+  const payment = dealPaymentStatus(deal);
+
+  return '' +
+    '<button type="button" class="project-card" data-open-deal="' + deal.id + '">' +
+      '<div class="project-card__head">' +
+        '<span class="project-card__type"><i class="bi bi-journal-text"></i>' + (deal.fieldOfWork ? escapeHtml(deal.fieldOfWork) : 'Deal') + '</span>' +
+        '<span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span>' +
+      '</div>' +
+      '<div class="project-card__name">' + escapeHtml(deal.entityName || 'Untitled entity') + '</div>' +
+      '<div class="project-card__progress">' +
+        '<div class="project-card__progress-bar"><span style="width:' + pct + '%"></span></div>' +
+        '<span class="project-card__progress-label">' + pct + '% through pipeline</span>' +
+      '</div>' +
+      '<div class="cc-deal-card__badges">' + workStatusBadge(deal.workStatus) + '<span class="payment-status-badge payment-status-badge--' + payment.tone + '">' + payment.label + '</span></div>' +
+      '<div class="cc-deal-card__foot">' +
+        '<span class="' + (overdue ? 'cc-deal-card__close--overdue' : '') + '"><i class="bi ' + (overdue ? 'bi-exclamation-circle-fill' : 'bi-calendar-event') + '"></i>' + escapeHtml(closeLabel) + '</span>' +
+        (lastActive ? '<span><i class="bi bi-clock-history"></i>' + escapeHtml(lastActive) + '</span>' : '') +
+      '</div>' +
+    '</button>';
+}
+
+function renderCCDealsProgress(deals) {
+  const statsEl = document.getElementById('ccDealsProgressStats');
+  const gridEl = document.getElementById('ccDealsProgressGrid');
+  if (!statsEl || !gridEl) return;
+
+  const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
+  if (open.length === 0) {
+    statsEl.innerHTML = '';
+    gridEl.innerHTML = '<p class="cc-empty-note">No open deals right now — new deals will track their progress here.</p>';
+    return;
+  }
+
+  const openValueUSD = open.reduce((s, d) => s + toUSD(d.value, d.currency), 0);
+  const overdueCount = open.filter(d => isOverdue(d)).length;
+  const dayMs = 24 * 60 * 60 * 1000;
+  const soonCutoff = Date.now() + 7 * dayMs;
+  const closingSoonCount = open.filter(d => d.closeDate && new Date(d.closeDate).getTime() >= Date.now() && new Date(d.closeDate).getTime() <= soonCutoff).length;
+  const ages = open.map(d => (Date.now() - (d.createdAt || Date.now())) / dayMs);
+  const avgAge = ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : 0;
+
+  statsEl.innerHTML = [
+    ['Open deals', open.length, 'bi-journal-text', 'cyan'],
+    ['Open value', formatUSD(openValueUSD), 'bi-cash-stack', 'slate'],
+    ['Overdue', overdueCount, 'bi-exclamation-circle', overdueCount > 0 ? 'danger' : 'slate'],
+    ['Closing this week', closingSoonCount, 'bi-hourglass-split', 'amber'],
+    ['Avg. days open', avgAge + 'd', 'bi-stopwatch', 'slate'],
+  ].map(([label, value, icon, tone]) =>
+    '<div class="attention-stat attention-stat--' + tone + '">' +
+      '<i class="bi ' + icon + '"></i>' +
+      '<span class="attention-stat__figure">' + value + '</span>' +
+      '<span class="attention-stat__label">' + label + '</span>' +
+    '</div>'
+  ).join('');
+
+  // Overdue first, then soonest close date, then most recently active —
+  // the same order a person would triage their own pipeline in.
+  const sorted = open.slice().sort((a, b) => {
+    const aOverdue = isOverdue(a), bOverdue = isOverdue(b);
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+    const aClose = a.closeDate ? new Date(a.closeDate).getTime() : Infinity;
+    const bClose = b.closeDate ? new Date(b.closeDate).getTime() : Infinity;
+    if (aClose !== bClose) return aClose - bClose;
+    return (lastActivityTimestamp(b) || 0) - (lastActivityTimestamp(a) || 0);
+  }).slice(0, 6);
+
+  gridEl.innerHTML = sorted.map(ccDealCard).join('');
+}
+
+// ---------- 4f. Projects — work progress + money, per project ----------
 function ccProjectMoney(project) {
   if (project.dealId) {
     const deal = getDeals().find(d => d.id === project.dealId);
@@ -559,6 +638,7 @@ function renderToday() {
   renderCCStageBars(deals);
   renderCCRecentWins(deals);
   renderCCSuggestions(deals);
+  renderCCDealsProgress(deals);
   renderCCProjects();
   renderCCLeaderboard(deals);
   renderCCSpotlight(deals);
@@ -584,6 +664,9 @@ document.getElementById('todayView').addEventListener('click', (e) => {
 
   const projectCard = e.target.closest('[data-open-project]');
   if (projectCard) { switchView('projects'); openProjectModal(projectCard.dataset.openProject); return; }
+
+  const dealCard = e.target.closest('[data-open-deal]');
+  if (dealCard) { switchView('deals'); openDetailModal(dealCard.dataset.openDeal); return; }
 
   const row = e.target.closest('.attention-row[data-id]');
   if (!row) return;

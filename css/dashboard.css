@@ -150,6 +150,16 @@
 .cc-project-card__money--amber{ color: var(--amber); }
 .cc-project-card__money--slate{ color: var(--text-faint); font-weight: 500; }
 
+/* Deals-in-progress cards reuse .project-card the same way — a funnel-
+   position progress bar instead of phase progress, plus a badge row and
+   a close-date/last-activity footer. */
+.cc-deal-card__badges{ display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+.cc-deal-card__foot{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
+.cc-deal-card__foot i{ margin-right: 0.2rem; }
+.cc-deal-card__foot span{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-deal-card__close--overdue{ color: var(--red); font-weight: 700; }
+.cc-deal-card__close--overdue i{ color: var(--red); }
+
 /* Leaderboard rows reused from the Reports tab (see charts-motion.css'
    .leaderboard-row) are plain <div>s there — on the Dashboard they're
    real <button>s so a click can jump into Deals filtered to that client,
