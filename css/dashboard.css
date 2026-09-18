@@ -1,169 +1,158 @@
-/* dashboard.css — "Executive Overview", the landing Dashboard tab (#todayView).
+/* dashboard.css — "The Cockpit", the landing Dashboard tab (#todayView).
    ------------------------------------------------------------------------
-   Kept in its own file, split out of dashboards.css, specifically because
-   this is the one screen in the app that intentionally breaks from the
-   light-surfaces-everywhere look: a dark executive-summary "hero" band up
-   top, styled closer to a corporate BI tool (Stripe/Linear-style overview)
-   than the rest of Deal Ledger's Fluent-derived surfaces. Isolating that
-   in one file means nobody editing table.css or modals.css needs to know
-   this exception exists.
+   Rebuilt from scratch (replacing the earlier "Executive Overview" bento/
+   hero-band design). Ordered strictly by financial impact rather than by
+   data category — see the header comment on the #todayView section in
+   index.html for the full reasoning behind each layer. Class names are
+   prefixed "cx-" (the previous iteration used "cc-" — renamed so nothing
+   here is confused with, or accidentally still targets, the old design).
 
-   Structure or this file:
-     1. Hero band (greeting, attention pill, 4 KPI tiles)
-     2. Revenue chart + goal-ring row
-     3. Priority actions / Pipeline by stage / Recent wins (3-col strip)
-   All class names are prefixed "cc-" (Command Center) so nothing here
-   collides with the Attention tab's .attention-row (which the priority
-   list and recent-wins list deliberately reuse for visual consistency —
-   see dashboards.css) or the old .bento-*/.dash-mini-* rules this file
-   replaces. */
+   Layer map (top to bottom in the markup, same order on screen):
+     1. .cx-vitals    — one slim strip: greeting, 4 tiny metrics, a pill
+     2. .cx-cash       — the single dominant card: cash position
+     3. .cx-grid       — Priority Actions + Pipeline Funnel, 2 columns
+     4. (Active Work reuses .dashboard-section / .attention-summary /
+        .project-grid from charts-motion.css and dashboards.css, plus
+        the new .cx-toggle for the Sales/Delivery switch)
+     5. .cx-grid       — reused again for the two trend charts
+     6. .cx-signals    — Growth signals, small and quiet at the bottom
+   ============================================================ */
 
-/* ===== 1. Hero band ===== */
-:root{
-  --cc-hero-grad: linear-gradient(135deg, #0B1E3A 0%, #10315F 55%, #0F6CBD 130%);
-  --cc-hero-text: #FFFFFF;
-  --cc-hero-text-dim: rgba(255,255,255,0.68);
-  --cc-tile-bg: rgba(255,255,255,0.07);
-  --cc-tile-border: rgba(255,255,255,0.14);
-}
-:root[data-theme="dark"]{
-  --cc-hero-grad: linear-gradient(135deg, #060D1A 0%, #0C1E36 55%, #123A5E 130%);
-}
-
-.cc-hero{
-  position: relative; overflow: hidden;
-  background: var(--cc-hero-grad); color: var(--cc-hero-text);
-  border-radius: var(--r-md); box-shadow: var(--shadow-lg);
-  padding: 1.3rem 1.5rem 1.5rem; margin-bottom: var(--sp-4);
-}
-/* A faint decorative ring, purely textural — corporate BI dashboards
-   almost always have some subtle non-data graphic in the hero band so it
-   doesn't read as a flat color block. */
-.cc-hero::after{
-  content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px;
-  border-radius: 50%; border: 1px solid rgba(255,255,255,0.10); pointer-events: none;
-}
-.cc-hero::before{
-  content: ''; position: absolute; top: -20px; right: 40px; width: 140px; height: 140px;
-  border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); pointer-events: none;
-}
-
-.cc-hero__top{ display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; position: relative; z-index: 1; }
-.cc-hero__eyebrow{ font-size: 0.72rem; font-weight: 600; letter-spacing: 0.03em; color: var(--cc-hero-text-dim); margin: 0 0 0.2rem; }
-.cc-hero__title{ font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; margin: 0; color: #fff; letter-spacing: -0.01em; }
-
-.cc-hero__pill{
-  display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid rgba(255,255,255,0.22);
-  background: rgba(255,255,255,0.09); color: #fff; font-size: 0.78rem; font-weight: 700;
-  padding: 0.42rem 0.85rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
-  transition: background var(--motion-fast), border-color var(--motion-fast);
-}
-.cc-hero__pill:hover{ background: rgba(255,255,255,0.16); }
-.cc-hero__pill--danger{ border-color: rgba(255,153,164,0.45); background: rgba(255,99,113,0.20); }
-.cc-hero__pill--danger:hover{ background: rgba(255,99,113,0.30); }
-.cc-hero__pill--clear{ border-color: rgba(108,203,95,0.4); background: rgba(108,203,95,0.16); }
-.cc-hero__pill i{ font-size: 0.85rem; }
-
-.cc-kpi-row{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; margin-top: 1.15rem; position: relative; z-index: 1; }
-@media (max-width: 980px){ .cc-kpi-row{ grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px){ .cc-kpi-row{ grid-template-columns: 1fr; } }
-
-.cc-kpi{
-  background: var(--cc-tile-bg); border: 1px solid var(--cc-tile-border); border-radius: var(--r-md);
-  padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;
-}
-.cc-kpi__label{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cc-hero-text-dim); }
-.cc-kpi__label i{ font-size: 0.8rem; color: rgba(255,255,255,0.85); }
-.cc-kpi__value-row{ display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
-.cc-kpi__value{ font-family: var(--font-mono); font-size: 1.45rem; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.cc-kpi__delta{ font-size: 0.7rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; white-space: nowrap; }
-.cc-kpi__delta--good{ background: rgba(108,203,95,0.22); color: #8FE07F; }
-.cc-kpi__delta--bad{ background: rgba(255,138,148,0.22); color: #FFAFB8; }
-.cc-kpi__delta--neutral{ background: rgba(255,255,255,0.12); color: var(--cc-hero-text-dim); }
-
-/* ===== 2. Revenue chart + goal ring ===== */
-.cc-grid{ display: grid; gap: var(--sp-4); margin-bottom: var(--sp-4); }
-.cc-grid--main{ grid-template-columns: 2fr 1fr; align-items: stretch; }
-.cc-grid--triple{ grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 980px){
-  .cc-grid--main{ grid-template-columns: 1fr; }
-  .cc-grid--triple{ grid-template-columns: 1fr; }
-}
-
-.cc-card{
+/* ===== 1. Vitals strip ===== */
+.cx-vitals{
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3);
   background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md);
-  box-shadow: var(--shadow-sm); padding: 0.95rem 1.05rem; display: flex; flex-direction: column; min-width: 0;
+  box-shadow: var(--shadow-sm); padding: 0.65rem 1rem; margin-bottom: var(--sp-3);
 }
-.cc-card__head{ display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
-.cc-card__head h3{ font-family: var(--font-display); font-size: 0.86rem; font-weight: 700; margin: 0; color: var(--text); display: flex; align-items: center; gap: 0.42rem; }
-.cc-card__head h3 i{ color: var(--accent); font-size: 0.86rem; }
-.cc-card__sub{ font-size: 0.7rem; color: var(--text-faint); }
-.cc-card__link{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.72rem; padding: 0; white-space: nowrap; }
-.cc-card__link:hover{ text-decoration: underline; }
+.cx-vitals__greet{ display: flex; flex-direction: column; gap: 0.05rem; flex-shrink: 0; }
+.cx-vitals__title{ font-family: var(--font-display); font-size: 0.98rem; font-weight: 700; color: var(--text); }
+.cx-vitals__date{ font-size: 0.7rem; color: var(--text-faint); }
 
-.cc-card--chart{ min-height: 300px; }
-.cc-card__chart-body{ flex: 1; min-height: 220px; }
+.cx-vitals__metrics{ display: flex; align-items: center; gap: 0; flex: 1; flex-wrap: wrap; margin-left: var(--sp-2); }
+.cx-metric{ display: flex; flex-direction: column; gap: 0.1rem; padding: 0 0.9rem; border-left: 1px solid var(--line); }
+.cx-metric:first-child{ border-left: none; padding-left: 0; }
+.cx-metric__label{ font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 700; white-space: nowrap; }
+.cx-metric__value-row{ display: flex; align-items: baseline; gap: 0.35rem; }
+.cx-metric__value{ font-family: var(--font-mono); font-weight: 700; font-size: 0.98rem; color: var(--text); white-space: nowrap; }
+.cx-metric__delta{ font-size: 0.64rem; font-weight: 700; white-space: nowrap; }
+.cx-metric__delta--good{ color: var(--green); }
+.cx-metric__delta--bad{ color: var(--red); }
+.cx-metric__delta--neutral{ color: var(--text-faint); }
 
-.cc-card--goal{ align-items: center; text-align: center; justify-content: center; }
-.cc-goal-ring{
-  --pct: 0;
-  width: 128px; height: 128px; border-radius: 50%; margin: 0.2rem auto 0.9rem;
-  background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--slate-soft) 0);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+.cx-vitals__pill{
+  display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line-strong);
+  background: var(--surface); color: var(--text-dim); font-size: 0.76rem; font-weight: 700;
+  padding: 0.4rem 0.8rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
 }
-.cc-goal-ring__inner{ width: 98px; height: 98px; border-radius: 50%; background: var(--bg-raise); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px var(--line); }
-.cc-goal-ring__pct{ font-family: var(--font-mono); font-size: 1.3rem; font-weight: 700; color: var(--text); }
-.cc-goal-ring__label{ font-size: 0.62rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.1rem; }
-.cc-goal-figures{ font-size: 0.8rem; color: var(--text-dim); line-height: 1.6; }
-.cc-goal-figures strong{ color: var(--text); font-family: var(--font-mono); }
-.cc-goal-edit{ margin-top: 0.6rem; }
+.cx-vitals__pill:hover{ border-color: var(--accent); color: var(--accent); }
+.cx-vitals__pill--danger{ border-color: var(--red); background: var(--red-soft); color: var(--red); }
+.cx-vitals__pill--clear{ border-color: var(--green); background: var(--green-soft); color: var(--green); }
 
-.cc-goal-empty{ display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.6rem 0; color: var(--text-faint); }
-.cc-goal-empty i{ font-size: 1.6rem; color: var(--accent); }
-.cc-goal-empty__row{ display: flex; gap: 0.4rem; }
-.cc-goal-empty__row input{ width: 130px; padding: 0.4rem 0.6rem; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: 0.8rem; }
+@media (max-width: 760px){
+  .cx-vitals__metrics{ order: 3; width: 100%; margin-left: 0; padding-top: 0.5rem; border-top: 1px solid var(--line); justify-content: space-between; }
+}
 
-/* ===== 3. Priority actions / Pipeline by stage / Recent wins ===== */
-.cc-list{ display: flex; flex-direction: column; gap: 0.35rem; max-height: 250px; overflow-y: auto; }
-.cc-list .attention-row__note{ font-family: var(--font-mono); flex: 0 0 auto; }
+/* ===== 2. Cash Position — the single dominant card ===== */
+.cx-cash{
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: var(--sp-4);
+  background: var(--bg-raise); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: var(--r-md); box-shadow: var(--shadow-md); padding: 1.1rem 1.3rem; margin-bottom: var(--sp-4);
+}
+@media (max-width: 760px){ .cx-cash{ grid-template-columns: 1fr; } }
 
-.cc-stage-bars{ display: flex; flex-direction: column; gap: 0.65rem; padding-top: 0.15rem; }
-.cc-stage-bar{ display: flex; align-items: center; gap: 0.6rem; }
-.cc-stage-bar__label{ width: 78px; flex-shrink: 0; font-size: 0.74rem; font-weight: 600; color: var(--text-dim); }
-.cc-stage-bar__track{ flex: 1; height: 8px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; }
-.cc-stage-bar__fill{ height: 100%; border-radius: 999px; transition: width var(--motion-med); }
-.cc-stage-bar__value{ width: 92px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; }
+.cx-cash__main{ display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.cx-cash__label{ font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }
+.cx-cash__figure-row{ display: flex; align-items: baseline; gap: 0.6rem; }
+.cx-cash__figure{ font-family: var(--font-mono); font-size: 2.3rem; font-weight: 700; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cx-cash__delta{ font-size: 0.8rem; font-weight: 600; }
+.cx-cash__delta--good{ color: var(--green); }
+.cx-cash__delta--bad{ color: var(--red); }
+.cx-cash__delta--neutral{ color: var(--text-faint); }
 
-.cc-empty-note{ font-size: 0.8rem; color: var(--text-faint); text-align: center; padding: 1.2rem 0.5rem; }
+.cx-cash__goal{ margin-top: 0.7rem; }
+.cx-cash__goal-bar{ width: 100%; height: 8px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; margin-bottom: 0.3rem; }
+.cx-cash__goal-bar span{ display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width var(--motion-med); }
+.cx-cash__goal-label{ font-size: 0.76rem; color: var(--text-dim); }
+.cx-cash__goal-empty{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.cx-cash__goal-empty input{ width: 120px; padding: 0.3rem 0.5rem; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: 0.78rem; }
 
-/* "View all" link sitting inside a .dashboard-section__title (flex row) —
-   pushed to the far right instead of crowding the heading text. */
-.cc-section-link{ margin-left: auto; font-weight: 600; }
+.cx-cash__overdue{ border-left: 1px dashed var(--line); padding-left: var(--sp-4); display: flex; flex-direction: column; min-width: 0; }
+@media (max-width: 760px){ .cx-cash__overdue{ border-left: none; padding-left: 0; border-top: 1px dashed var(--line); padding-top: var(--sp-3); } }
+.cx-cash__overdue-head{ display: flex; align-items: center; gap: 0.4rem; font-size: 0.76rem; font-weight: 700; color: var(--text-dim); margin-bottom: 0.6rem; }
+.cx-cash__overdue-head i{ color: var(--amber); }
+.cx-cash__overdue-list{ display: flex; flex-direction: column; gap: 0.45rem; }
+.cx-cash-row{ display: flex; align-items: center; gap: 0.6rem; }
+.cx-cash-row__main{ flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cx-cash-row__name{ font-size: 0.8rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-cash-row__meta{ font-size: 0.68rem; color: var(--text-faint); }
+.cx-cash-row__amount{ font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: var(--text); flex-shrink: 0; white-space: nowrap; }
+.cx-cash-row__btn{ flex-shrink: 0; }
+
+/* ===== 3 & 5. Shared 2-column grid (Priority/Funnel, then the trend charts) ===== */
+.cx-grid{ display: grid; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+.cx-grid--main{ grid-template-columns: 1fr 1fr; align-items: stretch; }
+@media (max-width: 900px){ .cx-grid--main{ grid-template-columns: 1fr; } }
+
+.cx-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.95rem 1.05rem; display: flex; flex-direction: column; min-width: 0; }
+.cx-card__head{ display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
+.cx-card__head h3{ font-family: var(--font-display); font-size: 0.86rem; font-weight: 700; margin: 0; color: var(--text); display: flex; align-items: center; gap: 0.42rem; }
+.cx-card__head h3 i{ color: var(--accent); font-size: 0.86rem; }
+.cx-card__sub{ font-size: 0.7rem; color: var(--text-faint); }
+.cx-card__link{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.72rem; padding: 0; white-space: nowrap; }
+.cx-card__link:hover{ text-decoration: underline; }
+.cx-card--chart{ min-height: 280px; }
+.cx-card__chart-body{ flex: 1; min-height: 210px; }
+
+.cx-list{ display: flex; flex-direction: column; gap: 0.45rem; max-height: 320px; overflow-y: auto; }
+
+/* Pipeline funnel — a horizontal bar per stage, width proportional to
+   count, with a small drop-off line between consecutive stages. This is
+   a snapshot distribution funnel (current counts), not a time-tracked
+   conversion funnel — the app doesn't store per-deal stage-history, so
+   that's the most honest thing it can show. */
+.cx-funnel-row{ display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; }
+.cx-funnel-row__label{ width: 84px; flex-shrink: 0; font-size: 0.74rem; font-weight: 600; color: var(--text-dim); }
+.cx-funnel-row__track{ flex: 1; height: 9px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; }
+.cx-funnel-row__fill{ display: block; height: 100%; border-radius: 999px; transition: width var(--motion-med); }
+.cx-funnel-row__fill--new{ background: var(--text-faint); }
+.cx-funnel-row__fill--contacted{ background: var(--cyan); }
+.cx-funnel-row__fill--proposal{ background: var(--amber); }
+.cx-funnel-row__fill--negotiation{ background: var(--violet); }
+.cx-funnel-row__fill--won{ background: var(--green); }
+.cx-funnel-row__value{ width: 118px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-faint); white-space: nowrap; }
+.cx-funnel-drop{ display: flex; align-items: center; gap: 0.2rem; font-size: 0.66rem; color: var(--text-faint); padding: 0.05rem 0 0.05rem 90px; }
+.cx-funnel-drop i{ font-size: 0.8rem; }
+
+/* ===== 4. Active Work toggle ===== */
+.cx-toggle{ display: inline-flex; background: var(--slate-soft); border-radius: 999px; padding: 2px; margin-left: 0.6rem; }
+.cx-toggle__btn{ border: none; background: transparent; color: var(--text-dim); font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; }
+.cx-toggle__btn.is-active{ background: var(--bg-raise); color: var(--accent); box-shadow: var(--shadow-sm); }
+.cx-section-link{ margin-left: auto; font-weight: 600; }
 
 /* Money line appended to the bottom of a reused .project-card (see
-   css/projects.css) — the Projects tab's own cards don't show this,
-   only the Dashboard's project preview does. */
-.cc-project-card__money{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
-.cc-project-card__money i{ font-size: 0.76rem; }
-.cc-project-card__money--green{ color: var(--green); }
-.cc-project-card__money--danger{ color: var(--red); }
-.cc-project-card__money--amber{ color: var(--amber); }
-.cc-project-card__money--slate{ color: var(--text-faint); font-weight: 500; }
+   css/projects.css) — used by both Deals and Projects mode of the
+   Active Work section. */
+.cx-work-card__money{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
+.cx-work-card__money i{ font-size: 0.76rem; }
+.cx-work-card__money--green{ color: var(--green); }
+.cx-work-card__money--danger{ color: var(--red); }
+.cx-work-card__money--amber{ color: var(--amber); }
+.cx-work-card__money--slate{ color: var(--text-faint); font-weight: 500; }
+.cx-work-card__badges{ display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+.cx-work-card__foot{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
+.cx-work-card__foot i{ margin-right: 0.2rem; }
+.cx-work-card__foot span{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-work-card__close--overdue{ color: var(--red); font-weight: 700; }
+.cx-work-card__close--overdue i{ color: var(--red); }
 
-/* Deals-in-progress cards reuse .project-card the same way — a funnel-
-   position progress bar instead of phase progress, plus a badge row and
-   a close-date/last-activity footer. */
-.cc-deal-card__badges{ display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
-.cc-deal-card__foot{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
-.cc-deal-card__foot i{ margin-right: 0.2rem; }
-.cc-deal-card__foot span{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cc-deal-card__close--overdue{ color: var(--red); font-weight: 700; }
-.cc-deal-card__close--overdue i{ color: var(--red); }
+/* ===== 6. Growth signals — small, quiet, bottom of the page ===== */
+.cx-signals{ display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.85rem 1rem; }
+@media (max-width: 760px){ .cx-signals{ grid-template-columns: 1fr; } }
+.cx-signals__col h5{ font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); font-weight: 700; margin: 0 0 0.5rem; }
+.cx-signal-row{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; border: none; background: transparent; text-align: left; padding: 0.3rem 0; border-bottom: 1px dashed var(--line); font-size: 0.78rem; }
+.cx-signal-row:last-child{ border-bottom: none; }
+.cx-signal-row:hover .cx-signal-row__name{ color: var(--accent); }
+.cx-signal-row__name{ color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-signal-row__value{ color: var(--text-faint); font-family: var(--font-mono); font-size: 0.72rem; white-space: nowrap; flex-shrink: 0; }
 
-/* Leaderboard rows reused from the Reports tab (see charts-motion.css'
-   .leaderboard-row) are plain <div>s there — on the Dashboard they're
-   real <button>s so a click can jump into Deals filtered to that client,
-   so this strips button chrome and adds a hover state to match. */
-.cc-leaderboard-row{ width: 100%; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: var(--r-sm); padding: 0.3rem 0.35rem; margin: 0 -0.35rem; }
-.cc-leaderboard-row:hover{ background: var(--surface); }
-.cc-leaderboard-row:hover .leaderboard-row__name{ color: var(--accent); }
+.cc-empty-note{ font-size: 0.8rem; color: var(--text-faint); text-align: center; padding: 1.2rem 0.5rem; }

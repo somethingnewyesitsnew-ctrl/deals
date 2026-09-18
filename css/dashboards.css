@@ -1,5 +1,5 @@
 /* dashboards.css — Attention dashboard + Calendar month grid.
-   The landing Dashboard tab ("Executive Overview") now lives entirely in
+   The landing Dashboard tab ("The Cockpit") now lives entirely in
    css/dashboard.css — see that file's header comment for why it's split
    out on its own instead of living here with everything else. */
 
@@ -111,6 +111,7 @@
 .attn-card__urgency--amber{ color: var(--amber); }
 .attn-card__urgency--slate{ color: var(--text-faint); }
 .attn-card__urgency--cyan{ color: var(--cyan); }
+.attn-card__value{ font-size: 0.72rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-dim); background: var(--slate-soft); padding: 0.06rem 0.4rem; border-radius: var(--r-sm); }
 .attn-card__title{ font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; color: var(--text); margin: 0 0 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-card__desc{ font-size: 0.78rem; color: var(--text-faint); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-card__action{ flex-shrink: 0; font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.7rem; border-radius: var(--r-sm); background: var(--accent); color: #fff; white-space: nowrap; }

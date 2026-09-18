@@ -130,113 +130,120 @@
 
   <!-- ============ DASHBOARD ============
        (kept id="todayView" / "today*" internally for load-order/back-compat
-       reasons). "Executive Overview" — a corporate command-center layout:
-       a dark executive summary band up top (greeting + 4 real KPI tiles,
-       each with an honest week-over-week delta pulled from metric_snapshots
-       — never fabricated), a large revenue-collected trend chart paired
-       with a revenue-goal progress ring, then a three-column strip of
-       Priority Actions (the same unified, ranked attention feed the
-       Attention tab uses), Pipeline by Stage, and Recent Wins. -->
+       reasons — see js/today.js's header comment). "The Cockpit" — rebuilt
+       from scratch around one question: what should I do in the next 5
+       minutes to make or protect money, ranked strictly by financial
+       impact rather than by data category:
+         1. Vitals strip    — one slim line, not a hero banner
+         2. Cash Position    — the single dominant card (collected this
+                                month, goal progress, top overdue invoices
+                                with a one-click reminder action)
+         3. Priority Actions + Pipeline Funnel, side by side
+         4. Active Work      — Deals and Projects merged into one section
+                                behind a Sales/Delivery toggle, instead of
+                                two near-identical stacked sections
+         5. Trends            — revenue, and a combined win-rate/deal-size
+                                chart (2 charts, not 6 — the ones that
+                                actually change a daily decision)
+         6. Growth signals    — top clients/referrals/recent wins, small
+                                and quiet at the bottom, not competing
+                                with what needs action today -->
   <section class="ledger-view" id="todayView">
 
-    <div class="cc-hero">
-      <div class="cc-hero__top">
-        <div>
-          <p class="cc-hero__eyebrow" id="ccDateLabel">Date</p>
-          <h1 class="cc-hero__title" id="todayGreeting">Good day</h1>
-        </div>
-        <button type="button" class="cc-hero__pill" id="ccAttentionPill" data-jump-view="attention"></button>
+    <!-- 1. Vitals strip -->
+    <div class="cx-vitals">
+      <div class="cx-vitals__greet">
+        <span class="cx-vitals__title" id="cxGreeting">Good day</span>
+        <span class="cx-vitals__date" id="cxDateLabel">Date</span>
       </div>
-      <div class="cc-kpi-row" id="ccKpiRow"></div>
+      <div class="cx-vitals__metrics" id="cxVitalsMetrics"></div>
+      <button type="button" class="cx-vitals__pill" id="cxAttentionPill" data-jump-view="attention"></button>
     </div>
 
-    <div class="cc-grid cc-grid--main">
-      <div class="cc-card cc-card--chart">
-        <div class="cc-card__head">
-          <h3><i class="bi bi-graph-up-arrow"></i> Revenue collected</h3>
-          <span class="cc-card__sub">Paid invoices, last 6 months</span>
+    <!-- 2. Cash Position -->
+    <div class="cx-cash">
+      <div class="cx-cash__main">
+        <span class="cx-cash__label">Collected this month</span>
+        <div class="cx-cash__figure-row">
+          <span class="cx-cash__figure" id="cxCashFigure">$0</span>
         </div>
-        <div id="ccRevenueChart" class="cc-card__chart-body"></div>
+        <span class="cx-cash__delta" id="cxCashDelta"></span>
+        <div class="cx-cash__goal" id="cxCashGoal"></div>
       </div>
-
-      <div class="cc-card cc-card--goal">
-        <div class="cc-card__head"><h3><i class="bi bi-bullseye"></i> Revenue goal</h3></div>
-        <div id="ccGoalBody"></div>
-      </div>
-    </div>
-
-    <div class="cc-grid cc-grid--main">
-      <div class="cc-card cc-card--chart">
-        <div class="cc-card__head">
-          <h3><i class="bi bi-activity"></i> Deals momentum</h3>
-          <span class="cc-card__sub">New deals created per month, last 9 months</span>
-        </div>
-        <div id="ccDealsLineChart" class="cc-card__chart-body"></div>
-      </div>
-
-      <div class="cc-card">
-        <div class="cc-card__head"><h3><i class="bi bi-pie-chart-fill"></i> Client mix</h3></div>
-        <div id="ccEntityMixChart"></div>
+      <div class="cx-cash__overdue">
+        <div class="cx-cash__overdue-head"><i class="bi bi-exclamation-circle"></i> Needs collecting</div>
+        <div id="cxCashOverdueList" class="cx-cash__overdue-list"></div>
       </div>
     </div>
 
-    <div class="cc-grid cc-grid--triple">
-      <div class="cc-card">
-        <div class="cc-card__head">
+    <!-- 3. Priority Actions + Pipeline Funnel -->
+    <div class="cx-grid cx-grid--main">
+      <div class="cx-card">
+        <div class="cx-card__head">
           <h3><i class="bi bi-flag-fill"></i> Priority actions</h3>
-          <button type="button" class="cc-card__link" data-jump-view="attention">View all</button>
+          <button type="button" class="cx-card__link" data-jump-view="attention">View all</button>
         </div>
-        <div id="ccPriorityList" class="cc-list"></div>
+        <div id="cxPriorityList" class="cx-list"></div>
       </div>
 
-      <div class="cc-card">
-        <div class="cc-card__head">
-          <h3><i class="bi bi-bar-chart-steps"></i> Pipeline by stage</h3>
-          <button type="button" class="cc-card__link" data-jump-view="deals">View all</button>
+      <div class="cx-card">
+        <div class="cx-card__head">
+          <h3><i class="bi bi-funnel-fill"></i> Pipeline funnel</h3>
+          <span class="cx-card__sub">Current distribution, new → won</span>
         </div>
-        <div id="ccStageBars" class="cc-stage-bars"></div>
-      </div>
-
-      <div class="cc-card">
-        <div class="cc-card__head">
-          <h3><i class="bi bi-trophy-fill"></i> Recent wins</h3>
-        </div>
-        <div id="ccRecentWins" class="cc-list"></div>
+        <div id="cxFunnel"></div>
       </div>
     </div>
 
-    <div class="dashboard-section">
-      <h2 class="dashboard-section__title"><i class="bi bi-lightbulb"></i> Smart suggestions</h2>
-      <div class="suggestions-grid" id="ccSuggestions"></div>
-    </div>
-
+    <!-- 4. Active Work — Deals/Projects merged behind a toggle -->
     <div class="dashboard-section">
       <h2 class="dashboard-section__title">
-        <i class="bi bi-journal-text"></i> Deals in progress
-        <button type="button" class="cc-card__link cc-section-link" data-jump-view="deals">View all</button>
-      </h2>
-      <div class="attention-summary" id="ccDealsProgressStats"></div>
-      <div class="project-grid" id="ccDealsProgressGrid"></div>
-    </div>
-
-    <div class="dashboard-section">
-      <h2 class="dashboard-section__title">
-        <i class="bi bi-kanban-fill"></i> Projects
-        <button type="button" class="cc-card__link cc-section-link" data-jump-view="projects">View all</button>
-      </h2>
-      <div class="attention-summary" id="ccProjectStats"></div>
-      <div class="project-grid" id="ccProjectGrid"></div>
-    </div>
-
-    <div class="cc-grid cc-grid--triple">
-      <div class="leaderboard-card" id="ccLeaderboard"></div>
-      <div class="spotlight-card" id="ccSpotlight"></div>
-      <div class="cc-card">
-        <div class="cc-card__head">
-          <h3><i class="bi bi-bell-fill"></i> Follow-ups status</h3>
-          <span class="cc-card__sub">Deals + contacts</span>
+        <i class="bi bi-kanban-fill"></i> Active work
+        <div class="cx-toggle" id="cxWorkToggle">
+          <button type="button" class="cx-toggle__btn is-active" data-work-mode="sales">Sales</button>
+          <button type="button" class="cx-toggle__btn" data-work-mode="delivery">Delivery</button>
         </div>
-        <div id="ccFollowupChart"></div>
+        <button type="button" class="cx-card__link cx-section-link" data-jump-view="deals" id="cxWorkViewAllLink">View all</button>
+      </h2>
+      <div class="attention-summary" id="cxWorkStats"></div>
+      <div class="project-grid" id="cxWorkGrid"></div>
+    </div>
+
+    <!-- 5. Trends -->
+    <div class="cx-grid cx-grid--main">
+      <div class="cx-card cx-card--chart">
+        <div class="cx-card__head">
+          <h3><i class="bi bi-graph-up-arrow"></i> Revenue collected</h3>
+          <span class="cx-card__sub">Paid invoices, last 6 months</span>
+        </div>
+        <div id="cxRevenueChart" class="cx-card__chart-body"></div>
+      </div>
+
+      <div class="cx-card cx-card--chart">
+        <div class="cx-card__head">
+          <h3><i class="bi bi-bar-chart-line"></i> Win rate &amp; deal size</h3>
+          <span class="cx-card__sub">Last 9 months</span>
+        </div>
+        <div id="cxPerformanceChart" class="cx-card__chart-body"></div>
+      </div>
+    </div>
+
+    <!-- 6. Growth signals — quiet, compact, bottom of the page on purpose -->
+    <div class="dashboard-section">
+      <h2 class="dashboard-section__title"><i class="bi bi-graph-up-arrow"></i> Growth signals</h2>
+      <div class="cx-signals">
+        <div class="cx-signals__col">
+          <h5>Top clients</h5>
+          <div id="cxTopClients"></div>
+        </div>
+        <div class="cx-signals__col">
+          <h5>Top referrals</h5>
+          <div id="cxTopReferrals"></div>
+        </div>
+        <div class="cx-signals__col">
+          <h5>Recent wins</h5>
+          <div id="cxRecentWins"></div>
+        </div>
       </div>
     </div>
   </section>

@@ -3,25 +3,28 @@
    ------------------------------------------------------------
    The landing tab — internally still called "today" (ids like
    #todayView, functions like renderToday()) for historical/
-   load-order reasons, but visually it's now "Executive Overview":
-   a dark corporate summary band (greeting, an attention pill, and
-   4 KPI tiles — each with an honest week-over-week delta pulled
-   from real metric_snapshots history, never fabricated), a real
-   revenue-collected trend chart paired with a revenue-goal
-   progress ring, and a three-card strip: Priority Actions (the
-   same unified, ranked attention feed the Attention tab itself
-   uses), Pipeline by Stage, and Recent Wins.
+   load-order reasons, but the design is now "The Cockpit," built
+   from scratch around one question: what should I do in the next
+   5 minutes to make or protect money? Everything is ordered by
+   financial impact, not by data category. See the header comment
+   on #todayView in index.html for the full layer-by-layer why.
 
    Nothing here is stored — everything is read live from deals,
-   invoices, metric snapshots, and attention.js's unified ranked
-   list, the same way every other computed view in this app works.
+   invoices, projects, and attention.js's unified ranked list, the
+   same way every other computed view in this app works. Every
+   delta shown is either pulled from real metric_snapshots history
+   or computed directly from two real calendar periods — never
+   invented.
 
    Depends on: storage.js, charts.js (chartBase, isDarkTheme,
    monthKey, monthLabel, computeOverviewStats, getMetricDelta,
-   deltaText), invoices.js (invoiceTotal, getTotalCollectedUSD),
-   attention.js (buildUnifiedAttentionItems, getAttentionCounts),
-   updates.js (entryDateKey), deals-shared.js, deals-detail.js
-   (openDetailModal), app.js (switchView).
+   deltaText), invoices.js (invoiceTotal, formatInvoiceAmount,
+   getTotalCollectedUSD), financial.js (getAllInvoicesFlat,
+   daysUntilDateStr, buildReminderLink), attention.js
+   (buildUnifiedAttentionItems, getAttentionCounts,
+   attentionPriorityCard), projects.js (getProjects,
+   PROJECT_TYPE_META, projectPhaseProgress), deals-shared.js,
+   deals-detail.js (openDetailModal), app.js (switchView).
 
    Exposes: renderToday(), buildTodaySections()
    ============================================================ */
@@ -77,394 +80,183 @@ function buildTodaySections() {
   return { todayItems, upcomingItems };
 }
 
-// ---------- 1. Hero band: greeting, attention pill, KPI tiles ----------
-const CC_KPI_DEFS = [
-  { key: 'pipelineUSD', label: 'Open pipeline', icon: 'bi-graph-up-arrow', good: 'up', fmt: (v) => formatUSD(v) },
-  { key: 'collectedUSD', label: 'Collected', icon: 'bi-cash-stack', good: 'up', fmt: (v) => formatUSD(v) },
-  { key: 'winRate', label: 'Win rate', icon: 'bi-trophy', good: 'up', fmt: (v) => (v === null || v === undefined) ? '—' : Math.round(v) + '%' },
-  { key: 'outstandingUSD', label: 'Uncollected', icon: 'bi-hourglass-split', good: 'down', fmt: (v) => formatUSD(v) },
-];
-
-function renderCCKpis(deals) {
-  const rowEl = document.getElementById('ccKpiRow');
-  if (!rowEl) return;
-  const s = typeof computeOverviewStats === 'function' ? computeOverviewStats(deals) : {};
-
-  rowEl.innerHTML = CC_KPI_DEFS.map(c => {
-    const raw = s[c.key];
-    let deltaHtml = '';
-    const delta = typeof getMetricDelta === 'function' ? getMetricDelta(c.key, raw, 7) : null;
-    if (delta && delta.direction !== 'flat') {
-      const isGood = delta.direction === c.good;
-      deltaHtml = '<span class="cc-kpi__delta cc-kpi__delta--' + (isGood ? 'good' : 'bad') + '">' +
-        (delta.direction === 'up' ? '▲' : '▼') + ' ' + deltaText(c.key, delta) + '</span>';
-    }
-    return '' +
-      '<div class="cc-kpi">' +
-        '<span class="cc-kpi__label"><i class="bi ' + c.icon + '"></i>' + c.label + '</span>' +
-        '<div class="cc-kpi__value-row"><span class="cc-kpi__value">' + c.fmt(raw) + '</span>' + deltaHtml + '</div>' +
-      '</div>';
-  }).join('');
+// A real calendar month's collected (paid-invoice) revenue — monthsAgo=0
+// is the current month, 1 is the previous one. Used both for the Vitals
+// strip and the Cash Position card; two real periods, never a fabricated
+// trend line.
+function ccMonthCollectedUSD(deals, monthsAgo) {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+  const y = target.getFullYear(), m = target.getMonth();
+  let sum = 0;
+  deals.forEach(d => (d.invoices || []).forEach(inv => {
+    if (inv.status !== 'paid' || !inv.date) return;
+    const dt = new Date(inv.date);
+    if (dt.getFullYear() === y && dt.getMonth() === m) sum += toUSD(invoiceTotal(inv.items), inv.currency);
+  }));
+  return sum;
 }
 
-function renderCCHero(deals) {
-  const dateEl = document.getElementById('ccDateLabel');
-  const greetEl = document.getElementById('todayGreeting');
+// ================= 1. Vitals strip =================
+const CX_VITAL_DEFS = [
+  { key: 'collectedUSD', label: 'Collected (all-time)', icon: 'bi-cash-stack', good: 'up' },
+  { key: 'outstandingUSD', label: 'Outstanding', icon: 'bi-hourglass-split', good: 'down' },
+  { key: 'pipelineUSD', label: 'Pipeline value', icon: 'bi-graph-up-arrow', good: 'up' },
+  { key: 'winRate', label: 'Win rate', icon: 'bi-trophy', good: 'up' },
+];
+
+function renderCxVitals(deals) {
+  const dateEl = document.getElementById('cxDateLabel');
+  const greetEl = document.getElementById('cxGreeting');
   if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   if (greetEl) greetEl.textContent = greetingWord();
 
-  const pillEl = document.getElementById('ccAttentionPill');
+  const pillEl = document.getElementById('cxAttentionPill');
   if (pillEl) {
     const count = typeof getAttentionCounts === 'function' ? getAttentionCounts() : 0;
-    pillEl.className = 'cc-hero__pill ' + (count > 0 ? 'cc-hero__pill--danger' : 'cc-hero__pill--clear');
+    pillEl.className = 'cx-vitals__pill ' + (count > 0 ? 'cx-vitals__pill--danger' : 'cx-vitals__pill--clear');
     pillEl.innerHTML = count > 0
       ? '<i class="bi bi-exclamation-triangle-fill"></i>' + count + (count === 1 ? ' item needs attention' : ' items need attention')
       : '<i class="bi bi-check-circle-fill"></i>All caught up';
   }
 
-  renderCCKpis(deals);
+  const metricsEl = document.getElementById('cxVitalsMetrics');
+  if (!metricsEl) return;
+  const s = typeof computeOverviewStats === 'function' ? computeOverviewStats(deals) : {};
+
+  metricsEl.innerHTML = CX_VITAL_DEFS.map(c => {
+    const raw = s[c.key];
+    const value = c.key === 'winRate'
+      ? ((raw === null || raw === undefined) ? '—' : Math.round(raw) + '%')
+      : formatUSD(raw);
+    let deltaHtml = '';
+    const delta = typeof getMetricDelta === 'function' ? getMetricDelta(c.key, raw, 7) : null;
+    if (delta && delta.direction !== 'flat') {
+      const isGood = delta.direction === c.good;
+      deltaHtml = '<span class="cx-metric__delta ' + (isGood ? 'cx-metric__delta--good' : 'cx-metric__delta--bad') + '">' +
+        (delta.direction === 'up' ? '▲' : '▼') + ' ' + deltaText(c.key, delta) + '</span>';
+    }
+    return '' +
+      '<div class="cx-metric">' +
+        '<span class="cx-metric__label"><i class="bi ' + c.icon + '"></i> ' + c.label + '</span>' +
+        '<div class="cx-metric__value-row"><span class="cx-metric__value">' + value + '</span>' + deltaHtml + '</div>' +
+      '</div>';
+  }).join('');
 }
 
-// ---------- 2a. Revenue collected trend ----------
-let ccRevenueChartInstance = null;
-let ccDealsLineChartInstance = null;
-let ccEntityMixChartInstance = null;
-let ccFollowupChartInstance = null;
+// ================= 2. Cash Position =================
+function cxOverdueInvoiceRow(entry) {
+  const amountLabel = formatInvoiceAmount(invoiceTotal(entry.invoice.items), entry.invoice.currency);
+  const days = daysUntilDateStr(entry.invoice.dueDate);
+  const urgencyLabel = days === null ? 'No due date' : days < 0 ? Math.round(-days) + 'd overdue' : 'due in ' + Math.round(days) + 'd';
+  const reminder = typeof buildReminderLink === 'function' ? buildReminderLink(entry.deal, entry.invoice, amountLabel) : null;
 
-function renderCCRevenueChart(deals) {
-  const el = document.getElementById('ccRevenueChart');
-  if (!el) return;
+  return '' +
+    '<div class="cx-cash-row">' +
+      '<div class="cx-cash-row__main">' +
+        '<span class="cx-cash-row__name">' + escapeHtml(entry.deal.entityName || 'Untitled entity') + '</span>' +
+        '<span class="cx-cash-row__meta">' + escapeHtml(entry.invoice.number) + ' · ' + escapeHtml(urgencyLabel) + '</span>' +
+      '</div>' +
+      '<span class="cx-cash-row__amount">' + amountLabel + '</span>' +
+      (reminder ? '<a class="btn btn-sm btn-outline-secondary cx-cash-row__btn" href="' + escapeHtml(reminder.href) + '" target="_blank" rel="noopener" title="' + reminder.label + '"><i class="bi ' + reminder.icon + '"></i></a>' : '') +
+    '</div>';
+}
 
-  const byMonth = new Map();
-  deals.forEach(d => (d.invoices || []).forEach(inv => {
-    if (inv.status !== 'paid' || !inv.date) return;
-    const key = monthKey(new Date(inv.date).getTime());
-    byMonth.set(key, (byMonth.get(key) || 0) + toUSD(invoiceTotal(inv.items), inv.currency));
-  }));
-  const keys = Array.from(byMonth.keys()).sort();
-  const last = keys.slice(-6);
+function renderCxCash(deals) {
+  const figureEl = document.getElementById('cxCashFigure');
+  const deltaEl = document.getElementById('cxCashDelta');
+  const goalEl = document.getElementById('cxCashGoal');
+  const listEl = document.getElementById('cxCashOverdueList');
+  if (!figureEl) return;
 
-  if (last.length === 0) {
-    el.innerHTML = '<p class="cc-empty-note">No paid invoices yet — collected revenue will chart here once invoices are marked paid.</p>';
-    return;
+  const collected = ccMonthCollectedUSD(deals, 0);
+  const lastMonth = ccMonthCollectedUSD(deals, 1);
+  figureEl.textContent = formatUSD(collected);
+
+  if (lastMonth > 0) {
+    const diff = collected - lastMonth;
+    const pct = Math.round((diff / lastMonth) * 100);
+    deltaEl.className = 'cx-cash__delta ' + (diff >= 0 ? 'cx-cash__delta--good' : 'cx-cash__delta--bad');
+    deltaEl.textContent = (diff >= 0 ? '▲ ' : '▼ ') + formatUSD(Math.abs(diff)) + ' (' + (pct >= 0 ? '+' : '') + pct + '%) vs last month';
+  } else {
+    deltaEl.className = 'cx-cash__delta cx-cash__delta--neutral';
+    deltaEl.textContent = 'No collections last month to compare against';
   }
-  el.innerHTML = '';
-
-  const base = chartBase();
-  const dark = isDarkTheme();
-  const lineColor = dark ? '#4CC2FF' : '#0F6CBD';
-
-  const options = Object.assign({}, base, {
-    series: [{ name: 'Revenue collected', data: last.map(k => Math.round(byMonth.get(k) || 0)) }],
-    chart: Object.assign({}, base.chart, { type: 'area', height: 250 }),
-    xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
-    yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) }, forceNiceScale: true },
-    stroke: { curve: 'smooth', width: 3 },
-    colors: [lineColor],
-    fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 0.4, opacityTo: 0.04, stops: [0, 100] } },
-    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
-    dataLabels: { enabled: false },
-    tooltip: Object.assign({}, base.tooltip, { y: { formatter: (v) => formatUSD(v) } }),
-  });
-
-  if (ccRevenueChartInstance) ccRevenueChartInstance.destroy();
-  ccRevenueChartInstance = new ApexCharts(el, options);
-  ccRevenueChartInstance.render();
-}
-
-// ---------- 2b. Revenue goal progress ring ----------
-function renderCCGoal() {
-  const bodyEl = document.getElementById('ccGoalBody');
-  if (!bodyEl) return;
 
   const goal = typeof getRevenueGoal === 'function' ? getRevenueGoal() : 0;
-  const collected = typeof getTotalCollectedUSD === 'function' ? getTotalCollectedUSD() : 0;
-
-  if (goal <= 0) {
-    bodyEl.innerHTML = '' +
-      '<div class="cc-goal-empty">' +
-        '<i class="bi bi-bullseye"></i>' +
-        '<p style="margin:0;font-size:0.82rem;">No revenue goal set yet.</p>' +
-        '<div class="cc-goal-empty__row">' +
-          '<input type="number" min="0" step="100" id="ccGoalInput" placeholder="e.g. 50000">' +
-          '<button type="button" class="btn btn-sm btn-ink" id="ccGoalSaveBtn">Set goal</button>' +
-        '</div>' +
-      '</div>';
-    document.getElementById('ccGoalSaveBtn').addEventListener('click', () => {
-      const val = Number(document.getElementById('ccGoalInput').value);
-      if (val > 0) { setRevenueGoal(val); renderCCGoal(); }
-    });
-    return;
+  const totalCollected = typeof getTotalCollectedUSD === 'function' ? getTotalCollectedUSD() : 0;
+  if (goal > 0) {
+    const pct = Math.min(100, Math.round((totalCollected / goal) * 100));
+    goalEl.innerHTML = '' +
+      '<div class="cx-cash__goal-bar"><span style="width:' + pct + '%"></span></div>' +
+      '<span class="cx-cash__goal-label">' + formatUSD(totalCollected) + ' of ' + formatUSD(goal) + ' goal (' + pct + '%) <button type="button" class="link-btn" data-set-goal="1">Edit</button></span>';
+  } else {
+    goalEl.innerHTML = '<div class="cx-cash__goal-empty"><span class="cx-cash__goal-label">No revenue goal set.</span><button type="button" class="btn btn-sm btn-ink" data-set-goal="1">Set a goal</button></div>';
   }
 
-  const pct = Math.min(100, Math.round((collected / goal) * 100));
-  bodyEl.innerHTML = '' +
-    '<div class="cc-goal-ring" style="--pct:' + pct + '">' +
-      '<div class="cc-goal-ring__inner"><span class="cc-goal-ring__pct">' + pct + '%</span><span class="cc-goal-ring__label">of goal</span></div>' +
-    '</div>' +
-    '<div class="cc-goal-figures"><strong>' + formatUSD(collected) + '</strong> collected<br>of <strong>' + formatUSD(goal) + '</strong> target</div>' +
-    '<button type="button" class="link-btn cc-goal-edit" id="ccGoalEditBtn">Edit goal</button>';
-
-  document.getElementById('ccGoalEditBtn').addEventListener('click', () => {
-    const val = Number(prompt('Set revenue goal (USD):', goal));
-    if (val > 0) { setRevenueGoal(val); renderCCGoal(); }
+  const flat = typeof getAllInvoicesFlat === 'function' ? getAllInvoicesFlat() : [];
+  const outstanding = flat.filter(({ invoice }) => invoice.status !== 'paid' && invoiceTotal(invoice.items) > 0);
+  outstanding.sort((a, b) => {
+    const da = daysUntilDateStr(a.invoice.dueDate);
+    const db = daysUntilDateStr(b.invoice.dueDate);
+    if (da === null && db === null) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
   });
+  const top3 = outstanding.slice(0, 3);
+  listEl.innerHTML = top3.length ? top3.map(cxOverdueInvoiceRow).join('') : '<p class="cc-empty-note">Nothing outstanding — everything is collected.</p>';
 }
 
-// ---------- 2c. Deals momentum (new deals created per month) ----------
-function renderCCDealsLineChart(deals) {
-  const el = document.getElementById('ccDealsLineChart');
+// ================= 3. Priority Actions + Pipeline Funnel =================
+function renderCxPriorityList() {
+  const el = document.getElementById('cxPriorityList');
   if (!el) return;
-
-  if (deals.length === 0) {
-    el.innerHTML = '<p class="cc-empty-note">Record a deal to see this chart.</p>';
-    return;
-  }
-  el.innerHTML = '';
-
-  const byMonth = new Map();
-  deals.forEach(d => {
-    const key = monthKey(d.createdAt);
-    byMonth.set(key, (byMonth.get(key) || 0) + 1);
-  });
-  const keys = Array.from(byMonth.keys()).sort();
-  const last = keys.slice(-9);
-
-  const base = chartBase();
-  const dark = isDarkTheme();
-  const lineColor = dark ? '#C29CFF' : '#7719AA';
-
-  const options = Object.assign({}, base, {
-    series: [{ name: 'New deals', data: last.map(k => byMonth.get(k) || 0) }],
-    chart: Object.assign({}, base.chart, { type: 'line', height: 230 }),
-    xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
-    yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
-    stroke: { curve: 'smooth', width: 3 },
-    colors: [lineColor],
-    fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.3, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
-    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
-    dataLabels: { enabled: false },
-  });
-
-  if (ccDealsLineChartInstance) ccDealsLineChartInstance.destroy();
-  ccDealsLineChartInstance = new ApexCharts(el, options);
-  ccDealsLineChartInstance.render();
+  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 5) : [];
+  el.innerHTML = items.length
+    ? items.map(attentionPriorityCard).join('')
+    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>Nothing needs attention right now</p>';
 }
 
-// ---------- 2d. Client mix (entity type donut) ----------
-function renderCCEntityMixChart(deals) {
-  const el = document.getElementById('ccEntityMixChart');
-  if (!el) return;
+const CX_FUNNEL_STAGES = ['new', 'contacted', 'proposal', 'negotiation', 'won'];
+const CX_FUNNEL_LABELS = { new: 'New', contacted: 'Contacted', proposal: 'Proposal', negotiation: 'Negotiation', won: 'Won' };
 
+function renderCxFunnel(deals) {
+  const el = document.getElementById('cxFunnel');
+  if (!el) return;
   if (deals.length === 0) {
     el.innerHTML = '<p class="cc-empty-note">No deals recorded yet.</p>';
     return;
   }
-  el.innerHTML = '';
 
-  const types = ['government', 'private', 'international'];
-  const labels = ['Government', 'Private', 'International', 'Not set'];
-  const counts = types.map(t => deals.filter(d => d.entityType === t).length);
-  counts.push(deals.filter(d => !d.entityType).length);
+  const counts = CX_FUNNEL_STAGES.map(s => deals.filter(d => d.stage === s).length);
+  const values = CX_FUNNEL_STAGES.map(s => deals.filter(d => d.stage === s).reduce((sum, d) => sum + toUSD(d.value, d.currency), 0));
+  const max = Math.max(...counts, 1);
 
-  const base = chartBase();
-  const dark = isDarkTheme();
-
-  const options = {
-    series: counts,
-    labels,
-    chart: Object.assign({}, base.chart, { type: 'donut', height: 230 }),
-    colors: ['#0F6CBD', '#9D5D00', '#7719AA', '#8A8886'],
-    legend: { position: 'bottom', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
-    dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-    stroke: { colors: [dark ? '#2A2A2A' : '#FFFFFF'], width: 2 },
-    tooltip: { theme: dark ? 'dark' : 'light' },
-  };
-
-  if (ccEntityMixChartInstance) ccEntityMixChartInstance.destroy();
-  ccEntityMixChartInstance = new ApexCharts(el, options);
-  ccEntityMixChartInstance.render();
-}
-
-// ---------- 3a. Priority actions — reuses attention.js's unified ranked list ----------
-function ccPriorityRow(item) {
-  const idAttr = item.kind === 'deal' ? 'data-id="' + item.id + '"'
-    : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
-    : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
-    : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
-
-  return '' +
-    '<button type="button" class="attention-row" ' + idAttr + '>' +
-      '<span class="attention-row__name" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</span>' +
-      '<span class="attention-row__context attention-row__context--' + item.tone + '">' + escapeHtml(item.reason) + '</span>' +
-      '<span class="attention-row__note">' + escapeHtml(item.detail) + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function renderCCPriorityList() {
-  const el = document.getElementById('ccPriorityList');
-  if (!el) return;
-  const items = typeof buildUnifiedAttentionItems === 'function' ? buildUnifiedAttentionItems().slice(0, 6) : [];
-  el.innerHTML = items.length
-    ? items.map(ccPriorityRow).join('')
-    : '<p class="attention-clear"><i class="bi bi-check-lg"></i>Nothing needs attention right now</p>';
-}
-
-// ---------- 3b. Pipeline by stage ----------
-const CC_STAGE_ORDER = ['new', 'contacted', 'proposal', 'negotiation'];
-const CC_STAGE_LABELS = { new: 'New', contacted: 'Contacted', proposal: 'Proposal', negotiation: 'Negotiation' };
-const CC_STAGE_COLOR_VARS = { new: 'var(--text-faint)', contacted: 'var(--cyan)', proposal: 'var(--amber)', negotiation: 'var(--violet)' };
-
-function renderCCStageBars(deals) {
-  const el = document.getElementById('ccStageBars');
-  if (!el) return;
-  const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
-
-  if (open.length === 0) {
-    el.innerHTML = '<p class="cc-empty-note">No open deals right now.</p>';
-    return;
-  }
-
-  const sums = CC_STAGE_ORDER.map(s => open.filter(d => d.stage === s).reduce((sum, d) => sum + toUSD(d.value, d.currency), 0));
-  const counts = CC_STAGE_ORDER.map(s => open.filter(d => d.stage === s).length);
-  const max = Math.max(...sums, 1);
-
-  el.innerHTML = CC_STAGE_ORDER.map((stage, i) => '' +
-    '<div class="cc-stage-bar">' +
-      '<span class="cc-stage-bar__label">' + CC_STAGE_LABELS[stage] + '</span>' +
-      '<span class="cc-stage-bar__track"><span class="cc-stage-bar__fill" style="width:' + Math.max(4, (sums[i] / max) * 100) + '%;background:' + CC_STAGE_COLOR_VARS[stage] + '"></span></span>' +
-      '<span class="cc-stage-bar__value">' + formatUSD(sums[i]) + ' · ' + counts[i] + '</span>' +
-    '</div>'
-  ).join('');
-}
-
-// ---------- 3c. Recent wins ----------
-function ccWinRow(deal) {
-  return '' +
-    '<button type="button" class="attention-row" data-id="' + deal.id + '">' +
-      '<span class="attention-row__name" title="' + escapeHtml(deal.entityName || 'Untitled entity') + '">' + escapeHtml(deal.entityName || 'Untitled entity') + '</span>' +
-      '<span class="attention-row__note">' + formatUSD(toUSD(deal.value, deal.currency)) + '</span>' +
-      '<span class="attention-row__context">' + escapeHtml(timeAgo(deal.updatedAt) || '') + '</span>' +
-      '<i class="bi bi-chevron-right attention-row__chevron"></i>' +
-    '</button>';
-}
-
-function renderCCRecentWins(deals) {
-  const el = document.getElementById('ccRecentWins');
-  if (!el) return;
-  const wins = deals.filter(d => d.stage === 'won').slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 6);
-  el.innerHTML = wins.length ? wins.map(ccWinRow).join('') : '<p class="cc-empty-note">No wins recorded yet — they\'ll show up here the moment a deal moves to Won.</p>';
-}
-
-// ---------- 4a. Smart suggestions — reuses charts.js's rule-based engine ----------
-function renderCCSuggestions(deals) {
-  const el = document.getElementById('ccSuggestions');
-  if (!el) return;
-  const suggestions = typeof computeSuggestions === 'function' ? computeSuggestions(deals) : [];
-  el.innerHTML = suggestions.map(s => '' +
-    '<div class="suggestion-card suggestion-card--' + s.tone + '">' +
-      '<span class="suggestion-card__icon"><i class="bi ' + s.icon + '"></i></span>' +
-      '<div class="suggestion-card__body">' +
-        '<span class="suggestion-card__cat">' + s.cat + '</span>' +
-        '<p>' + escapeHtml(s.text) + '</p>' +
-      '</div>' +
-    '</div>'
-  ).join('');
-}
-
-// ---------- 4b. Top clients leaderboard (clickable — jumps into Deals, filtered) ----------
-function renderCCLeaderboard(deals) {
-  const el = document.getElementById('ccLeaderboard');
-  if (!el) return;
-
-  const groups = new Map();
-  deals.forEach(d => {
-    if (!d.entityName) return;
-    const key = d.entityName.trim().toLowerCase();
-    if (!groups.has(key)) groups.set(key, { name: d.entityName, valueUSD: 0 });
-    groups.get(key).valueUSD += toUSD(d.value, d.currency);
+  let html = '';
+  CX_FUNNEL_STAGES.forEach((stage, i) => {
+    const widthPct = Math.max(6, (counts[i] / max) * 100);
+    html += '' +
+      '<div class="cx-funnel-row">' +
+        '<span class="cx-funnel-row__label">' + CX_FUNNEL_LABELS[stage] + '</span>' +
+        '<span class="cx-funnel-row__track"><span class="cx-funnel-row__fill cx-funnel-row__fill--' + stage + '" style="width:' + widthPct + '%"></span></span>' +
+        '<span class="cx-funnel-row__value">' + counts[i] + ' · ' + formatUSD(values[i]) + '</span>' +
+      '</div>';
+    if (i < CX_FUNNEL_STAGES.length - 1 && counts[i] > 0) {
+      const dropoff = Math.round((1 - counts[i + 1] / counts[i]) * 100);
+      html += '<div class="cx-funnel-drop"><i class="bi bi-arrow-down-short"></i>' + dropoff + '% drop-off</div>';
+    }
   });
-  const top = Array.from(groups.values()).sort((a, b) => b.valueUSD - a.valueUSD).slice(0, 5);
-
-  const header = '<h3><i class="bi bi-trophy"></i> Top clients</h3>';
-  el.innerHTML = header + (top.length
-    ? top.map((c, i) => '' +
-        '<button type="button" class="leaderboard-row cc-leaderboard-row" data-jump-entity="' + escapeHtml(c.name) + '">' +
-          '<span class="leaderboard-row__rank">' + (i + 1) + '</span>' +
-          '<span class="leaderboard-row__name">' + escapeHtml(c.name) + '</span>' +
-          '<span class="leaderboard-row__value">' + formatUSD(c.valueUSD) + '</span>' +
-        '</button>'
-      ).join('')
-    : '<p class="cc-empty-note">No deals recorded yet.</p>');
+  el.innerHTML = html;
 }
 
-// ---------- 4c. Deal spotlight (highest-value open opportunity) ----------
-function renderCCSpotlight(deals) {
-  const el = document.getElementById('ccSpotlight');
-  if (!el) return;
+// ================= 4. Active Work (Deals + Projects, one toggle) =================
+let cxWorkMode = 'sales'; // 'sales' | 'delivery'
 
-  const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
-  if (open.length === 0) {
-    el.innerHTML = '<h3><i class="bi bi-star-fill"></i> Deal spotlight</h3><p class="cc-empty-note">No open deals right now.</p>';
-    return;
-  }
+const CX_STAGE_PROGRESS_PCT = { new: 15, contacted: 40, proposal: 65, negotiation: 90 };
 
-  const spotlight = open.slice().sort((a, b) => toUSD(b.value, b.currency) - toUSD(a.value, a.currency))[0];
-  const lastActive = timeAgo(lastActivityTimestamp(spotlight));
-
-  el.innerHTML = '' +
-    '<h3><i class="bi bi-star-fill"></i> Deal spotlight</h3>' +
-    '<div class="spotlight-card__row"><span>Entity</span><strong>' + escapeHtml(spotlight.entityName || 'Untitled entity') + '</strong></div>' +
-    '<div class="spotlight-card__row"><span>Value</span><strong class="mono-figure spotlight-card__value">' + formatUSD(toUSD(spotlight.value, spotlight.currency)) + '</strong></div>' +
-    '<div class="spotlight-card__row"><span>Stage</span><span class="stage-badge stage-badge--' + spotlight.stage + '">' + spotlight.stage + '</span></div>' +
-    (lastActive ? '<div class="spotlight-card__row"><span>Last activity</span><span>' + escapeHtml(lastActive) + '</span></div>' : '') +
-    '<button type="button" class="btn btn-ink btn-sm spotlight-card__btn" id="ccSpotlightViewBtn">View opportunity detail</button>';
-
-  document.getElementById('ccSpotlightViewBtn').addEventListener('click', () => openDetailModal(spotlight.id));
-}
-
-// ---------- 4d. Follow-ups status (deals + contacts, by urgency) ----------
-function renderCCFollowupChart() {
-  const el = document.getElementById('ccFollowupChart');
-  if (!el) return;
-
-  const all = [
-    ...(typeof collectDealFollowUps === 'function' ? collectDealFollowUps() : []),
-    ...(typeof collectContactFollowUps === 'function' ? collectContactFollowUps() : []),
-  ];
-  const overdue = all.filter(f => f.state === 'overdue').length;
-  const soon = all.filter(f => f.state === 'soon').length;
-  const later = all.filter(f => f.state === 'later').length;
-
-  if (overdue + soon + later === 0) {
-    el.innerHTML = '<p class="cc-empty-note">No follow-ups with a next-step date logged yet.</p>';
-    return;
-  }
-  el.innerHTML = '';
-
-  const base = chartBase();
-  const options = Object.assign({}, base, {
-    series: [{ name: 'Follow-ups', data: [overdue, soon, later] }],
-    chart: Object.assign({}, base.chart, { type: 'bar', height: 230 }),
-    plotOptions: { bar: { borderRadius: 6, columnWidth: '45%', distributed: true } },
-    xaxis: { categories: ['Overdue', 'Due within 7d', 'Later'], labels: { style: { colors: '#94A0B8' } } },
-    yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
-    colors: ['#C42B1C', '#9D5D00', '#0F6CBD'],
-    legend: { show: false },
-    dataLabels: { enabled: true },
-  });
-
-  if (ccFollowupChartInstance) ccFollowupChartInstance.destroy();
-  ccFollowupChartInstance = new ApexCharts(el, options);
-  ccFollowupChartInstance.render();
-}
-
-// ---------- 4e. Deals in progress — funnel position + work/payment status per deal ----------
-const CC_STAGE_PROGRESS_PCT = { new: 15, contacted: 40, proposal: 65, negotiation: 90 };
-
-function ccDealCard(deal) {
-  const pct = CC_STAGE_PROGRESS_PCT[deal.stage] || 10;
+function cxDealCard(deal) {
+  const pct = CX_STAGE_PROGRESS_PCT[deal.stage] || 10;
   const overdue = isOverdue(deal);
   const closeLabel = deal.closeDate
     ? new Date(deal.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -473,7 +265,7 @@ function ccDealCard(deal) {
   const payment = dealPaymentStatus(deal);
 
   return '' +
-    '<button type="button" class="project-card" data-open-deal="' + deal.id + '">' +
+    '<button type="button" class="project-card" data-id="' + deal.id + '">' +
       '<div class="project-card__head">' +
         '<span class="project-card__type"><i class="bi bi-journal-text"></i>' + (deal.fieldOfWork ? escapeHtml(deal.fieldOfWork) : 'Deal') + '</span>' +
         '<span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span>' +
@@ -483,19 +275,55 @@ function ccDealCard(deal) {
         '<div class="project-card__progress-bar"><span style="width:' + pct + '%"></span></div>' +
         '<span class="project-card__progress-label">' + pct + '% through pipeline</span>' +
       '</div>' +
-      '<div class="cc-deal-card__badges">' + workStatusBadge(deal.workStatus) + '<span class="payment-status-badge payment-status-badge--' + payment.tone + '">' + payment.label + '</span></div>' +
-      '<div class="cc-deal-card__foot">' +
-        '<span class="' + (overdue ? 'cc-deal-card__close--overdue' : '') + '"><i class="bi ' + (overdue ? 'bi-exclamation-circle-fill' : 'bi-calendar-event') + '"></i>' + escapeHtml(closeLabel) + '</span>' +
+      '<div class="cx-work-card__badges">' + workStatusBadge(deal.workStatus) + '<span class="payment-status-badge payment-status-badge--' + payment.tone + '">' + payment.label + '</span></div>' +
+      '<div class="cx-work-card__foot">' +
+        '<span class="' + (overdue ? 'cx-work-card__close--overdue' : '') + '"><i class="bi ' + (overdue ? 'bi-exclamation-circle-fill' : 'bi-calendar-event') + '"></i>' + escapeHtml(closeLabel) + '</span>' +
         (lastActive ? '<span><i class="bi bi-clock-history"></i>' + escapeHtml(lastActive) + '</span>' : '') +
       '</div>' +
     '</button>';
 }
 
-function renderCCDealsProgress(deals) {
-  const statsEl = document.getElementById('ccDealsProgressStats');
-  const gridEl = document.getElementById('ccDealsProgressGrid');
-  if (!statsEl || !gridEl) return;
+function cxProjectMoney(project) {
+  if (project.dealId) {
+    const deal = getDeals().find(d => d.id === project.dealId);
+    if (!deal) return { tone: 'slate', text: 'Linked deal not found' };
+    const status = dealPaymentStatus(deal);
+    const valueUSD = toUSD(deal.value, deal.currency);
+    return {
+      tone: status.tone,
+      text: formatUSD(valueUSD) + ' · ' + status.label + (status.remainingUSD > 0.01 ? ' (' + formatUSD(status.remainingUSD) + ' left)' : ''),
+    };
+  }
+  const linked = (typeof getExpenses === 'function' ? getExpenses() : []).filter(e => (e.links || []).some(l => l.type === 'project' && l.id === project.id));
+  if (linked.length === 0) return { tone: 'slate', text: 'No money linked yet' };
+  const incomeUSD = linked.filter(e => e.kind === 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  const expenseUSD = linked.filter(e => e.kind !== 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  return { tone: (incomeUSD - expenseUSD) >= 0 ? 'green' : 'danger', text: formatUSD(incomeUSD) + ' in · ' + formatUSD(expenseUSD) + ' out' };
+}
 
+function cxProjectCard(project) {
+  const typeMeta = PROJECT_TYPE_META[project.type] || PROJECT_TYPE_META.other;
+  const progress = projectPhaseProgress(project);
+  const deal = project.dealId ? getDeals().find(d => d.id === project.dealId) : null;
+  const clientLabel = deal ? (deal.entityName || 'Untitled entity') : project.clientName;
+  const money = cxProjectMoney(project);
+
+  return '' +
+    '<button type="button" class="project-card" data-open-project="' + project.id + '">' +
+      '<div class="project-card__head">' +
+        '<span class="project-card__type"><i class="bi ' + typeMeta.icon + '"></i>' + typeMeta.label + '</span>' +
+        '<span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[project.status] + '">' + WORK_STATUS_LABELS[project.status] + '</span>' +
+      '</div>' +
+      '<div class="project-card__name">' + escapeHtml(project.name) + '</div>' +
+      (clientLabel ? '<div class="project-card__client"><i class="bi ' + (deal ? 'bi-journal-text' : 'bi-building') + '"></i>' + escapeHtml(clientLabel) + '</div>' : '') +
+      (progress.total
+        ? '<div class="project-card__progress"><div class="project-card__progress-bar"><span style="width:' + progress.pct + '%"></span></div><span class="project-card__progress-label">' + progress.done + '/' + progress.total + ' phases</span></div>'
+        : '<p class="no-referral mb-0">No phases set yet.</p>') +
+      '<div class="cx-work-card__money cx-work-card__money--' + money.tone + '"><i class="bi bi-cash-coin"></i>' + escapeHtml(money.text) + '</div>' +
+    '</button>';
+}
+
+function renderCxWorkSales(deals, statsEl, gridEl) {
   const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
   if (open.length === 0) {
     statsEl.innerHTML = '';
@@ -525,8 +353,6 @@ function renderCCDealsProgress(deals) {
     '</div>'
   ).join('');
 
-  // Overdue first, then soonest close date, then most recently active —
-  // the same order a person would triage their own pipeline in.
   const sorted = open.slice().sort((a, b) => {
     const aOverdue = isOverdue(a), bOverdue = isOverdue(b);
     if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
@@ -536,55 +362,10 @@ function renderCCDealsProgress(deals) {
     return (lastActivityTimestamp(b) || 0) - (lastActivityTimestamp(a) || 0);
   }).slice(0, 6);
 
-  gridEl.innerHTML = sorted.map(ccDealCard).join('');
+  gridEl.innerHTML = sorted.map(cxDealCard).join('');
 }
 
-// ---------- 4f. Projects — work progress + money, per project ----------
-function ccProjectMoney(project) {
-  if (project.dealId) {
-    const deal = getDeals().find(d => d.id === project.dealId);
-    if (!deal) return { tone: 'slate', text: 'Linked deal not found' };
-    const status = dealPaymentStatus(deal);
-    const valueUSD = toUSD(deal.value, deal.currency);
-    return {
-      tone: status.tone,
-      text: formatUSD(valueUSD) + ' · ' + status.label + (status.remainingUSD > 0.01 ? ' (' + formatUSD(status.remainingUSD) + ' left)' : ''),
-    };
-  }
-  const linked = (typeof getExpenses === 'function' ? getExpenses() : []).filter(e => (e.links || []).some(l => l.type === 'project' && l.id === project.id));
-  if (linked.length === 0) return { tone: 'slate', text: 'No money linked yet' };
-  const incomeUSD = linked.filter(e => e.kind === 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-  const expenseUSD = linked.filter(e => e.kind !== 'income').reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-  return { tone: (incomeUSD - expenseUSD) >= 0 ? 'green' : 'danger', text: formatUSD(incomeUSD) + ' in · ' + formatUSD(expenseUSD) + ' out' };
-}
-
-function ccProjectCard(project) {
-  const typeMeta = PROJECT_TYPE_META[project.type] || PROJECT_TYPE_META.other;
-  const progress = projectPhaseProgress(project);
-  const deal = project.dealId ? getDeals().find(d => d.id === project.dealId) : null;
-  const clientLabel = deal ? (deal.entityName || 'Untitled entity') : project.clientName;
-  const money = ccProjectMoney(project);
-
-  return '' +
-    '<button type="button" class="project-card" data-open-project="' + project.id + '">' +
-      '<div class="project-card__head">' +
-        '<span class="project-card__type"><i class="bi ' + typeMeta.icon + '"></i>' + typeMeta.label + '</span>' +
-        '<span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[project.status] + '">' + WORK_STATUS_LABELS[project.status] + '</span>' +
-      '</div>' +
-      '<div class="project-card__name">' + escapeHtml(project.name) + '</div>' +
-      (clientLabel ? '<div class="project-card__client"><i class="bi ' + (deal ? 'bi-journal-text' : 'bi-building') + '"></i>' + escapeHtml(clientLabel) + '</div>' : '') +
-      (progress.total
-        ? '<div class="project-card__progress"><div class="project-card__progress-bar"><span style="width:' + progress.pct + '%"></span></div><span class="project-card__progress-label">' + progress.done + '/' + progress.total + ' phases</span></div>'
-        : '<p class="no-referral mb-0">No phases set yet.</p>') +
-      '<div class="cc-project-card__money cc-project-card__money--' + money.tone + '"><i class="bi bi-cash-coin"></i>' + escapeHtml(money.text) + '</div>' +
-    '</button>';
-}
-
-function renderCCProjects() {
-  const statsEl = document.getElementById('ccProjectStats');
-  const gridEl = document.getElementById('ccProjectGrid');
-  if (!statsEl || !gridEl) return;
-
+function renderCxWorkDelivery(statsEl, gridEl) {
   const projects = typeof getProjects === 'function' ? getProjects() : [];
   if (projects.length === 0) {
     statsEl.innerHTML = '';
@@ -623,53 +404,233 @@ function renderCCProjects() {
 
   const pool = active.length ? active : projects;
   const shown = pool.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 6);
-  gridEl.innerHTML = shown.map(ccProjectCard).join('');
+  gridEl.innerHTML = shown.map(cxProjectCard).join('');
 }
 
-// ---------- Orchestration ----------
+function renderCxWork(deals) {
+  const statsEl = document.getElementById('cxWorkStats');
+  const gridEl = document.getElementById('cxWorkGrid');
+  const viewAllLink = document.getElementById('cxWorkViewAllLink');
+  if (!statsEl || !gridEl) return;
+
+  if (viewAllLink) viewAllLink.dataset.jumpView = cxWorkMode === 'sales' ? 'deals' : 'projects';
+
+  if (cxWorkMode === 'sales') renderCxWorkSales(deals, statsEl, gridEl);
+  else renderCxWorkDelivery(statsEl, gridEl);
+}
+
+// ================= 5. Trends =================
+let cxRevenueChartInstance = null;
+let cxPerformanceChartInstance = null;
+
+function renderCxRevenueChart(deals) {
+  const el = document.getElementById('cxRevenueChart');
+  if (!el) return;
+
+  const byMonth = new Map();
+  deals.forEach(d => (d.invoices || []).forEach(inv => {
+    if (inv.status !== 'paid' || !inv.date) return;
+    const key = monthKey(new Date(inv.date).getTime());
+    byMonth.set(key, (byMonth.get(key) || 0) + toUSD(invoiceTotal(inv.items), inv.currency));
+  }));
+  const keys = Array.from(byMonth.keys()).sort();
+  const last = keys.slice(-6);
+
+  if (last.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No paid invoices yet — collected revenue will chart here once invoices are marked paid.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const base = chartBase();
+  const dark = isDarkTheme();
+  const lineColor = dark ? '#4CC2FF' : '#0F6CBD';
+
+  const options = Object.assign({}, base, {
+    series: [{ name: 'Revenue collected', data: last.map(k => Math.round(byMonth.get(k) || 0)) }],
+    chart: Object.assign({}, base.chart, { type: 'area', height: 220 }),
+    xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
+    yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) }, forceNiceScale: true },
+    stroke: { curve: 'smooth', width: 3 },
+    colors: [lineColor],
+    fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 0.4, opacityTo: 0.04, stops: [0, 100] } },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
+    dataLabels: { enabled: false },
+    tooltip: Object.assign({}, base.tooltip, { y: { formatter: (v) => formatUSD(v) } }),
+  });
+
+  if (cxRevenueChartInstance) cxRevenueChartInstance.destroy();
+  cxRevenueChartInstance = new ApexCharts(el, options);
+  cxRevenueChartInstance.render();
+}
+
+// Combined win-rate + avg-deal-size chart, both computed directly from
+// real deal records (grouped by the month a deal last changed) — no
+// snapshot history required, so this works from day one even on a fresh
+// database. Months with no won/lost outcome show a gap in the win-rate
+// line rather than a fabricated 0%.
+function renderCxPerformanceChart(deals) {
+  const el = document.getElementById('cxPerformanceChart');
+  if (!el) return;
+
+  if (deals.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">Record a deal to see this chart.</p>';
+    return;
+  }
+
+  const byMonth = new Map();
+  deals.forEach(d => {
+    const key = monthKey(d.updatedAt || d.createdAt);
+    if (!byMonth.has(key)) byMonth.set(key, { won: 0, lost: 0, sizeSum: 0, sizeCount: 0 });
+    const bucket = byMonth.get(key);
+    if (d.stage === 'won') bucket.won++;
+    if (d.stage === 'lost') bucket.lost++;
+    bucket.sizeSum += toUSD(d.value, d.currency);
+    bucket.sizeCount++;
+  });
+  const keys = Array.from(byMonth.keys()).sort();
+  const last = keys.slice(-9);
+
+  const winRates = last.map(k => {
+    const b = byMonth.get(k);
+    const total = b.won + b.lost;
+    return total ? Math.round((b.won / total) * 100) : null;
+  });
+  const avgSizes = last.map(k => {
+    const b = byMonth.get(k);
+    return b.sizeCount ? Math.round(b.sizeSum / b.sizeCount) : 0;
+  });
+
+  el.innerHTML = '';
+  const base = chartBase();
+  const dark = isDarkTheme();
+
+  const options = Object.assign({}, base, {
+    series: [
+      { name: 'Win rate', type: 'line', data: winRates },
+      { name: 'Avg deal size', type: 'column', data: avgSizes },
+    ],
+    chart: Object.assign({}, base.chart, { type: 'line', height: 220 }),
+    stroke: { width: [3, 0], curve: 'smooth' },
+    xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
+    yaxis: [
+      { seriesName: 'Win rate', min: 0, max: 100, labels: { style: { colors: '#94A0B8' }, formatter: (v) => (v === null || v === undefined) ? '' : Math.round(v) + '%' } },
+      { seriesName: 'Avg deal size', opposite: true, labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) } },
+    ],
+    colors: [dark ? '#4CC2FF' : '#0F6CBD', dark ? '#C29CFF' : '#7719AA'],
+    plotOptions: { bar: { columnWidth: '40%', borderRadius: 4 } },
+    markers: { size: 4 },
+    dataLabels: { enabled: false },
+    legend: { position: 'top', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
+    tooltip: Object.assign({}, base.tooltip, {
+      y: [
+        { formatter: (v) => (v === null || v === undefined) ? 'No won/lost deals' : v + '%' },
+        { formatter: (v) => formatUSD(v) },
+      ],
+    }),
+  });
+
+  if (cxPerformanceChartInstance) cxPerformanceChartInstance.destroy();
+  cxPerformanceChartInstance = new ApexCharts(el, options);
+  cxPerformanceChartInstance.render();
+}
+
+// ================= 6. Growth signals =================
+function cxSignalRow(name, valueLabel, dataAttrs) {
+  return '<button type="button" class="cx-signal-row" ' + dataAttrs + '><span class="cx-signal-row__name">' + escapeHtml(name) + '</span><span class="cx-signal-row__value">' + valueLabel + '</span></button>';
+}
+
+function renderCxTopClients(deals) {
+  const el = document.getElementById('cxTopClients');
+  if (!el) return;
+  const groups = new Map();
+  deals.forEach(d => {
+    if (!d.entityName) return;
+    const key = d.entityName.trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, { name: d.entityName, valueUSD: 0 });
+    groups.get(key).valueUSD += toUSD(d.value, d.currency);
+  });
+  const top = Array.from(groups.values()).sort((a, b) => b.valueUSD - a.valueUSD).slice(0, 4);
+  el.innerHTML = top.length
+    ? top.map(c => cxSignalRow(c.name, formatUSD(c.valueUSD), 'data-jump-entity="' + escapeHtml(c.name) + '"')).join('')
+    : '<p class="cc-empty-note">No deals yet.</p>';
+}
+
+function renderCxTopReferrals() {
+  const el = document.getElementById('cxTopReferrals');
+  if (!el) return;
+  const groups = typeof buildReferralGroups === 'function' ? buildReferralGroups() : [];
+  const top = groups
+    .map(g => ({ name: g.name, valueUSD: g.deals.reduce((s, d) => s + toUSD(d.value, d.currency), 0) }))
+    .sort((a, b) => b.valueUSD - a.valueUSD)
+    .slice(0, 4);
+  el.innerHTML = top.length
+    ? top.map(r => cxSignalRow(r.name, formatUSD(r.valueUSD), 'data-jump-referral="' + escapeHtml(r.name) + '"')).join('')
+    : '<p class="cc-empty-note">No referrals logged yet.</p>';
+}
+
+function renderCxRecentWins(deals) {
+  const el = document.getElementById('cxRecentWins');
+  if (!el) return;
+  const wins = deals.filter(d => d.stage === 'won').slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4);
+  el.innerHTML = wins.length
+    ? wins.map(d => cxSignalRow(d.entityName || 'Untitled entity', formatUSD(toUSD(d.value, d.currency)), 'data-id="' + d.id + '"')).join('')
+    : '<p class="cc-empty-note">No wins yet.</p>';
+}
+
+// ================= Orchestration =================
 function renderToday() {
   const deals = getDeals();
-  renderCCHero(deals);
-  renderCCRevenueChart(deals);
-  renderCCGoal();
-  renderCCDealsLineChart(deals);
-  renderCCEntityMixChart(deals);
-  renderCCPriorityList();
-  renderCCStageBars(deals);
-  renderCCRecentWins(deals);
-  renderCCSuggestions(deals);
-  renderCCDealsProgress(deals);
-  renderCCProjects();
-  renderCCLeaderboard(deals);
-  renderCCSpotlight(deals);
-  renderCCFollowupChart();
+  renderCxVitals(deals);
+  renderCxCash(deals);
+  renderCxPriorityList();
+  renderCxFunnel(deals);
+  renderCxWork(deals);
+  renderCxRevenueChart(deals);
+  renderCxPerformanceChart(deals);
+  renderCxTopClients(deals);
+  renderCxTopReferrals();
+  renderCxRecentWins(deals);
 }
 
-// ---------- Shared interactions ----------
+// ================= Shared interactions =================
 document.getElementById('todayView').addEventListener('click', (e) => {
   const jumpBtn = e.target.closest('[data-jump-view]');
   if (jumpBtn) { switchView(jumpBtn.dataset.jumpView); return; }
 
-  const todoRow = e.target.closest('[data-todo-id]');
-  if (todoRow) { switchView('todos'); openTodoModal(todoRow.dataset.todoId); return; }
+  const workModeBtn = e.target.closest('[data-work-mode]');
+  if (workModeBtn) {
+    cxWorkMode = workModeBtn.dataset.workMode;
+    document.querySelectorAll('#cxWorkToggle .cx-toggle__btn').forEach(b => b.classList.toggle('is-active', b === workModeBtn));
+    renderCxWork(getDeals());
+    return;
+  }
 
-  const debtRow = e.target.closest('[data-debt-id]');
-  if (debtRow) { switchView('debts'); openDebtModal(debtRow.dataset.debtId); return; }
+  const goalBtn = e.target.closest('[data-set-goal]');
+  if (goalBtn) {
+    const val = Number(prompt('Set revenue goal (USD):', (typeof getRevenueGoal === 'function' ? getRevenueGoal() : '') || ''));
+    if (val > 0) { setRevenueGoal(val); renderCxCash(getDeals()); }
+    return;
+  }
 
-  const contactRow = e.target.closest('[data-contact-key]');
-  if (contactRow) { switchView('contacts'); openContactUpdateModal(contactRow.dataset.contactKey, contactRow.dataset.contactName); return; }
+  const todoEl = e.target.closest('[data-todo-id]');
+  if (todoEl) { switchView('todos'); openTodoModal(todoEl.dataset.todoId); return; }
 
-  const entityRow = e.target.closest('[data-jump-entity]');
-  if (entityRow) { switchView('deals', { searchTerm: entityRow.dataset.jumpEntity }); return; }
+  const debtEl = e.target.closest('[data-debt-id]');
+  if (debtEl) { switchView('debts'); openDebtModal(debtEl.dataset.debtId); return; }
 
-  const projectCard = e.target.closest('[data-open-project]');
-  if (projectCard) { switchView('projects'); openProjectModal(projectCard.dataset.openProject); return; }
+  const contactEl = e.target.closest('[data-contact-key]');
+  if (contactEl) { switchView('contacts'); openContactUpdateModal(contactEl.dataset.contactKey, contactEl.dataset.contactName); return; }
 
-  const dealCard = e.target.closest('[data-open-deal]');
-  if (dealCard) { switchView('deals'); openDetailModal(dealCard.dataset.openDeal); return; }
+  const entityEl = e.target.closest('[data-jump-entity]');
+  if (entityEl) { switchView('deals', { searchTerm: entityEl.dataset.jumpEntity }); return; }
 
-  const row = e.target.closest('.attention-row[data-id]');
-  if (!row) return;
-  switchView('deals');
-  openDetailModal(row.dataset.id);
+  const referralEl = e.target.closest('[data-jump-referral]');
+  if (referralEl) { switchView('referrals', { searchTerm: referralEl.dataset.jumpReferral }); return; }
+
+  const projectEl = e.target.closest('[data-open-project]');
+  if (projectEl) { switchView('projects'); openProjectModal(projectEl.dataset.openProject); return; }
+
+  const dealEl = e.target.closest('[data-id]');
+  if (dealEl) { switchView('deals'); openDetailModal(dealEl.dataset.id); }
 });

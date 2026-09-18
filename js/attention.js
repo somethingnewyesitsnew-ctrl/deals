@@ -221,6 +221,27 @@ const ATTENTION_ACTION_LABEL = {
   'Stalled': 'Nudge it', 'Never contacted': 'Reach out',
 };
 
+// Dollar value at stake for a priority item, where one genuinely exists —
+// never fabricated: a deal's own value, a debt's own amount, or a to-do's
+// own linked money. Contacts and reason-only items (stalled, never
+// contacted) have no natural dollar figure, so this returns null for them
+// rather than inventing one.
+function attentionItemValueUSD(item) {
+  if (item.kind === 'deal') {
+    const deal = getDeals().find(d => d.id === item.id);
+    return deal ? toUSD(deal.value, deal.currency) : null;
+  }
+  if (item.kind === 'debt') {
+    const debt = (typeof getDebts === 'function' ? getDebts() : []).find(d => d.id === item.id);
+    return debt ? toUSD(debt.amount, debt.currency) : null;
+  }
+  if (item.kind === 'todo') {
+    const todo = getTodos().find(t => t.id === item.id);
+    return (todo && Number(todo.amount) > 0) ? toUSD(todo.amount, todo.currency || 'USD') : null;
+  }
+  return null;
+}
+
 // Priority card — ported from the mockup's "Critical & Overdue" item: a
 // solid left accent stripe, a type chip + urgency label row, a title +
 // one-line description, and a pill naming the next action.
@@ -229,12 +250,14 @@ function attentionPriorityCard(item) {
     : item.kind === 'todo' ? 'data-todo-id="' + item.id + '"'
     : item.kind === 'debt' ? 'data-debt-id="' + item.id + '"'
     : 'data-contact-key="' + escapeHtml(item.contactKey) + '" data-contact-name="' + escapeHtml(item.contactName) + '"';
+  const valueUSD = attentionItemValueUSD(item);
   return '' +
     '<button type="button" class="attn-card attn-card--' + item.tone + '" ' + idAttr + '>' +
       '<span class="attn-card__main">' +
         '<span class="attn-card__chips">' +
           '<span class="attn-card__type-chip">' + (ATTENTION_KIND_LABEL[item.kind] || 'Item') + '</span>' +
           '<span class="attn-card__urgency attn-card__urgency--' + item.tone + '"><i class="bi ' + item.icon + '"></i>' + escapeHtml(item.detail) + '</span>' +
+          (valueUSD != null ? '<span class="attn-card__value">' + formatUSD(valueUSD) + '</span>' : '') +
         '</span>' +
         '<h4 class="attn-card__title">' + escapeHtml(item.name) + '</h4>' +
         '<p class="attn-card__desc">' + escapeHtml(item.reason) + '</p>' +
