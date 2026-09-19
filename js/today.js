@@ -3,11 +3,11 @@
    ------------------------------------------------------------
    The landing tab — internally still called "today" (ids like
    #todayView, functions like renderToday()) for historical/
-   load-order reasons, but the design is now "The Cockpit," built
-   from scratch around one question: what should I do in the next
-   5 minutes to make or protect money? Everything is ordered by
-   financial impact, not by data category. See the header comment
-   on #todayView in index.html for the full layer-by-layer why.
+   load-order reasons. Visually it's "The Cockpit," built around
+   one question: what should I do in the next 5 minutes to make or
+   protect money? Everything is ordered by financial impact, not
+   by data category. See the header comment on #todayView in
+   index.html for the full layer-by-layer why.
 
    Nothing here is stored — everything is read live from deals,
    invoices, projects, and attention.js's unified ranked list, the
@@ -22,9 +22,10 @@
    getTotalCollectedUSD), financial.js (getAllInvoicesFlat,
    daysUntilDateStr, buildReminderLink), attention.js
    (buildUnifiedAttentionItems, getAttentionCounts,
-   attentionPriorityCard), projects.js (getProjects,
-   PROJECT_TYPE_META, projectPhaseProgress), deals-shared.js,
-   deals-detail.js (openDetailModal), app.js (switchView).
+   attentionPriorityCard), calendar.js (buildCalendarEntries),
+   projects.js (getProjects, PROJECT_TYPE_META,
+   projectPhaseProgress), deals-shared.js, deals-detail.js
+   (openDetailModal), app.js (switchView).
 
    Exposes: renderToday(), buildTodaySections()
    ============================================================ */
@@ -208,7 +209,7 @@ function renderCxCash(deals) {
   listEl.innerHTML = top3.length ? top3.map(cxOverdueInvoiceRow).join('') : '<p class="cc-empty-note">Nothing outstanding — everything is collected.</p>';
 }
 
-// ================= 3. Priority Actions + Pipeline Funnel =================
+// ================= 3. Priority Actions + Pipeline Funnel + Mini Calendar =================
 function renderCxPriorityList() {
   const el = document.getElementById('cxPriorityList');
   if (!el) return;
@@ -250,38 +251,35 @@ function renderCxFunnel(deals) {
   el.innerHTML = html;
 }
 
-// ================= 4. Active Work (Deals + Projects, one toggle) =================
-let cxWorkMode = 'sales'; // 'sales' | 'delivery'
+// Current month only, dense — clicking a day (or the card's "Open" link)
+// jumps into the full Calendar tab rather than duplicating its day-detail
+// popup here.
+function renderCxMiniCalendar() {
+  const el = document.getElementById('cxMiniCalendar');
+  if (!el) return;
 
-const CX_STAGE_PROGRESS_PCT = { new: 15, contacted: 40, proposal: 65, negotiation: 90 };
+  const entries = typeof buildCalendarEntries === 'function' ? buildCalendarEntries() : new Map();
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-function cxDealCard(deal) {
-  const pct = CX_STAGE_PROGRESS_PCT[deal.stage] || 10;
-  const overdue = isOverdue(deal);
-  const closeLabel = deal.closeDate
-    ? new Date(deal.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : 'No close date';
-  const lastActive = timeAgo(lastActivityTimestamp(deal));
-  const payment = dealPaymentStatus(deal);
+  const weekdayHtml = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(w => '<div class="cx-mini-cal__weekday">' + w + '</div>').join('');
+  const blanks = Array.from({ length: firstWeekday }, () => '<div class="cx-mini-cal__day cx-mini-cal__day--muted"></div>').join('');
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1;
+    const key = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const hasItems = entries.has(key) && entries.get(key).length > 0;
+    const isToday = key === todayKey;
+    return '<button type="button" class="cx-mini-cal__day' + (isToday ? ' cx-mini-cal__day--today' : '') + (hasItems ? ' cx-mini-cal__day--has-items' : '') + '" data-jump-view="calendar">' + d + (hasItems ? '<span class="cx-mini-cal__dot"></span>' : '') + '</button>';
+  }).join('');
 
-  return '' +
-    '<button type="button" class="project-card" data-id="' + deal.id + '">' +
-      '<div class="project-card__head">' +
-        '<span class="project-card__type"><i class="bi bi-journal-text"></i>' + (deal.fieldOfWork ? escapeHtml(deal.fieldOfWork) : 'Deal') + '</span>' +
-        '<span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span>' +
-      '</div>' +
-      '<div class="project-card__name">' + escapeHtml(deal.entityName || 'Untitled entity') + '</div>' +
-      '<div class="project-card__progress">' +
-        '<div class="project-card__progress-bar"><span style="width:' + pct + '%"></span></div>' +
-        '<span class="project-card__progress-label">' + pct + '% through pipeline</span>' +
-      '</div>' +
-      '<div class="cx-work-card__badges">' + workStatusBadge(deal.workStatus) + '<span class="payment-status-badge payment-status-badge--' + payment.tone + '">' + payment.label + '</span></div>' +
-      '<div class="cx-work-card__foot">' +
-        '<span class="' + (overdue ? 'cx-work-card__close--overdue' : '') + '"><i class="bi ' + (overdue ? 'bi-exclamation-circle-fill' : 'bi-calendar-event') + '"></i>' + escapeHtml(closeLabel) + '</span>' +
-        (lastActive ? '<span><i class="bi bi-clock-history"></i>' + escapeHtml(lastActive) + '</span>' : '') +
-      '</div>' +
-    '</button>';
+  el.innerHTML = weekdayHtml + blanks + days;
 }
+
+// ================= 4. Active Work (Deals + Projects, one dense table) =================
+let cxWorkMode = 'sales'; // 'sales' | 'delivery'
 
 function cxProjectMoney(project) {
   if (project.dealId) {
@@ -301,33 +299,51 @@ function cxProjectMoney(project) {
   return { tone: (incomeUSD - expenseUSD) >= 0 ? 'green' : 'danger', text: formatUSD(incomeUSD) + ' in · ' + formatUSD(expenseUSD) + ' out' };
 }
 
-function cxProjectCard(project) {
+function cxDealTableRow(deal) {
+  const overdue = isOverdue(deal);
+  const closeLabel = deal.closeDate ? new Date(deal.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No close date';
+  const payment = dealPaymentStatus(deal);
+  const lastActive = timeAgo(lastActivityTimestamp(deal));
+
+  return '' +
+    '<tr class="row-clickable" data-id="' + deal.id + '">' +
+      '<td><span class="deal-name">' + escapeHtml(deal.entityName || 'Untitled entity') + '</span>' + (deal.fieldOfWork ? '<div class="deal-meta">' + escapeHtml(deal.fieldOfWork) + '</div>' : '') + '</td>' +
+      '<td class="text-end deal-value">' + formatUSD(toUSD(deal.value, deal.currency)) + '</td>' +
+      '<td><span class="stage-badge stage-badge--' + deal.stage + '">' + deal.stage + '</span></td>' +
+      '<td><span class="payment-status-badge payment-status-badge--' + payment.tone + '">' + payment.label + '</span></td>' +
+      '<td class="timeline-cell"><div class="' + (overdue ? 'close-date--overdue' : 'close-date') + '">' + (overdue ? '<i class="bi bi-exclamation-circle-fill"></i> ' : '') + closeLabel + '</div>' + (lastActive ? '<div class="last-activity">' + escapeHtml(lastActive) + '</div>' : '') + '</td>' +
+      '<td class="text-end">' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary" data-quick-update="' + deal.id + '" title="Add update"><i class="bi bi-chat-square-text"></i></button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary" data-new-invoice="' + deal.id + '" title="Create invoice"><i class="bi bi-receipt"></i></button>' +
+      '</td>' +
+    '</tr>';
+}
+
+function cxProjectTableRow(project) {
   const typeMeta = PROJECT_TYPE_META[project.type] || PROJECT_TYPE_META.other;
   const progress = projectPhaseProgress(project);
   const deal = project.dealId ? getDeals().find(d => d.id === project.dealId) : null;
-  const clientLabel = deal ? (deal.entityName || 'Untitled entity') : project.clientName;
+  const clientLabel = deal ? (deal.entityName || 'Untitled entity') : (project.clientName || '—');
   const money = cxProjectMoney(project);
+  const barTone = progress.pct >= 70 ? 'green' : progress.pct >= 35 ? 'amber' : 'danger';
 
   return '' +
-    '<button type="button" class="project-card" data-open-project="' + project.id + '">' +
-      '<div class="project-card__head">' +
-        '<span class="project-card__type"><i class="bi ' + typeMeta.icon + '"></i>' + typeMeta.label + '</span>' +
-        '<span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[project.status] + '">' + WORK_STATUS_LABELS[project.status] + '</span>' +
-      '</div>' +
-      '<div class="project-card__name">' + escapeHtml(project.name) + '</div>' +
-      (clientLabel ? '<div class="project-card__client"><i class="bi ' + (deal ? 'bi-journal-text' : 'bi-building') + '"></i>' + escapeHtml(clientLabel) + '</div>' : '') +
-      (progress.total
-        ? '<div class="project-card__progress"><div class="project-card__progress-bar"><span style="width:' + progress.pct + '%"></span></div><span class="project-card__progress-label">' + progress.done + '/' + progress.total + ' phases</span></div>'
-        : '<p class="no-referral mb-0">No phases set yet.</p>') +
-      '<div class="cx-work-card__money cx-work-card__money--' + money.tone + '"><i class="bi bi-cash-coin"></i>' + escapeHtml(money.text) + '</div>' +
-    '</button>';
+    '<tr class="row-clickable" data-open-project="' + project.id + '">' +
+      '<td><span class="deal-name">' + escapeHtml(project.name) + '</span><div class="deal-meta"><i class="bi ' + typeMeta.icon + '"></i> ' + escapeHtml(clientLabel) + '</div></td>' +
+      '<td><span class="dev-status-badge dev-status-badge--' + WORK_STATUS_TONE[project.status] + '">' + WORK_STATUS_LABELS[project.status] + '</span></td>' +
+      '<td>' + (progress.total ? '<div class="deal-health" title="' + progress.pct + '%"><div class="deal-health__fill deal-health__fill--' + barTone + '" style="width:' + progress.pct + '%"></div></div><span class="last-activity">' + progress.done + '/' + progress.total + ' phases</span>' : '<span class="no-referral">No phases</span>') + '</td>' +
+      '<td class="text-end"><span class="cx-money-tone cx-money-tone--' + money.tone + '">' + escapeHtml(money.text) + '</span></td>' +
+      '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" data-open-project="' + project.id + '" title="Open"><i class="bi bi-arrow-up-right"></i></button></td>' +
+    '</tr>';
 }
 
-function renderCxWorkSales(deals, statsEl, gridEl) {
+function renderCxWorkSales(deals, statsEl, headEl, bodyEl) {
+  headEl.innerHTML = '<tr><th class="col-entity">Entity</th><th class="text-end">Value</th><th>Stage</th><th>Payment</th><th>Close date</th><th class="text-end">Actions</th></tr>';
+
   const open = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
   if (open.length === 0) {
     statsEl.innerHTML = '';
-    gridEl.innerHTML = '<p class="cc-empty-note">No open deals right now — new deals will track their progress here.</p>';
+    bodyEl.innerHTML = '<tr><td colspan="6"><p class="cc-empty-note">No open deals right now — new deals will track their progress here.</p></td></tr>';
     return;
   }
 
@@ -360,16 +376,18 @@ function renderCxWorkSales(deals, statsEl, gridEl) {
     const bClose = b.closeDate ? new Date(b.closeDate).getTime() : Infinity;
     if (aClose !== bClose) return aClose - bClose;
     return (lastActivityTimestamp(b) || 0) - (lastActivityTimestamp(a) || 0);
-  }).slice(0, 6);
+  }).slice(0, 8);
 
-  gridEl.innerHTML = sorted.map(cxDealCard).join('');
+  bodyEl.innerHTML = sorted.map(cxDealTableRow).join('');
 }
 
-function renderCxWorkDelivery(statsEl, gridEl) {
+function renderCxWorkDelivery(statsEl, headEl, bodyEl) {
+  headEl.innerHTML = '<tr><th class="col-entity">Project</th><th>Status</th><th>Progress</th><th class="text-end">Money</th><th class="text-end">Actions</th></tr>';
+
   const projects = typeof getProjects === 'function' ? getProjects() : [];
   if (projects.length === 0) {
     statsEl.innerHTML = '';
-    gridEl.innerHTML = '<p class="cc-empty-note">No projects yet — convert a Won deal into one, or start a new project from the + button.</p>';
+    bodyEl.innerHTML = '<tr><td colspan="5"><p class="cc-empty-note">No projects yet — convert a Won deal into one, or start a new project from the + button.</p></td></tr>';
     return;
   }
 
@@ -403,25 +421,27 @@ function renderCxWorkDelivery(statsEl, gridEl) {
   ).join('');
 
   const pool = active.length ? active : projects;
-  const shown = pool.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 6);
-  gridEl.innerHTML = shown.map(cxProjectCard).join('');
+  const shown = pool.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 8);
+  bodyEl.innerHTML = shown.map(cxProjectTableRow).join('');
 }
 
 function renderCxWork(deals) {
   const statsEl = document.getElementById('cxWorkStats');
-  const gridEl = document.getElementById('cxWorkGrid');
+  const headEl = document.getElementById('cxWorkTableHead');
+  const bodyEl = document.getElementById('cxWorkTableBody');
   const viewAllLink = document.getElementById('cxWorkViewAllLink');
-  if (!statsEl || !gridEl) return;
+  if (!statsEl || !headEl || !bodyEl) return;
 
   if (viewAllLink) viewAllLink.dataset.jumpView = cxWorkMode === 'sales' ? 'deals' : 'projects';
 
-  if (cxWorkMode === 'sales') renderCxWorkSales(deals, statsEl, gridEl);
-  else renderCxWorkDelivery(statsEl, gridEl);
+  if (cxWorkMode === 'sales') renderCxWorkSales(deals, statsEl, headEl, bodyEl);
+  else renderCxWorkDelivery(statsEl, headEl, bodyEl);
 }
 
 // ================= 5. Trends =================
 let cxRevenueChartInstance = null;
 let cxPerformanceChartInstance = null;
+let cxEntityMixChartInstance = null;
 
 function renderCxRevenueChart(deals) {
   const el = document.getElementById('cxRevenueChart');
@@ -437,24 +457,24 @@ function renderCxRevenueChart(deals) {
   const last = keys.slice(-6);
 
   if (last.length === 0) {
-    el.innerHTML = '<p class="cc-empty-note">No paid invoices yet — collected revenue will chart here once invoices are marked paid.</p>';
+    el.innerHTML = '<p class="cc-empty-note">No paid invoices yet.</p>';
     return;
   }
   el.innerHTML = '';
 
   const base = chartBase();
   const dark = isDarkTheme();
-  const lineColor = dark ? '#4CC2FF' : '#0F6CBD';
+  const lineColor = dark ? '#818CF8' : '#4F46E5';
 
   const options = Object.assign({}, base, {
     series: [{ name: 'Revenue collected', data: last.map(k => Math.round(byMonth.get(k) || 0)) }],
-    chart: Object.assign({}, base.chart, { type: 'area', height: 220 }),
+    chart: Object.assign({}, base.chart, { type: 'area', height: 200 }),
     xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
     yaxis: { labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) }, forceNiceScale: true },
     stroke: { curve: 'smooth', width: 3 },
     colors: [lineColor],
     fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 0.4, opacityTo: 0.04, stops: [0, 100] } },
-    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#181A2B' : '#fff', strokeWidth: 2 },
     dataLabels: { enabled: false },
     tooltip: Object.assign({}, base.tooltip, { y: { formatter: (v) => formatUSD(v) } }),
   });
@@ -466,9 +486,8 @@ function renderCxRevenueChart(deals) {
 
 // Combined win-rate + avg-deal-size chart, both computed directly from
 // real deal records (grouped by the month a deal last changed) — no
-// snapshot history required, so this works from day one even on a fresh
-// database. Months with no won/lost outcome show a gap in the win-rate
-// line rather than a fabricated 0%.
+// snapshot history required. Months with no won/lost outcome show a gap
+// in the win-rate line rather than a fabricated 0%.
 function renderCxPerformanceChart(deals) {
   const el = document.getElementById('cxPerformanceChart');
   if (!el) return;
@@ -510,14 +529,14 @@ function renderCxPerformanceChart(deals) {
       { name: 'Win rate', type: 'line', data: winRates },
       { name: 'Avg deal size', type: 'column', data: avgSizes },
     ],
-    chart: Object.assign({}, base.chart, { type: 'line', height: 220 }),
+    chart: Object.assign({}, base.chart, { type: 'line', height: 200 }),
     stroke: { width: [3, 0], curve: 'smooth' },
     xaxis: { categories: last.map(monthLabel), labels: { style: { colors: '#94A0B8' } } },
     yaxis: [
       { seriesName: 'Win rate', min: 0, max: 100, labels: { style: { colors: '#94A0B8' }, formatter: (v) => (v === null || v === undefined) ? '' : Math.round(v) + '%' } },
       { seriesName: 'Avg deal size', opposite: true, labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) } },
     ],
-    colors: [dark ? '#4CC2FF' : '#0F6CBD', dark ? '#C29CFF' : '#7719AA'],
+    colors: [dark ? '#818CF8' : '#4F46E5', dark ? '#C084FC' : '#9333EA'],
     plotOptions: { bar: { columnWidth: '40%', borderRadius: 4 } },
     markers: { size: 4 },
     dataLabels: { enabled: false },
@@ -533,6 +552,40 @@ function renderCxPerformanceChart(deals) {
   if (cxPerformanceChartInstance) cxPerformanceChartInstance.destroy();
   cxPerformanceChartInstance = new ApexCharts(el, options);
   cxPerformanceChartInstance.render();
+}
+
+function renderCxEntityMixChart(deals) {
+  const el = document.getElementById('cxEntityMixChart');
+  if (!el) return;
+
+  if (deals.length === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No deals recorded yet.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const types = ['government', 'private', 'international'];
+  const labels = ['Government', 'Private', 'International', 'Not set'];
+  const counts = types.map(t => deals.filter(d => d.entityType === t).length);
+  counts.push(deals.filter(d => !d.entityType).length);
+
+  const base = chartBase();
+  const dark = isDarkTheme();
+
+  const options = {
+    series: counts,
+    labels,
+    chart: Object.assign({}, base.chart, { type: 'donut', height: 200 }),
+    colors: ['#4F46E5', '#D97706', '#9333EA', '#8B90AC'],
+    legend: { position: 'bottom', fontSize: '10px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
+    dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+    stroke: { colors: [dark ? '#181A2B' : '#FFFFFF'], width: 2 },
+    tooltip: { theme: dark ? 'dark' : 'light' },
+  };
+
+  if (cxEntityMixChartInstance) cxEntityMixChartInstance.destroy();
+  cxEntityMixChartInstance = new ApexCharts(el, options);
+  cxEntityMixChartInstance.render();
 }
 
 // ================= 6. Growth signals =================
@@ -578,6 +631,43 @@ function renderCxRecentWins(deals) {
     : '<p class="cc-empty-note">No wins yet.</p>';
 }
 
+let cxFollowupChartInstance = null;
+
+function renderCxFollowupChart() {
+  const el = document.getElementById('cxFollowupChart');
+  if (!el) return;
+
+  const all = [
+    ...(typeof collectDealFollowUps === 'function' ? collectDealFollowUps() : []),
+    ...(typeof collectContactFollowUps === 'function' ? collectContactFollowUps() : []),
+  ];
+  const overdue = all.filter(f => f.state === 'overdue').length;
+  const soon = all.filter(f => f.state === 'soon').length;
+  const later = all.filter(f => f.state === 'later').length;
+
+  if (overdue + soon + later === 0) {
+    el.innerHTML = '<p class="cc-empty-note">No follow-ups with a next-step date yet.</p>';
+    return;
+  }
+  el.innerHTML = '';
+
+  const base = chartBase();
+  const options = Object.assign({}, base, {
+    series: [{ name: 'Follow-ups', data: [overdue, soon, later] }],
+    chart: Object.assign({}, base.chart, { type: 'bar', height: 160 }),
+    plotOptions: { bar: { borderRadius: 5, columnWidth: '45%', distributed: true } },
+    xaxis: { categories: ['Overdue', 'Soon', 'Later'], labels: { style: { colors: '#94A0B8', fontSize: '10px' } } },
+    yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
+    colors: ['#DC2626', '#D97706', '#4F46E5'],
+    legend: { show: false },
+    dataLabels: { enabled: true },
+  });
+
+  if (cxFollowupChartInstance) cxFollowupChartInstance.destroy();
+  cxFollowupChartInstance = new ApexCharts(el, options);
+  cxFollowupChartInstance.render();
+}
+
 // ================= Orchestration =================
 function renderToday() {
   const deals = getDeals();
@@ -585,12 +675,15 @@ function renderToday() {
   renderCxCash(deals);
   renderCxPriorityList();
   renderCxFunnel(deals);
+  renderCxMiniCalendar();
   renderCxWork(deals);
   renderCxRevenueChart(deals);
   renderCxPerformanceChart(deals);
+  renderCxEntityMixChart(deals);
   renderCxTopClients(deals);
   renderCxTopReferrals();
   renderCxRecentWins(deals);
+  renderCxFollowupChart();
 }
 
 // ================= Shared interactions =================
@@ -612,6 +705,12 @@ document.getElementById('todayView').addEventListener('click', (e) => {
     if (val > 0) { setRevenueGoal(val); renderCxCash(getDeals()); }
     return;
   }
+
+  const quickUpdateEl = e.target.closest('[data-quick-update]');
+  if (quickUpdateEl) { openQuickUpdateModal(quickUpdateEl.dataset.quickUpdate); return; }
+
+  const newInvoiceEl = e.target.closest('[data-new-invoice]');
+  if (newInvoiceEl) { openInvoiceEditor(newInvoiceEl.dataset.newInvoice); return; }
 
   const todoEl = e.target.closest('[data-todo-id]');
   if (todoEl) { switchView('todos'); openTodoModal(todoEl.dataset.todoId); return; }

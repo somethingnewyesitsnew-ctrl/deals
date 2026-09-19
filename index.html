@@ -130,24 +130,23 @@
 
   <!-- ============ DASHBOARD ============
        (kept id="todayView" / "today*" internally for load-order/back-compat
-       reasons — see js/today.js's header comment). "The Cockpit" — rebuilt
-       from scratch around one question: what should I do in the next 5
-       minutes to make or protect money, ranked strictly by financial
-       impact rather than by data category:
+       reasons — see js/today.js's header comment). "The Cockpit" — ordered
+       strictly by financial impact rather than by data category:
          1. Vitals strip    — one slim line, not a hero banner
          2. Cash Position    — the single dominant card (collected this
                                 month, goal progress, top overdue invoices
                                 with a one-click reminder action)
-         3. Priority Actions + Pipeline Funnel, side by side
-         4. Active Work      — Deals and Projects merged into one section
-                                behind a Sales/Delivery toggle, instead of
-                                two near-identical stacked sections
-         5. Trends            — revenue, and a combined win-rate/deal-size
-                                chart (2 charts, not 6 — the ones that
-                                actually change a daily decision)
-         6. Growth signals    — top clients/referrals/recent wins, small
-                                and quiet at the bottom, not competing
-                                with what needs action today -->
+         3. Priority Actions, Pipeline Funnel, and a mini Calendar,
+                                three across
+         4. Active Work      — Deals and Projects merged into one dense
+                                table behind a Sales/Delivery toggle,
+                                instead of two near-identical card grids
+         5. Trends            — revenue, win-rate/deal-size, and client
+                                mix — three charts, not one or two
+         6. Growth signals    — top clients/referrals/recent wins plus a
+                                follow-ups chart, small and quiet at the
+                                bottom, not competing with what needs
+                                action today -->
   <section class="ledger-view" id="todayView">
 
     <!-- 1. Vitals strip -->
@@ -176,8 +175,8 @@
       </div>
     </div>
 
-    <!-- 3. Priority Actions + Pipeline Funnel -->
-    <div class="cx-grid cx-grid--main">
+    <!-- 3. Priority Actions + Pipeline Funnel + Mini Calendar -->
+    <div class="cx-grid cx-grid--triple">
       <div class="cx-card">
         <div class="cx-card__head">
           <h3><i class="bi bi-flag-fill"></i> Priority actions</h3>
@@ -189,13 +188,20 @@
       <div class="cx-card">
         <div class="cx-card__head">
           <h3><i class="bi bi-funnel-fill"></i> Pipeline funnel</h3>
-          <span class="cx-card__sub">Current distribution, new → won</span>
         </div>
         <div id="cxFunnel"></div>
       </div>
+
+      <div class="cx-card">
+        <div class="cx-card__head">
+          <h3><i class="bi bi-calendar3"></i> This month</h3>
+          <button type="button" class="cx-card__link" data-jump-view="calendar">Open</button>
+        </div>
+        <div id="cxMiniCalendar" class="cx-mini-cal"></div>
+      </div>
     </div>
 
-    <!-- 4. Active Work — Deals/Projects merged behind a toggle -->
+    <!-- 4. Active Work — Deals/Projects merged behind a toggle, as a dense table -->
     <div class="dashboard-section">
       <h2 class="dashboard-section__title">
         <i class="bi bi-kanban-fill"></i> Active work
@@ -206,32 +212,44 @@
         <button type="button" class="cx-card__link cx-section-link" data-jump-view="deals" id="cxWorkViewAllLink">View all</button>
       </h2>
       <div class="attention-summary" id="cxWorkStats"></div>
-      <div class="project-grid" id="cxWorkGrid"></div>
+      <div class="table-responsive ledger-table-wrap">
+        <table class="table ledger-table ledger-table--roomy">
+          <thead id="cxWorkTableHead"></thead>
+          <tbody id="cxWorkTableBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- 5. Trends -->
-    <div class="cx-grid cx-grid--main">
+    <div class="cx-grid cx-grid--triple">
       <div class="cx-card cx-card--chart">
         <div class="cx-card__head">
-          <h3><i class="bi bi-graph-up-arrow"></i> Revenue collected</h3>
-          <span class="cx-card__sub">Paid invoices, last 6 months</span>
+          <h3><i class="bi bi-graph-up-arrow"></i> Revenue</h3>
+          <span class="cx-card__sub">Last 6mo</span>
         </div>
         <div id="cxRevenueChart" class="cx-card__chart-body"></div>
       </div>
 
       <div class="cx-card cx-card--chart">
         <div class="cx-card__head">
-          <h3><i class="bi bi-bar-chart-line"></i> Win rate &amp; deal size</h3>
-          <span class="cx-card__sub">Last 9 months</span>
+          <h3><i class="bi bi-bar-chart-line"></i> Win rate &amp; size</h3>
+          <span class="cx-card__sub">Last 9mo</span>
         </div>
         <div id="cxPerformanceChart" class="cx-card__chart-body"></div>
+      </div>
+
+      <div class="cx-card cx-card--chart">
+        <div class="cx-card__head">
+          <h3><i class="bi bi-pie-chart-fill"></i> Client mix</h3>
+        </div>
+        <div id="cxEntityMixChart" class="cx-card__chart-body"></div>
       </div>
     </div>
 
     <!-- 6. Growth signals — quiet, compact, bottom of the page on purpose -->
     <div class="dashboard-section">
       <h2 class="dashboard-section__title"><i class="bi bi-graph-up-arrow"></i> Growth signals</h2>
-      <div class="cx-signals">
+      <div class="cx-signals cx-signals--quad">
         <div class="cx-signals__col">
           <h5>Top clients</h5>
           <div id="cxTopClients"></div>
@@ -243,6 +261,10 @@
         <div class="cx-signals__col">
           <h5>Recent wins</h5>
           <div id="cxRecentWins"></div>
+        </div>
+        <div class="cx-signals__col">
+          <h5>Follow-ups</h5>
+          <div id="cxFollowupChart"></div>
         </div>
       </div>
     </div>

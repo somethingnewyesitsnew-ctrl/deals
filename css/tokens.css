@@ -1,82 +1,95 @@
 /* tokens.css — design tokens (:root, both light and dark) + base/reset. Load first.
    ============================================================
-   "Executive Precision" design system — ported from the Stitch
-   mockup (stitch_solo_business_operations_hub). Corporate-modern,
-   high-density, financial-terminal-adjacent: Deep Navy for primary
-   actions/nav, a Sky accent reserved specifically for focus states
-   (not buttons — see --focus below), muted Slate grays for
-   surfaces/borders, vivid-but-legible status hues, Inter for UI
-   text and JetBrains Mono for anything tabular/data (IDs, dates,
-   money figures) — same role --font-mono already played, just a
-   different typeface.
+   "Clarity" design system — replaces the earlier "Executive
+   Precision" (Deep Navy, flat, no-shadow) look, which read as too
+   cold/condensed. Clarity is built around one idea: dense
+   information can still feel bright, open, and inviting if the
+   surfaces have real depth (soft elevation, not flat borders),
+   the corners are generously rounded rather than clipped, and one
+   confident accent color (Indigo) carries every interactive
+   element instead of a muted "primary" plus a separate sparingly-
+   used focus color.
 
-   Radius and elevation both went noticeably crisper/flatter than
-   the previous Fluent-inspired look: 2px controls, 4px cards, and
-   Level-1 surfaces (ordinary cards) carry NO shadow at all —
-   hierarchy comes from a 1px border, not elevation. Shadow is
-   reserved for genuinely floating things (dropdowns, modals).
+   Every custom property name below already existed under the old
+   system — only the values changed — so this file is a drop-in
+   reskin: every other stylesheet in the app (layout, table,
+   modals, dashboards, invoices, charts-motion, dashboard, todos,
+   projects) references these tokens and needed no edits.
+
+   Fonts (Inter for UI text, JetBrains Mono for anything tabular —
+   IDs, dates, money) are unchanged from before; they were already
+   right for a clean, modern, bright interface. What changed is
+   color, radius, and elevation:
+     - Radius: crisp 2px/4px → a friendlier 8px/16px.
+     - Elevation: "no shadow on ordinary cards" → every card gets
+       a soft, real shadow, so the page reads as a stack of open
+       surfaces rather than a flat grid of hairline boxes.
+     - Color: Deep Navy primary + separate Sky focus-only accent →
+       one bright Indigo accent used everywhere (buttons, links,
+       active states, focus rings), with warmer, slightly punchier
+       status hues (amber/green/red/cyan/violet) than before.
    ============================================================ */
 
 :root{
   /* surfaces */
-  --bg:          #F8FAFC;
+  --bg:          #F4F5FC;
   --bg-raise:    #FFFFFF;
-  --surface:     #F1F5F9;
-  --surface-hi:  #E2E8F0;
-  --line:        #E2E8F0;
-  --line-strong: #CBD5E1;
+  --surface:     #F8F9FE;
+  --surface-hi:  #EEF0FA;
+  --line:        rgba(30,41,59,0.09);
+  --line-strong: rgba(30,41,59,0.16);
 
   /* text */
-  --text:        #0F172A;
-  --text-dim:    #334155;
-  --text-faint:  #64748B;
+  --text:        #16192B;
+  --text-dim:    #4B5170;
+  --text-faint:  #8B90AC;
 
-  /* brand accent — Deep Navy is "primary" (buttons, active nav, links);
-     --focus is the Sky accent, deliberately kept separate and used ONLY
-     for input focus rings/highlights, matching the brief's "used
-     sparingly for focus states" — not a general-purpose accent color. */
-  --accent:        #0F172A;
-  --accent-hover:  #1E293B;
-  --accent-soft:   rgba(15,23,42,0.06);
-  --focus:         #38BDF8;
-  --violet:        #7C3AED;
-  --violet-soft:   rgba(124,58,237,0.09);
+  /* brand accent — one confident Indigo, used everywhere: buttons,
+     links, active nav, focus rings. No separate muted "primary" +
+     sparingly-used focus color — that split was part of what made
+     the previous system feel flat and hard to read at a glance. */
+  --accent:        #4F46E5;
+  --accent-hover:  #4338CA;
+  --accent-soft:   rgba(79,70,229,0.10);
+  --focus:         #4F46E5;
+  --violet:        #9333EA;
+  --violet-soft:   rgba(147,51,234,0.10);
   --pink:          #DB2777;
-  --pink-soft:     rgba(219,39,119,0.09);
+  --pink-soft:     rgba(219,39,119,0.10);
 
-  /* status hues — darker/readable shade for text+solid fills, paired
-     with a soft tint (built from the brighter base hue) for chip
-     backgrounds, matching the mockup's actual chip pattern (e.g. a
-     "Proposal" stage chip: sky-blue/10 background + darker sky-blue
-     text, not the same hex for both). */
-  --cyan:        #0369A1;
-  --cyan-soft:   rgba(56,189,248,0.10);
-  --amber:       #B45309;
-  --amber-soft:  rgba(245,158,11,0.10);
-  --green:       #047857;
-  --green-soft:  rgba(16,185,129,0.10);
-  --red:         #B91C1C;
-  --red-soft:    rgba(239,68,68,0.10);
-  --slate-soft:  rgba(15,23,42,0.05);
-  /* gold is its own hue, distinct from amber — amber means "needs attention",
-     gold means "this is the standout one" (spotlight star, top-rank badge).
-     Conflating the two would make a trophy icon look like a warning. */
-  --gold:        #C48A1F;
-  --focus-ring:  rgba(56,189,248,0.20);
+  /* status hues — a darker/readable shade for text+solid fills,
+     paired with a soft tint (from the same hue) for chip
+     backgrounds. Warmer and a touch more saturated than the old
+     system's status colors, to match the brighter overall palette. */
+  --cyan:        #0891B2;
+  --cyan-soft:   rgba(8,145,178,0.10);
+  --amber:       #D97706;
+  --amber-soft:  rgba(217,119,6,0.10);
+  --green:       #15803D;
+  --green-soft:  rgba(21,128,61,0.10);
+  --red:         #DC2626;
+  --red-soft:    rgba(220,38,38,0.10);
+  --slate-soft:  rgba(30,41,59,0.05);
+  /* gold is its own hue, distinct from amber — amber means "needs
+     attention", gold means "this is the standout one" (spotlight
+     star, top-rank badge). */
+  --gold:        #B45309;
+  --focus-ring:  rgba(79,70,229,0.22);
 
   /* spacing ramp */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 20px; --sp-6: 24px; --sp-7: 32px;
 
-  /* radius — crisp, minimal: 2px controls, 4px cards/modals, pill for chips */
-  --r-sm: 2px; --r-md: 4px; --r-full: 999px;
+  /* radius — generously rounded: 8px controls, 16px cards, pill for chips */
+  --r-sm: 8px; --r-md: 16px; --r-full: 999px;
 
-  /* elevation — Level 1 (ordinary cards) is a 1px border with NO shadow;
-     shadow is reserved for things that are actually floating above the
-     page (dropdowns, modals, the detail drawer). */
-  --shadow-sm: none;
-  --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+  /* elevation — every card carries a real, soft shadow now (the old
+     system deliberately gave ordinary cards NO shadow at all,
+     relying on a 1px border for hierarchy — that's exactly the
+     "flat/condensed" feeling being replaced here). */
+  --shadow-sm: 0 1px 3px rgba(23,25,60,0.07);
+  --shadow-md: 0 6px 16px rgba(23,25,60,0.08), 0 2px 4px rgba(23,25,60,0.05);
+  --shadow-lg: 0 20px 40px rgba(23,25,60,0.14), 0 6px 12px rgba(23,25,60,0.08);
 
   /* typography */
   --font-display: 'Inter', system-ui, sans-serif;
@@ -94,45 +107,41 @@
 }
 
 :root[data-theme="dark"]{
-  --bg:          #0B1220;
-  --bg-raise:    #161E2E;
-  --surface:     #131B2A;
-  --surface-hi:  #1E293B;
+  --bg:          #0E0F1A;
+  --bg-raise:    #181A2B;
+  --surface:     #131424;
+  --surface-hi:  #1F2136;
   --line:        rgba(255,255,255,0.09);
   --line-strong: rgba(255,255,255,0.16);
 
-  --text:        #F1F5F9;
-  --text-dim:    #CBD5E1;
-  --text-faint:  #8A93A6;
+  --text:        #F2F3FA;
+  --text-dim:    #A7ACC9;
+  --text-faint:  #6E7396;
 
-  /* Deep Navy disappears against a dark background, so dark mode's
-     "primary" flips to the Sky accent — the one color in this palette
-     that was always meant to read clearly on dark surfaces. --focus
-     stays the same hue for continuity. */
-  --accent:        #38BDF8;
-  --accent-hover:  #62CBFF;
-  --accent-soft:   rgba(56,189,248,0.14);
-  --focus:         #38BDF8;
-  --violet:        #A78BFA;
-  --violet-soft:   rgba(167,139,250,0.14);
+  --accent:        #818CF8;
+  --accent-hover:  #A5B0FA;
+  --accent-soft:   rgba(129,140,248,0.16);
+  --focus:         #818CF8;
+  --violet:        #C084FC;
+  --violet-soft:   rgba(192,132,252,0.15);
   --pink:          #F472B6;
-  --pink-soft:     rgba(244,114,182,0.14);
+  --pink-soft:     rgba(244,114,182,0.15);
 
-  --cyan:        #38BDF8;
-  --cyan-soft:   rgba(56,189,248,0.14);
+  --cyan:        #22D3EE;
+  --cyan-soft:   rgba(34,211,238,0.15);
   --amber:       #FBBF24;
-  --amber-soft:  rgba(251,191,36,0.13);
-  --green:       #34D399;
-  --green-soft:  rgba(52,211,153,0.14);
+  --amber-soft:  rgba(251,191,36,0.15);
+  --green:       #4ADE80;
+  --green-soft:  rgba(74,222,128,0.15);
   --red:         #F87171;
-  --red-soft:    rgba(248,113,113,0.14);
-  --slate-soft:  rgba(255,255,255,0.06);
-  --gold:        #E3B341;
-  --focus-ring:  rgba(56,189,248,0.28);
+  --red-soft:    rgba(248,113,113,0.15);
+  --slate-soft:  rgba(255,255,255,0.07);
+  --gold:        #FBBF24;
+  --focus-ring:  rgba(129,140,248,0.32);
 
-  --shadow-sm: none;
-  --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.30), 0 4px 6px -4px rgba(0,0,0,0.24);
-  --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.45), 0 8px 10px -6px rgba(0,0,0,0.30);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
+  --shadow-md: 0 8px 20px rgba(0,0,0,0.40);
+  --shadow-lg: 0 24px 48px rgba(0,0,0,0.55);
 }
 
 [data-theme="dark"] body{ background: var(--bg); }

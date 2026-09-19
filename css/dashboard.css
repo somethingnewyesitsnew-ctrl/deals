@@ -1,20 +1,16 @@
 /* dashboard.css — "The Cockpit", the landing Dashboard tab (#todayView).
    ------------------------------------------------------------------------
-   Rebuilt from scratch (replacing the earlier "Executive Overview" bento/
-   hero-band design). Ordered strictly by financial impact rather than by
-   data category — see the header comment on the #todayView section in
-   index.html for the full reasoning behind each layer. Class names are
-   prefixed "cx-" (the previous iteration used "cc-" — renamed so nothing
-   here is confused with, or accidentally still targets, the old design).
+   Ordered strictly by financial impact rather than by data category — see
+   the header comment on the #todayView section in index.html for the full
+   reasoning behind each layer. Class names are prefixed "cx-".
 
    Layer map (top to bottom in the markup, same order on screen):
      1. .cx-vitals    — one slim strip: greeting, 4 tiny metrics, a pill
      2. .cx-cash       — the single dominant card: cash position
-     3. .cx-grid       — Priority Actions + Pipeline Funnel, 2 columns
+     3. .cx-grid--triple — Priority Actions, Pipeline Funnel, mini Calendar
      4. (Active Work reuses .dashboard-section / .attention-summary /
-        .project-grid from charts-motion.css and dashboards.css, plus
-        the new .cx-toggle for the Sales/Delivery switch)
-     5. .cx-grid       — reused again for the two trend charts
+        .ledger-table from table.css, plus .cx-toggle for the switch)
+     5. .cx-grid--triple — reused again for the three trend charts
      6. .cx-signals    — Growth signals, small and quiet at the bottom
    ============================================================ */
 
@@ -22,7 +18,7 @@
 .cx-vitals{
   display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3);
   background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md);
-  box-shadow: var(--shadow-sm); padding: 0.65rem 1rem; margin-bottom: var(--sp-3);
+  box-shadow: var(--shadow-sm); padding: 0.65rem 1.1rem; margin-bottom: var(--sp-3);
 }
 .cx-vitals__greet{ display: flex; flex-direction: column; gap: 0.05rem; flex-shrink: 0; }
 .cx-vitals__title{ font-family: var(--font-display); font-size: 0.98rem; font-weight: 700; color: var(--text); }
@@ -42,7 +38,7 @@
 .cx-vitals__pill{
   display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line-strong);
   background: var(--surface); color: var(--text-dim); font-size: 0.76rem; font-weight: 700;
-  padding: 0.4rem 0.8rem; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+  padding: 0.4rem 0.8rem; border-radius: var(--r-full); white-space: nowrap; flex-shrink: 0;
 }
 .cx-vitals__pill:hover{ border-color: var(--accent); color: var(--accent); }
 .cx-vitals__pill--danger{ border-color: var(--red); background: var(--red-soft); color: var(--red); }
@@ -70,8 +66,8 @@
 .cx-cash__delta--neutral{ color: var(--text-faint); }
 
 .cx-cash__goal{ margin-top: 0.7rem; }
-.cx-cash__goal-bar{ width: 100%; height: 8px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; margin-bottom: 0.3rem; }
-.cx-cash__goal-bar span{ display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width var(--motion-med); }
+.cx-cash__goal-bar{ width: 100%; height: 8px; border-radius: var(--r-full); background: var(--slate-soft); overflow: hidden; margin-bottom: 0.3rem; }
+.cx-cash__goal-bar span{ display: block; height: 100%; background: var(--accent); border-radius: var(--r-full); transition: width var(--motion-med); }
 .cx-cash__goal-label{ font-size: 0.76rem; color: var(--text-dim); }
 .cx-cash__goal-empty{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .cx-cash__goal-empty input{ width: 120px; padding: 0.3rem 0.5rem; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: 0.78rem; }
@@ -88,10 +84,11 @@
 .cx-cash-row__amount{ font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: var(--text); flex-shrink: 0; white-space: nowrap; }
 .cx-cash-row__btn{ flex-shrink: 0; }
 
-/* ===== 3 & 5. Shared 2-column grid (Priority/Funnel, then the trend charts) ===== */
+/* ===== 3 & 5. Shared 3-column grid ===== */
 .cx-grid{ display: grid; gap: var(--sp-4); margin-bottom: var(--sp-4); }
-.cx-grid--main{ grid-template-columns: 1fr 1fr; align-items: stretch; }
-@media (max-width: 900px){ .cx-grid--main{ grid-template-columns: 1fr; } }
+.cx-grid--triple{ grid-template-columns: repeat(3, 1fr); align-items: stretch; }
+@media (max-width: 1100px){ .cx-grid--triple{ grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px){ .cx-grid--triple{ grid-template-columns: 1fr; } }
 
 .cx-card{ background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.95rem 1.05rem; display: flex; flex-direction: column; min-width: 0; }
 .cx-card__head{ display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
@@ -100,54 +97,59 @@
 .cx-card__sub{ font-size: 0.7rem; color: var(--text-faint); }
 .cx-card__link{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.72rem; padding: 0; white-space: nowrap; }
 .cx-card__link:hover{ text-decoration: underline; }
-.cx-card--chart{ min-height: 280px; }
-.cx-card__chart-body{ flex: 1; min-height: 210px; }
+.cx-card--chart{ min-height: 250px; }
+.cx-card__chart-body{ flex: 1; min-height: 190px; }
 
-.cx-list{ display: flex; flex-direction: column; gap: 0.45rem; max-height: 320px; overflow-y: auto; }
+.cx-list{ display: flex; flex-direction: column; gap: 0.45rem; max-height: 300px; overflow-y: auto; }
 
 /* Pipeline funnel — a horizontal bar per stage, width proportional to
    count, with a small drop-off line between consecutive stages. This is
    a snapshot distribution funnel (current counts), not a time-tracked
    conversion funnel — the app doesn't store per-deal stage-history, so
    that's the most honest thing it can show. */
-.cx-funnel-row{ display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; }
-.cx-funnel-row__label{ width: 84px; flex-shrink: 0; font-size: 0.74rem; font-weight: 600; color: var(--text-dim); }
-.cx-funnel-row__track{ flex: 1; height: 9px; border-radius: 999px; background: var(--slate-soft); overflow: hidden; }
-.cx-funnel-row__fill{ display: block; height: 100%; border-radius: 999px; transition: width var(--motion-med); }
+.cx-funnel-row{ display: flex; align-items: center; gap: 0.5rem; padding: 0.28rem 0; }
+.cx-funnel-row__label{ width: 68px; flex-shrink: 0; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
+.cx-funnel-row__track{ flex: 1; height: 9px; border-radius: var(--r-full); background: var(--slate-soft); overflow: hidden; }
+.cx-funnel-row__fill{ display: block; height: 100%; border-radius: var(--r-full); transition: width var(--motion-med); }
 .cx-funnel-row__fill--new{ background: var(--text-faint); }
 .cx-funnel-row__fill--contacted{ background: var(--cyan); }
 .cx-funnel-row__fill--proposal{ background: var(--amber); }
 .cx-funnel-row__fill--negotiation{ background: var(--violet); }
 .cx-funnel-row__fill--won{ background: var(--green); }
-.cx-funnel-row__value{ width: 118px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-faint); white-space: nowrap; }
-.cx-funnel-drop{ display: flex; align-items: center; gap: 0.2rem; font-size: 0.66rem; color: var(--text-faint); padding: 0.05rem 0 0.05rem 90px; }
-.cx-funnel-drop i{ font-size: 0.8rem; }
+.cx-funnel-row__value{ width: 92px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-faint); white-space: nowrap; }
+.cx-funnel-drop{ display: flex; align-items: center; gap: 0.2rem; font-size: 0.64rem; color: var(--text-faint); padding: 0.03rem 0 0.03rem 74px; }
+.cx-funnel-drop i{ font-size: 0.78rem; }
 
-/* ===== 4. Active Work toggle ===== */
-.cx-toggle{ display: inline-flex; background: var(--slate-soft); border-radius: 999px; padding: 2px; margin-left: 0.6rem; }
-.cx-toggle__btn{ border: none; background: transparent; color: var(--text-dim); font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; }
+/* Mini calendar — current month only, dense, click any day (or "Open")
+   to jump into the full Calendar tab rather than duplicating the day-
+   detail popup here. */
+.cx-mini-cal{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cx-mini-cal__weekday{ text-align: center; font-size: 0.6rem; color: var(--text-faint); font-weight: 700; padding-bottom: 0.2rem; }
+.cx-mini-cal__day{ aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: var(--r-sm); font-size: 0.68rem; color: var(--text-dim); border: none; background: transparent; }
+.cx-mini-cal__day--muted{ opacity: 0.28; }
+.cx-mini-cal__day--today{ background: var(--accent); color: #fff; font-weight: 700; }
+.cx-mini-cal__day--has-items:not(.cx-mini-cal__day--today){ background: var(--surface-hi); cursor: pointer; font-weight: 600; }
+.cx-mini-cal__day--has-items:not(.cx-mini-cal__day--today):hover{ background: var(--accent-soft); color: var(--accent); }
+.cx-mini-cal__dot{ width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.cx-mini-cal__day--today .cx-mini-cal__dot{ background: #fff; }
+
+/* ===== 4. Active Work toggle + dense table money/tone helpers ===== */
+.cx-toggle{ display: inline-flex; background: var(--slate-soft); border-radius: var(--r-full); padding: 2px; margin-left: 0.6rem; }
+.cx-toggle__btn{ border: none; background: transparent; color: var(--text-dim); font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: var(--r-full); }
 .cx-toggle__btn.is-active{ background: var(--bg-raise); color: var(--accent); box-shadow: var(--shadow-sm); }
 .cx-section-link{ margin-left: auto; font-weight: 600; }
 
-/* Money line appended to the bottom of a reused .project-card (see
-   css/projects.css) — used by both Deals and Projects mode of the
-   Active Work section. */
-.cx-work-card__money{ display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
-.cx-work-card__money i{ font-size: 0.76rem; }
-.cx-work-card__money--green{ color: var(--green); }
-.cx-work-card__money--danger{ color: var(--red); }
-.cx-work-card__money--amber{ color: var(--amber); }
-.cx-work-card__money--slate{ color: var(--text-faint); font-weight: 500; }
-.cx-work-card__badges{ display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
-.cx-work-card__foot{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); }
-.cx-work-card__foot i{ margin-right: 0.2rem; }
-.cx-work-card__foot span{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cx-work-card__close--overdue{ color: var(--red); font-weight: 700; }
-.cx-work-card__close--overdue i{ color: var(--red); }
+.cx-money-tone{ font-size: 0.8rem; font-weight: 600; }
+.cx-money-tone--green{ color: var(--green); }
+.cx-money-tone--danger{ color: var(--red); }
+.cx-money-tone--amber{ color: var(--amber); }
+.cx-money-tone--slate{ color: var(--text-faint); font-weight: 500; }
 
 /* ===== 6. Growth signals — small, quiet, bottom of the page ===== */
 .cx-signals{ display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); background: var(--bg-raise); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm); padding: 0.85rem 1rem; }
-@media (max-width: 760px){ .cx-signals{ grid-template-columns: 1fr; } }
+.cx-signals--quad{ grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px){ .cx-signals, .cx-signals--quad{ grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px){ .cx-signals, .cx-signals--quad{ grid-template-columns: 1fr; } }
 .cx-signals__col h5{ font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); font-weight: 700; margin: 0 0 0.5rem; }
 .cx-signal-row{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; border: none; background: transparent; text-align: left; padding: 0.3rem 0; border-bottom: 1px dashed var(--line); font-size: 0.78rem; }
 .cx-signal-row:last-child{ border-bottom: none; }
