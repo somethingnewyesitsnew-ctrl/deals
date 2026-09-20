@@ -39,6 +39,27 @@
 .view-tab.is-active{ background: var(--accent-soft); color: var(--accent); font-weight: 700; border-left: 3px solid var(--accent); padding-left: calc(0.7rem - 3px); }
 .win-sidebar.is-collapsed .view-tab.is-active{ border-radius: var(--r-sm); }
 
+/* Per-domain nav icon color — each tab's icon carries its area's fixed
+   accent (Sales=blue, Financial=green, Delivery=violet, Attention=red,
+   Calendar/Contacts=cyan, To-Do/Entities=amber, Referrals/Debts=pink)
+   whether or not the tab is active, so the sidebar itself is a constant,
+   low-noise map of "what kind of thing is this" — the one deliberate
+   departure from pure Stripe/Linear minimalism (see tokens.css). The
+   active-state highlight (background/border-left above) stays the
+   general brand accent for every tab — only the icon carries the
+   domain color, keeping the active state itself restrained. */
+.view-tab[data-view="attention"] i{ color: var(--red); }
+.view-tab[data-view="todos"] i{ color: var(--amber); }
+.view-tab[data-view="calendar"] i{ color: var(--cyan); }
+.view-tab[data-view="deals"] i{ color: var(--blue); }
+.view-tab[data-view="projects"] i{ color: var(--violet); }
+.view-tab[data-view="referrals"] i{ color: var(--pink); }
+.view-tab[data-view="contacts"] i{ color: var(--cyan); }
+.view-tab[data-view="entities"] i{ color: var(--amber); }
+.view-tab[data-view="financial"] i{ color: var(--green); }
+.view-tab[data-view="debts"] i{ color: var(--pink); }
+.view-tab[data-view="overview"] i{ color: var(--violet); }
+
 .win-sidebar__footer{ border-top: 1px solid var(--line); padding: var(--sp-2); display: flex; flex-direction: column; gap: 2px; }
 
 .win-icon-btn{ display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; flex-shrink: 0; border: none; background: transparent; color: var(--text-dim); border-radius: var(--r-sm); font-size: 0.92rem; }

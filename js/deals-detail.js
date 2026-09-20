@@ -388,7 +388,7 @@ function renderDetailActivityChart(deal) {
     stroke: { curve: 'smooth', width: 3 },
     colors: [lineColor],
     fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.3, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
-    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#2A2A2A' : '#fff', strokeWidth: 2 },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#16171F' : '#fff', strokeWidth: 2 },
     dataLabels: { enabled: false },
   });
 

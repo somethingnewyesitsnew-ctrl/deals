@@ -140,7 +140,7 @@ function renderPieChart(deals) {
     colors: ['#0078D4', '#9D5D00', '#7719AA', '#8A8886'],
     legend: { position: 'bottom', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
     dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-    stroke: { colors: [dark ? '#2C2C2C' : '#FFFFFF'], width: 2 },
+    stroke: { colors: [dark ? '#16171F' : '#FFFFFF'], width: 2 },
     tooltip: { theme: dark ? 'dark' : 'light' },
   };
 
@@ -203,7 +203,7 @@ function renderRelationshipChart(deals) {
     colors: ['#0F7B0F', '#0078D4', '#8A8886', '#9D5D00', '#C42B1C', '#5C5C5C'],
     legend: { position: 'bottom', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
     dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-    stroke: { colors: [dark ? '#2C2C2C' : '#FFFFFF'], width: 2 },
+    stroke: { colors: [dark ? '#16171F' : '#FFFFFF'], width: 2 },
     tooltip: { theme: dark ? 'dark' : 'light' },
   };
 
@@ -266,7 +266,7 @@ function renderCollectedChart(deals) {
     colors: ['#0F7B0F', '#C42B1C'],
     legend: { position: 'bottom', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
     dataLabels: { enabled: true, formatter: (val) => Math.round(val) + '%' },
-    stroke: { colors: [dark ? '#2C2C2C' : '#FFFFFF'], width: 2 },
+    stroke: { colors: [dark ? '#16171F' : '#FFFFFF'], width: 2 },
     tooltip: { theme: dark ? 'dark' : 'light', y: { formatter: (v) => formatUSD(v) } },
   };
 

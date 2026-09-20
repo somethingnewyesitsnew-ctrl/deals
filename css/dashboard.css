@@ -51,7 +51,7 @@
 /* ===== 2. Cash Position — the single dominant card ===== */
 .cx-cash{
   display: grid; grid-template-columns: 1.1fr 1fr; gap: var(--sp-4);
-  background: var(--bg-raise); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  background: var(--bg-raise); border: 1px solid var(--line); border-left: 4px solid var(--green);
   border-radius: var(--r-md); box-shadow: var(--shadow-md); padding: 1.1rem 1.3rem; margin-bottom: var(--sp-4);
 }
 @media (max-width: 760px){ .cx-cash{ grid-template-columns: 1fr; } }
@@ -94,6 +94,18 @@
 .cx-card__head{ display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
 .cx-card__head h3{ font-family: var(--font-display); font-size: 0.86rem; font-weight: 700; margin: 0; color: var(--text); display: flex; align-items: center; gap: 0.42rem; }
 .cx-card__head h3 i{ color: var(--accent); font-size: 0.86rem; }
+/* Per-domain card icon color — each dashboard card's icon carries its
+   area's fixed accent, same mapping and same reasoning as the sidebar
+   nav icons (see layout.css): a constant, low-noise way to tell what
+   kind of thing you're looking at at a glance. */
+.cx-card__head h3 i.cx-icon--attention{ color: var(--red); }
+.cx-card__head h3 i.cx-icon--sales{ color: var(--blue); }
+.cx-card__head h3 i.cx-icon--calendar{ color: var(--cyan); }
+.cx-card__head h3 i.cx-icon--financial{ color: var(--green); }
+.cx-card__head h3 i.cx-icon--delivery{ color: var(--violet); }
+.cx-card__head h3 i.cx-icon--growth{ color: var(--pink); }
+.dashboard-section__title i.cx-icon--delivery{ color: var(--violet); }
+.dashboard-section__title i.cx-icon--growth{ color: var(--pink); }
 .cx-card__sub{ font-size: 0.7rem; color: var(--text-faint); }
 .cx-card__link{ border: none; background: none; color: var(--accent); font-weight: 600; font-size: 0.72rem; padding: 0; white-space: nowrap; }
 .cx-card__link:hover{ text-decoration: underline; }
@@ -137,6 +149,8 @@
 .cx-toggle{ display: inline-flex; background: var(--slate-soft); border-radius: var(--r-full); padding: 2px; margin-left: 0.6rem; }
 .cx-toggle__btn{ border: none; background: transparent; color: var(--text-dim); font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: var(--r-full); }
 .cx-toggle__btn.is-active{ background: var(--bg-raise); color: var(--accent); box-shadow: var(--shadow-sm); }
+.cx-toggle__btn[data-work-mode="sales"].is-active{ color: var(--blue); }
+.cx-toggle__btn[data-work-mode="delivery"].is-active{ color: var(--violet); }
 .cx-section-link{ margin-left: auto; font-weight: 600; }
 
 .cx-money-tone{ font-size: 0.8rem; font-weight: 600; }

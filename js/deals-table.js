@@ -284,7 +284,7 @@ function renderDealsMixChart(allDeals) {
     colors: ['#0F7B0F', '#9D5D00', '#8A8886'],
     legend: { position: 'bottom', fontSize: '11px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
     dataLabels: { enabled: false },
-    stroke: { colors: [dark ? '#2C2C2C' : '#FFFFFF'], width: 2 },
+    stroke: { colors: [dark ? '#16171F' : '#FFFFFF'], width: 2 },
     plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Total deals', formatter: () => String(allDeals.length) } } } } },
     tooltip: { theme: dark ? 'dark' : 'light' },
   };

@@ -1,97 +1,87 @@
 /* tokens.css — design tokens (:root, both light and dark) + base/reset. Load first.
    ============================================================
-   "Clarity" design system — replaces the earlier "Executive
-   Precision" (Deep Navy, flat, no-shadow) look, which read as too
-   cold/condensed. Clarity is built around one idea: dense
-   information can still feel bright, open, and inviting if the
-   surfaces have real depth (soft elevation, not flat borders),
-   the corners are generously rounded rather than clipped, and one
-   confident accent color (Indigo) carries every interactive
-   element instead of a muted "primary" plus a separate sparingly-
-   used focus color.
+   "Signal" design system — replaces "Clarity" (bright indigo used
+   everywhere). Reference point: Stripe/Linear — restrained neutral
+   surfaces, tight borders, subtle elevation, small-but-not-sharp
+   radius, and color used purposefully rather than decoratively.
 
-   Every custom property name below already existed under the old
-   system — only the values changed — so this file is a drop-in
-   reskin: every other stylesheet in the app (layout, table,
-   modals, dashboards, invoices, charts-motion, dashboard, todos,
-   projects) references these tokens and needed no edits.
+   The one deliberate departure from pure Stripe/Linear minimalism:
+   color is used to differentiate the app's functional domains, not
+   just status. Every domain gets ONE fixed hue, applied consistently
+   as that domain's icon/accent color wherever it shows up (sidebar
+   nav icons, dashboard card headers) — Sales=blue, Financial=green,
+   Delivery=violet, Attention=red, Calendar=cyan, Growth=pink. The
+   general brand accent (indigo) is reserved for chrome that isn't
+   tied to one domain: the active-tab highlight bar, primary buttons,
+   links, focus rings.
 
-   Fonts (Inter for UI text, JetBrains Mono for anything tabular —
-   IDs, dates, money) are unchanged from before; they were already
-   right for a clean, modern, bright interface. What changed is
-   color, radius, and elevation:
-     - Radius: crisp 2px/4px → a friendlier 8px/16px.
-     - Elevation: "no shadow on ordinary cards" → every card gets
-       a soft, real shadow, so the page reads as a stack of open
-       surfaces rather than a flat grid of hairline boxes.
-     - Color: Deep Navy primary + separate Sky focus-only accent →
-       one bright Indigo accent used everywhere (buttons, links,
-       active states, focus rings), with warmer, slightly punchier
-       status hues (amber/green/red/cyan/violet) than before.
+   Every custom property name below already existed under the
+   previous system — only values changed, plus one new pair
+   (--blue / --blue-soft) for the Sales domain — so this file is a
+   drop-in reskin; every other stylesheet needed zero edits for the
+   base look. Per-domain color placement (sidebar icons, dashboard
+   card headers) lives in layout.css and dashboard.css.
    ============================================================ */
 
 :root{
-  /* surfaces */
-  --bg:          #F4F5FC;
+  /* surfaces — restrained neutral grays, closer to true white than
+     the previous system's tinted backgrounds */
+  --bg:          #FAFAFB;
   --bg-raise:    #FFFFFF;
-  --surface:     #F8F9FE;
-  --surface-hi:  #EEF0FA;
-  --line:        rgba(30,41,59,0.09);
-  --line-strong: rgba(30,41,59,0.16);
+  --surface:     #F6F7F9;
+  --surface-hi:  #EEF0F3;
+  --line:        rgba(20,20,43,0.08);
+  --line-strong: rgba(20,20,43,0.14);
 
   /* text */
-  --text:        #16192B;
-  --text-dim:    #4B5170;
-  --text-faint:  #8B90AC;
+  --text:        #1A1B25;
+  --text-dim:    #52525F;
+  --text-faint:  #8E8E9C;
 
-  /* brand accent — one confident Indigo, used everywhere: buttons,
-     links, active nav, focus rings. No separate muted "primary" +
-     sparingly-used focus color — that split was part of what made
-     the previous system feel flat and hard to read at a glance. */
-  --accent:        #4F46E5;
-  --accent-hover:  #4338CA;
-  --accent-soft:   rgba(79,70,229,0.10);
-  --focus:         #4F46E5;
-  --violet:        #9333EA;
-  --violet-soft:   rgba(147,51,234,0.10);
-  --pink:          #DB2777;
-  --pink-soft:     rgba(219,39,119,0.10);
+  /* brand accent — reserved for chrome not tied to a specific domain:
+     active-tab bar, primary buttons, links, focus rings. Domain
+     colors (below) carry the "different accent per section" wayfinding. */
+  --accent:        #5B5FEF;
+  --accent-hover:  #4B4FDB;
+  --accent-soft:   rgba(91,95,239,0.10);
+  --focus:         #5B5FEF;
+  --focus-ring:    rgba(91,95,239,0.22);
 
-  /* status hues — a darker/readable shade for text+solid fills,
-     paired with a soft tint (from the same hue) for chip
-     backgrounds. Warmer and a touch more saturated than the old
-     system's status colors, to match the brighter overall palette. */
-  --cyan:        #0891B2;
+  /* domain colors — one fixed hue per functional area of the app */
+  --blue:        #2563EB;  /* Sales / Deals */
+  --blue-soft:   rgba(37,99,235,0.10);
+  --violet:      #7C3AED;  /* Delivery / Projects, and Reports */
+  --violet-soft: rgba(124,58,237,0.10);
+  --pink:        #DB2777;  /* Referrals / Growth, and Debts */
+  --pink-soft:   rgba(219,39,119,0.10);
+  --cyan:        #0891B2;  /* Calendar, and Contacts */
   --cyan-soft:   rgba(8,145,178,0.10);
-  --amber:       #D97706;
+  --amber:       #D97706;  /* To-Do, and Entities */
   --amber-soft:  rgba(217,119,6,0.10);
-  --green:       #15803D;
-  --green-soft:  rgba(21,128,61,0.10);
-  --red:         #DC2626;
+  --green:       #059669;  /* Financial */
+  --green-soft:  rgba(5,150,105,0.10);
+  --red:         #DC2626;  /* Attention */
   --red-soft:    rgba(220,38,38,0.10);
-  --slate-soft:  rgba(30,41,59,0.05);
-  /* gold is its own hue, distinct from amber — amber means "needs
-     attention", gold means "this is the standout one" (spotlight
-     star, top-rank badge). */
-  --gold:        #B45309;
-  --focus-ring:  rgba(79,70,229,0.22);
+  --slate-soft:  rgba(20,20,43,0.05);
+  --gold:        #B45309;  /* reserved for standout moments — spotlight star, top rank */
 
   /* spacing ramp */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 20px; --sp-6: 24px; --sp-7: 32px;
 
-  /* radius — generously rounded: 8px controls, 16px cards, pill for chips */
-  --r-sm: 8px; --r-md: 16px; --r-full: 999px;
+  /* radius — Stripe/Linear-sized: crisp but not sharp, not the
+     generously-rounded 16px of the previous system */
+  --r-sm: 6px; --r-md: 10px; --r-full: 999px;
 
-  /* elevation — every card carries a real, soft shadow now (the old
-     system deliberately gave ordinary cards NO shadow at all,
-     relying on a 1px border for hierarchy — that's exactly the
-     "flat/condensed" feeling being replaced here). */
-  --shadow-sm: 0 1px 3px rgba(23,25,60,0.07);
-  --shadow-md: 0 6px 16px rgba(23,25,60,0.08), 0 2px 4px rgba(23,25,60,0.05);
-  --shadow-lg: 0 20px 40px rgba(23,25,60,0.14), 0 6px 12px rgba(23,25,60,0.08);
+  /* elevation — subtle and tight, the Stripe/Linear signature: cards
+     read as "on the surface" from a hairline border first, a soft
+     shadow second — not the pronounced shadow the previous system used */
+  --shadow-sm: 0 1px 2px rgba(20,20,43,0.04);
+  --shadow-md: 0 2px 8px rgba(20,20,43,0.06), 0 1px 2px rgba(20,20,43,0.04);
+  --shadow-lg: 0 12px 28px rgba(20,20,43,0.10), 0 4px 8px rgba(20,20,43,0.06);
 
-  /* typography */
+  /* typography — unchanged: Inter/JetBrains Mono were already right
+     for a clean, modern interface */
   --font-display: 'Inter', system-ui, sans-serif;
   --font-body:    'Inter', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', 'Consolas', monospace;
@@ -107,41 +97,43 @@
 }
 
 :root[data-theme="dark"]{
-  --bg:          #0E0F1A;
-  --bg-raise:    #181A2B;
-  --surface:     #131424;
-  --surface-hi:  #1F2136;
-  --line:        rgba(255,255,255,0.09);
-  --line-strong: rgba(255,255,255,0.16);
+  --bg:          #0D0E14;
+  --bg-raise:    #16171F;
+  --surface:     #121319;
+  --surface-hi:  #1C1D27;
+  --line:        rgba(255,255,255,0.08);
+  --line-strong: rgba(255,255,255,0.14);
 
-  --text:        #F2F3FA;
-  --text-dim:    #A7ACC9;
-  --text-faint:  #6E7396;
+  --text:        #EDEDF2;
+  --text-dim:    #9A9AAE;
+  --text-faint:  #626274;
 
-  --accent:        #818CF8;
-  --accent-hover:  #A5B0FA;
-  --accent-soft:   rgba(129,140,248,0.16);
-  --focus:         #818CF8;
-  --violet:        #C084FC;
-  --violet-soft:   rgba(192,132,252,0.15);
-  --pink:          #F472B6;
-  --pink-soft:     rgba(244,114,182,0.15);
+  --accent:        #7C81F2;
+  --accent-hover:  #9498F5;
+  --accent-soft:   rgba(124,129,242,0.16);
+  --focus:         #7C81F2;
+  --focus-ring:    rgba(124,129,242,0.30);
 
+  --blue:        #60A5FA;
+  --blue-soft:   rgba(96,165,250,0.15);
+  --violet:      #A78BFA;
+  --violet-soft: rgba(167,139,250,0.15);
+  --pink:        #F472B6;
+  --pink-soft:   rgba(244,114,182,0.15);
   --cyan:        #22D3EE;
   --cyan-soft:   rgba(34,211,238,0.15);
   --amber:       #FBBF24;
   --amber-soft:  rgba(251,191,36,0.15);
-  --green:       #4ADE80;
-  --green-soft:  rgba(74,222,128,0.15);
+  --green:       #34D399;
+  --green-soft:  rgba(52,211,153,0.15);
   --red:         #F87171;
   --red-soft:    rgba(248,113,113,0.15);
-  --slate-soft:  rgba(255,255,255,0.07);
+  --slate-soft:  rgba(255,255,255,0.06);
   --gold:        #FBBF24;
-  --focus-ring:  rgba(129,140,248,0.32);
 
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
-  --shadow-md: 0 8px 20px rgba(0,0,0,0.40);
-  --shadow-lg: 0 24px 48px rgba(0,0,0,0.55);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.30);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.35);
+  --shadow-lg: 0 20px 44px rgba(0,0,0,0.50);
 }
 
 [data-theme="dark"] body{ background: var(--bg); }

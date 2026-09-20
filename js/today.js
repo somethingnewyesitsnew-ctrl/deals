@@ -464,7 +464,7 @@ function renderCxRevenueChart(deals) {
 
   const base = chartBase();
   const dark = isDarkTheme();
-  const lineColor = dark ? '#818CF8' : '#4F46E5';
+  const lineColor = dark ? '#34D399' : '#059669';
 
   const options = Object.assign({}, base, {
     series: [{ name: 'Revenue collected', data: last.map(k => Math.round(byMonth.get(k) || 0)) }],
@@ -474,7 +474,7 @@ function renderCxRevenueChart(deals) {
     stroke: { curve: 'smooth', width: 3 },
     colors: [lineColor],
     fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 0.4, opacityTo: 0.04, stops: [0, 100] } },
-    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#181A2B' : '#fff', strokeWidth: 2 },
+    markers: { size: 4, colors: [lineColor], strokeColors: dark ? '#16171F' : '#fff', strokeWidth: 2 },
     dataLabels: { enabled: false },
     tooltip: Object.assign({}, base.tooltip, { y: { formatter: (v) => formatUSD(v) } }),
   });
@@ -536,7 +536,7 @@ function renderCxPerformanceChart(deals) {
       { seriesName: 'Win rate', min: 0, max: 100, labels: { style: { colors: '#94A0B8' }, formatter: (v) => (v === null || v === undefined) ? '' : Math.round(v) + '%' } },
       { seriesName: 'Avg deal size', opposite: true, labels: { style: { colors: '#94A0B8' }, formatter: (v) => formatUSD(v) } },
     ],
-    colors: [dark ? '#818CF8' : '#4F46E5', dark ? '#C084FC' : '#9333EA'],
+    colors: [dark ? '#60A5FA' : '#2563EB', dark ? '#A78BFA' : '#7C3AED'],
     plotOptions: { bar: { columnWidth: '40%', borderRadius: 4 } },
     markers: { size: 4 },
     dataLabels: { enabled: false },
@@ -576,10 +576,10 @@ function renderCxEntityMixChart(deals) {
     series: counts,
     labels,
     chart: Object.assign({}, base.chart, { type: 'donut', height: 200 }),
-    colors: ['#4F46E5', '#D97706', '#9333EA', '#8B90AC'],
+    colors: ['#2563EB', '#D97706', '#7C3AED', '#8E8E9C'],
     legend: { position: 'bottom', fontSize: '10px', labels: { colors: dark ? '#96A0B5' : '#5B6478' } },
     dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-    stroke: { colors: [dark ? '#181A2B' : '#FFFFFF'], width: 2 },
+    stroke: { colors: [dark ? '#16171F' : '#FFFFFF'], width: 2 },
     tooltip: { theme: dark ? 'dark' : 'light' },
   };
 
@@ -658,7 +658,7 @@ function renderCxFollowupChart() {
     plotOptions: { bar: { borderRadius: 5, columnWidth: '45%', distributed: true } },
     xaxis: { categories: ['Overdue', 'Soon', 'Later'], labels: { style: { colors: '#94A0B8', fontSize: '10px' } } },
     yaxis: { labels: { style: { colors: '#94A0B8' } }, forceNiceScale: true, min: 0 },
-    colors: ['#DC2626', '#D97706', '#4F46E5'],
+    colors: ['#DC2626', '#D97706', '#2563EB'],
     legend: { show: false },
     dataLabels: { enabled: true },
   });
